@@ -1,6 +1,6 @@
 * { box-sizing: border-box; }
 :root {
-  --bg: #f6f7fb;
+  --bg: #cbd5e1;            /* fond plus foncé : slate-300 */
   --surface: #ffffff;
   --ink: #1f2937;
   --ink-soft: #6b7280;
@@ -12,11 +12,11 @@
   --danger: #dc2626;
   --wished: #bbf7d0;
   --blocked: #fecaca;
-  --weekend: #fef3c7;
-  --holiday: #fde68a;
-  --friday: #e0e7ff;
-  --border: #e5e7eb;
-  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --friday:  #f3f4f6;  /* gris clair */
+  --weekend: #d1d5db;  /* gris moins clair (= férié) */
+  --holiday: #d1d5db;
+  --border: #cbd5e1;
+  --shadow: 0 4px 12px rgba(15,23,42,0.18), 0 1px 3px rgba(15,23,42,0.10);
 }
 body {
   margin: 0;
@@ -41,28 +41,30 @@ header {
   position: absolute;
   top: 10px;
   right: 16px;
-  background: rgba(255,255,255,0.15);
-  border: 1px solid rgba(255,255,255,0.3);
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 11px;
-  line-height: 1.3;
+  background: #dcfce7;
+  color: #14532d;
+  border: 2px solid #4ade80;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
   text-align: right;
-  max-width: 220px;
+  max-width: 360px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 .me-badge .me-name {
-  font-weight: 700;
-  font-size: 11px;
-  opacity: 0.85;
-  margin-bottom: 2px;
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 3px;
 }
 .me-badge .me-totals {
   font-size: 14px;
   font-weight: 700;
+  margin: 2px 0;
 }
 .me-badge .me-detail {
-  font-size: 10px;
-  opacity: 0.85;
+  font-size: 13px;
+  font-weight: 600;
 }
 @media (max-width: 600px) {
   .me-badge {
@@ -114,7 +116,7 @@ main {
 /* Picker info banner */
 .picker-info {
   background: var(--surface);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 14px 16px;
   margin-bottom: 16px;
   box-shadow: var(--shadow);
@@ -163,20 +165,72 @@ main {
   color: var(--ink-soft);
   margin: 4px 0;
 }
+.picker-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.picker-col.next-col {
+  font-size: 13px;
+  color: #b91c1c;
+  padding-left: 16px;
+  border-left: 1px dashed rgba(185,28,28,0.25);
+}
 .next-picker {
   font-size: 13px;
-  color: var(--ink-soft);
-  margin-top: 6px;
+  color: #b91c1c;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(185,28,28,0.25);
 }
-.next-picker span { font-weight: 600; color: var(--ink); }
+@media (max-width: 700px) {
+  .picker-cols { grid-template-columns: 1fr; gap: 8px; }
+  .picker-col.next-col {
+    padding-left: 0;
+    border-left: none;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(185,28,28,0.25);
+  }
+}
+.next-col .next-line1 { font-size: 15px; line-height: 1.3; }
+.next-col .next-label {
+  font-weight: 800;
+  text-decoration: underline;
+}
+.next-col .next-name {
+  font-weight: 800;
+  color: #b91c1c;
+  font-size: 17px;
+}
+.next-col .next-line2 {
+  margin-top: 6px;
+  font-size: 13px;
+}
+.next-col .next-tour { font-weight: 700; }
+.next-col .next-quota .quota-item {
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+  display: inline-block;
+  font-weight: 600;
+}
+.next-col .next-line3 {
+  font-size: 12px;
+  margin-top: 6px;
+  opacity: 0.9;
+}
 
 /* Calendar : 2 mois par ligne (4 mois = grille 2×2) */
 .calendar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .month {
   background: var(--surface);
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 10px;
+  padding: 10px;
   box-shadow: var(--shadow);
+  border: 1px solid rgba(15,23,42,0.06);
 }
 .month h2 {
   margin: 0 0 6px;
@@ -216,6 +270,13 @@ main {
 .day:hover { box-shadow: 0 0 0 2px var(--primary); }
 .day.empty { visibility: hidden; cursor: default; }
 .day .num { font-weight: 600; font-size: 11px; }
+.day.today { box-shadow: 0 0 0 2px var(--primary); }
+.day.today .num::after {
+  content: " ●";
+  color: var(--primary);
+  font-size: 8px;
+  vertical-align: super;
+}
 .day.weekend { background: var(--weekend); }
 .day.holiday { background: var(--holiday); }
 .day.friday { background: var(--friday); }
@@ -231,8 +292,14 @@ main {
 .day[data-voeu="wishedHMN"]::before  { content: "💚H"; color: #9d174d; }
 .day[data-voeu="wishedACH"]::before  { content: "💚A"; color: #1e40af; }
 .day[data-voeu="blocked"]::before    { content: "🚫"; }
-.day[data-voeu^="wished"] { box-shadow: inset 0 0 0 2px var(--ok); }
-.day[data-voeu="blocked"] { box-shadow: inset 0 0 0 2px var(--danger); opacity: 0.7; }
+.day[data-voeu^="wished"] {
+  box-shadow: inset 0 0 0 2px var(--ok);
+  background-color: #dcfce7;  /* vert très léger */
+}
+.day[data-voeu="blocked"] {
+  box-shadow: inset 0 0 0 2px var(--danger);
+  background-color: #fee2e2;  /* rouge léger */
+}
 .day .slot {
   margin-top: 1px;
   font-size: 8.5px;
@@ -243,13 +310,16 @@ main {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.day .slot.HMN { background: #fce7f3; color: #9d174d; }
-.day .slot.ACH { background: #dbeafe; color: #1e40af; }
-.day .slot.full24 { background: #fef3c7; color: #92400e; }
+.day .slot.HMN { background: #ddd6fe; color: #5b21b6; font-weight: 600; }   /* lilas / violet */
+.day .slot.ACH { background: #bfdbfe; color: #1e3a8a; font-weight: 600; }   /* bleu */
 .day .slot.empty-slot { background: transparent; border: 1px dashed var(--border); color: var(--ink-soft); }
-.day .slot.empty-slot.HMN { border-color: #fbcfe8; color: #9d174d; }
+.day .slot.empty-slot.HMN { border-color: #c4b5fd; color: #5b21b6; }
 .day .slot.empty-slot.ACH { border-color: #bfdbfe; color: #1e40af; }
-.day .slot.mine { font-weight: 700; box-shadow: 0 0 0 1px var(--primary); }
+.day .slot.mine {
+  font-weight: 700;
+  box-shadow: 0 0 0 2px var(--ok);
+  background-image: linear-gradient(rgba(22,163,74,0.18), rgba(22,163,74,0.18));
+}
 .day .slot.mine-current {
   font-weight: 700;
   box-shadow: 0 0 0 2px var(--ok);
@@ -260,13 +330,44 @@ main {
   text-decoration-thickness: 1.5px;
   opacity: 0.55;
 }
+/* Toutes les gardes prises — hachures rouges, PAS de cadre */
 .day.day-unavailable {
-  background: repeating-linear-gradient(135deg, rgba(0,0,0,0.18) 0 4px, rgba(0,0,0,0.08) 4px 8px);
+  background: repeating-linear-gradient(135deg, rgba(185,28,28,0.30) 0 5px, rgba(185,28,28,0.10) 5px 10px);
 }
+/* Mes gardes — fond vert clair + cadre vert, PAS de hachures.
+   S'applique aussi quand le jour est full (override de day-unavailable). */
+.day.day-mine,
 .day.day-unavailable-mine {
-  background: repeating-linear-gradient(135deg, rgba(22,163,74,0.35) 0 4px, rgba(22,163,74,0.15) 4px 8px);
+  background: #dcfce7;
+  box-shadow: inset 0 0 0 2px var(--ok);
+}
+
+/* Quand la case est hachurée (toutes prises) ou indispo (rouge) :
+   les couleurs HMN/ACH s'estompent pour rester lisibles */
+.day.day-unavailable .slot,
+.day[data-voeu="blocked"] .slot {
+  background: rgba(255,255,255,0.65);
+  color: var(--ink-soft);
+  font-weight: 500;
+  border-color: rgba(0,0,0,0.15);
+}
+.day.day-unavailable .slot.mine,
+.day.day-unavailable .slot.mine-current,
+.day[data-voeu="blocked"] .slot.mine {
+  background: rgba(220,252,231,0.85);  /* mes gardes restent vertes */
+  color: #14532d;
+  font-weight: 700;
 }
 .day .slot:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* Slot souhaité (côté perso) — outline vert sur la pastille concernée */
+.day[data-voeu="wishedHMN"]  .slot.HMN,
+.day[data-voeu="wishedBoth"] .slot.HMN,
+.day[data-voeu="wishedACH"]  .slot.ACH,
+.day[data-voeu="wishedBoth"] .slot.ACH {
+  outline: 2px solid var(--ok);
+  outline-offset: -2px;
+}
 
 /* Modal */
 #modal-backdrop {

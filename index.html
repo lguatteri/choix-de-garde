@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1e3a8a">
 <title>Choix Garde — juin–sept 2026</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
   <header>
@@ -15,7 +15,7 @@
     <div class="me-badge" id="me-badge" title="Mes objectifs restants"></div>
     <nav class="tabs">
       <button class="tab active" data-tab="planning">Planning</button>
-      <button class="tab" data-tab="voeux">Mes vœux</button>
+      <button class="tab" data-tab="voeux">Perso</button>
       <button class="tab" data-tab="setup">Réglages</button>
     </nav>
   </header>
@@ -27,13 +27,17 @@
           Choix manuel forcé.
           <button id="clear-override">Reprendre l'ordre auto</button>
         </div>
-        <div class="current-picker">
-          <span class="label">Au tour de</span>
-          <select class="name name-select" id="current-name-select"></select>
+        <div class="picker-cols">
+          <div class="picker-col current-col">
+            <div class="current-picker">
+              <span class="label">Au tour de</span>
+              <select class="name name-select" id="current-name-select"></select>
+            </div>
+            <div class="tour-info" id="tour-info"></div>
+            <div class="objectives-remaining" id="obj-remaining"></div>
+          </div>
+          <div class="picker-col next-col" id="next-picker"></div>
         </div>
-        <div class="tour-info" id="tour-info"></div>
-        <div class="objectives-remaining" id="obj-remaining"></div>
-        <div class="next-picker">Suivant : <span id="next-name">—</span></div>
       </div>
       <div class="calendar" id="planning-calendar"></div>
       <div class="actions">
@@ -44,7 +48,7 @@
     </section>
 
     <section id="voeux" class="view">
-      <p class="hint">Clic = cycle. Jour normal/samedi : neutre → 💚H (HMN) → 💚A (ACH) → 💚 les 2 → 🚫 → neutre. Dimanche/férié : neutre → 💚H → 💚A → 🚫 (la garde 24h est commune).</p>
+      <p class="hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💚 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
       <div class="calendar" id="voeux-calendar"></div>
     </section>
 
@@ -103,8 +107,8 @@
     </div>
   </div>
 
-  <script src="doctors.js?v=11"></script>
-  <script src="app.js?v=11"></script>
+  <script src="doctors.js?v=26"></script>
+  <script src="app.js?v=26"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

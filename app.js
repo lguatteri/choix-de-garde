@@ -69,7 +69,8 @@ function dayType(dateStr) {
   if (dow === 5) return 'friday';
   return 'weekday';
 }
-function isCombined(dateStr) {
+function is24h(dateStr) {
+  // Dimanche + jour férié = garde 24h ; sinon 12h. Mais TOUJOURS 2 sites séparés (HMN + ACH).
   const t = dayType(dateStr);
   return t === 'sunday' || t === 'holiday';
 }
@@ -101,7 +102,6 @@ function eligibleSites(d) {
 function slotEligible(d, slotKey) {
   if (slotKey === 'HMN') return eligibleAt(d, 'HMN');
   if (slotKey === 'ACH') return eligibleAt(d, 'ACH');
-  if (slotKey.startsWith('full24:')) return eligibleSites(d).length > 0;
   return true;
 }
 
@@ -133,12 +133,31 @@ function picksByDoctor(name) {
   Object.entries(state.assignments).forEach(([date, slots]) => {
     if (slots.HMN && slots.HMN.doctor === name) out.push({ date, slot: 'HMN', site: 'HMN' });
     if (slots.ACH && slots.ACH.doctor === name) out.push({ date, slot: 'ACH', site: 'ACH' });
-    (slots.full24 || []).forEach((p, i) => {
-      if (p && p.doctor === name) out.push({ date, slot: `full24:${i}`, site: p.site || 'HMN' });
-    });
   });
   return out;
 }
+
+// Migration : convertir les anciens slots full24 en HMN/ACH directs
+function migrateFull24() {
+  let changed = false;
+  Object.keys(state.assignments).forEach(date => {
+    const a = state.assignments[date];
+    if (!a.full24 || !a.full24.length) return;
+    a.full24.forEach(p => {
+      if (!p || !p.doctor) return;
+      const site = (p.site === 'ACH') ? 'ACH' : 'HMN';
+      if (!a[site]) a[site] = { doctor: p.doctor };
+      else {
+        const other = site === 'HMN' ? 'ACH' : 'HMN';
+        if (!a[other]) a[other] = { doctor: p.doctor };
+      }
+    });
+    delete a.full24;
+    changed = true;
+  });
+  if (changed) saveState();
+}
+migrateFull24();
 
 function objectivesRemaining(d) {
   const picks = picksByDoctor(d.name);
@@ -324,15 +343,6 @@ function setAssignment(date, slotKey, doctorName, site) {
   let prev = null;
   if (slotKey === 'HMN') { prev = a.HMN || null; if (doctorName) a.HMN = { doctor: doctorName }; else delete a.HMN; }
   else if (slotKey === 'ACH') { prev = a.ACH || null; if (doctorName) a.ACH = { doctor: doctorName }; else delete a.ACH; }
-  else if (slotKey.startsWith('full24:')) {
-    const idx = parseInt(slotKey.split(':')[1], 10);
-    a.full24 = a.full24 || [];
-    prev = a.full24[idx] || null;
-    if (doctorName) a.full24[idx] = { doctor: doctorName, site: site || 'HMN' };
-    else a.full24[idx] = null;
-    a.full24 = a.full24.filter(Boolean);
-    if (a.full24.length === 0) delete a.full24;
-  }
 
   if (Object.keys(a).length === 0) delete state.assignments[date];
 
@@ -425,10 +435,12 @@ function buildDayCell(dateStr, mode) {
   if (t === 'holiday') el.classList.add('holiday');
   else if (t === 'sunday' || t === 'saturday') el.classList.add('weekend');
   else if (t === 'friday') el.classList.add('friday');
+  if (dateStr === ymd(new Date())) el.classList.add('today');
 
   // Migration: ancien 'wished' devient 'wishedBoth'
   if (state.voeux[dateStr] === 'wished') state.voeux[dateStr] = 'wishedBoth';
-  if (state.voeux[dateStr]) el.dataset.voeu = state.voeux[dateStr];
+  // Vœux/indispos : visibles uniquement sur la page Perso
+  if (mode !== 'planning' && state.voeux[dateStr]) el.dataset.voeu = state.voeux[dateStr];
 
   const num = document.createElement('div');
   num.className = 'num';
@@ -451,58 +463,40 @@ function buildDayCell(dateStr, mode) {
     }
   }
 
-  if (isCombined(dateStr)) {
-    const slots = a.full24 || [];
-    if (slots.length === 0) {
-      const s = document.createElement('div');
-      s.className = 'slot empty-slot';
-      s.textContent = '24h libre';
-      s.dataset.slotKey = 'full24:0';
-      el.appendChild(s); slotEls.push(s);
+  const longShift = is24h(dateStr);
+  ['HMN','ACH'].forEach(site => {
+    // Si le picker est mono-site, masquer l'autre site (mode planning seulement)
+    if (mode === 'planning' && curName && !curEligible.includes(site)) return;
+    const s = document.createElement('div');
+    const occ = a[site];
+    if (occ) {
+      s.className = 'slot ' + site;
+      if (mode !== 'planning' && occ.doctor === state.myName) s.classList.add('mine');
+      if (occ.doctor === curName) s.classList.add('mine-current');
+      s.textContent = `${site}${longShift?' 24h':''} ${shortName(occ.doctor)}`;
     } else {
-      slots.forEach((p, i) => {
-        const s = document.createElement('div');
-        s.className = 'slot full24';
-        if (p.doctor === state.myName) s.classList.add('mine');
-        if (p.doctor === curName) s.classList.add('mine-current');
-        s.textContent = `24h · ${shortName(p.doctor)}${p.site?' ('+p.site+')':''}`;
-        s.dataset.slotKey = `full24:${i}`;
-        el.appendChild(s); slotEls.push(s);
-      });
+      s.className = 'slot empty-slot ' + site;
+      s.textContent = `${site}${longShift?' 24h':''}`;
     }
-    // Indispo pour le picker : 2 demi-gardes (= split rempli)
-    if (curName && slots.length >= 2) {
+    s.dataset.slotKey = site;
+    el.appendChild(s); slotEls.push(s);
+  });
+  // "Mine" : au moins un slot pris par le picker courant (planning) ou par moi (perso)
+  const refDoctor = (mode === 'planning') ? curName : state.myName;
+  const hasMine = refDoctor && ['HMN','ACH'].some(s => a[s] && a[s].doctor === refDoctor);
+
+  // Indispo : tous les sites éligibles du picker sont pris (planning seulement)
+  if (curName) {
+    const allTaken = curEligible.every(site => !!a[site]);
+    if (allTaken) {
       el.classList.add('day-unavailable');
-      if (slots.some(p => p && p.doctor === curName)) el.classList.add('day-unavailable-mine');
+      if (hasMine) el.classList.add('day-unavailable-mine');
+    } else if (hasMine) {
+      el.classList.add('day-mine');
     }
-  } else {
-    ['HMN','ACH'].forEach(site => {
-      // Si le picker est mono-site, masquer l'autre site (mode planning seulement)
-      if (mode === 'planning' && curName && !curEligible.includes(site)) return;
-      const s = document.createElement('div');
-      const occ = a[site];
-      if (occ) {
-        s.className = 'slot ' + site;
-        if (occ.doctor === state.myName) s.classList.add('mine');
-        if (occ.doctor === curName) s.classList.add('mine-current');
-        s.textContent = `${site} ${shortName(occ.doctor)}`;
-      } else {
-        s.className = 'slot empty-slot ' + site;
-        s.textContent = site;
-      }
-      s.dataset.slotKey = site;
-      el.appendChild(s); slotEls.push(s);
-    });
-    // Indispo : tous les sites éligibles du picker sont pris
-    if (curName) {
-      const allTaken = curEligible.every(site => !!a[site]);
-      if (allTaken) {
-        el.classList.add('day-unavailable');
-        if (curEligible.some(site => a[site] && a[site].doctor === curName)) {
-          el.classList.add('day-unavailable-mine');
-        }
-      }
-    }
+  } else if (hasMine) {
+    // Onglet perso
+    el.classList.add('day-mine');
   }
 
   if (mode === 'planning') {
@@ -510,10 +504,16 @@ function buildDayCell(dateStr, mode) {
       s.style.cursor = 'pointer';
       s.onclick = (e) => { e.stopPropagation(); openAssignModal(dateStr, s.dataset.slotKey); };
     });
-    // clic sur le numéro / fond → fallback sur le 1er slot
     el.onclick = () => openAssignModal(dateStr, slotEls[0]?.dataset.slotKey);
   } else {
-    el.onclick = () => cycleVoeu(dateStr);
+    // Onglet perso :
+    //  - clic sur la date / fond = toggle indispo
+    //  - clic sur un slot HMN/ACH = toggle vœu sur ce site
+    slotEls.forEach(s => {
+      s.style.cursor = 'pointer';
+      s.onclick = (e) => { e.stopPropagation(); toggleWishSite(dateStr, s.dataset.slotKey); };
+    });
+    el.onclick = () => toggleBlocked(dateStr);
   }
   return el;
 }
@@ -529,22 +529,27 @@ function shortName(name) {
 // ============================================================
 // Vœux
 // ============================================================
-// Pour jours non-combinés : neutre → 💚HMN → 💚ACH → 💚 les deux → 🚫 → neutre
-// Pour combinés (dim/férié, garde 24h commune) : neutre → 💚HMN → 💚ACH → 🚫 → neutre
-//   (pas de "les deux" puisque c'est UNE seule garde)
-function cycleVoeu(dateStr) {
-  const combined = isCombined(dateStr);
-  const cycle = combined
-    ? [null, 'wishedHMN', 'wishedACH', 'blocked']
-    : [null, 'wishedHMN', 'wishedACH', 'wishedBoth', 'blocked'];
-  const cur = state.voeux[dateStr] || null;
-  let i = cycle.indexOf(cur);
-  if (i < 0) i = 0;
-  const next = cycle[(i + 1) % cycle.length];
-  if (next === null) delete state.voeux[dateStr];
-  else state.voeux[dateStr] = next;
-  saveState();
-  render();
+// Toggle indispo (clic sur la date) : neutre ↔ blocked
+function toggleBlocked(dateStr) {
+  if (state.voeux[dateStr] === 'blocked') delete state.voeux[dateStr];
+  else state.voeux[dateStr] = 'blocked';
+  saveState(); render();
+}
+
+// Toggle vœu sur un site (clic sur HMN ou ACH).
+// Si indispo, l'efface au passage (mutuellement exclusif).
+function toggleWishSite(dateStr, site) {
+  const cur = state.voeux[dateStr];
+  let hasHMN = (cur === 'wishedHMN' || cur === 'wishedBoth');
+  let hasACH = (cur === 'wishedACH' || cur === 'wishedBoth');
+  if (cur === 'blocked') { hasHMN = false; hasACH = false; }
+  if (site === 'HMN') hasHMN = !hasHMN;
+  else if (site === 'ACH') hasACH = !hasACH;
+  if (hasHMN && hasACH) state.voeux[dateStr] = 'wishedBoth';
+  else if (hasHMN) state.voeux[dateStr] = 'wishedHMN';
+  else if (hasACH) state.voeux[dateStr] = 'wishedACH';
+  else delete state.voeux[dateStr];
+  saveState(); render();
 }
 
 // ============================================================
@@ -556,7 +561,7 @@ function renderPickerInfo() {
   const nameSel = document.getElementById('current-name-select');
   const tourEl = document.getElementById('tour-info');
   const objEl = document.getElementById('obj-remaining');
-  const nextEl = document.getElementById('next-name');
+  const nextEl = document.getElementById('next-picker');
   const overrideEl = document.getElementById('override-notice');
 
   overrideEl.classList.toggle('active', !!state.forcedNextPicker);
@@ -576,7 +581,7 @@ function renderPickerInfo() {
     nameSel.value = '';
     tourEl.textContent = '';
     objEl.textContent = '';
-    nextEl.textContent = '—';
+    nextEl.innerHTML = '';
     return;
   }
 
@@ -606,11 +611,30 @@ function renderPickerInfo() {
     `Objectifs restants — <strong style="font-size:14px">${totSem} sem / ${totWE} WE+f</strong>` +
     ` <span style="color:var(--ink-soft)">(ACH ${r.ACH.sem}/${r.ACH.we} · HMN ${r.HMN.sem}/${r.HMN.we})</span>`;
 
-  nextEl.textContent = next ? `${next.name} (tour ${next.tour})` : '— fin —';
+  if (!next) {
+    nextEl.innerHTML = '<em>— fin de la séquence —</em>';
+  } else {
+    const nd = findDoctor(next.name);
+    const nq = tourQuota(nd, next.tour);
+    const labels = { libre: 'libre', vendredi: 'vendredi', we: 'WE/f', semaine: 'semaine' };
+    let quotaHtml = '';
+    Object.keys(nq).forEach(k => { quotaHtml += `<span class="quota-item">${nq[k]} ${labels[k]||k}</span>`; });
+    const nr = objectivesRemaining(nd);
+    const nTotSem = nr.ACH.sem + nr.HMN.sem;
+    const nTotWE = nr.ACH.we + nr.HMN.we;
+    nextEl.innerHTML =
+      `<div class="next-line1"><span class="next-label">Suivant</span> : <span class="next-name">${next.name}</span></div>` +
+      `<div class="next-line2"><span class="next-tour">Tour ${next.tour}</span> — <span class="next-quota">${quotaHtml}</span></div>` +
+      `<div class="next-line3">Objectifs restants : ${nTotSem} sem / ${nTotWE} WE+f (ACH ${nr.ACH.sem}/${nr.ACH.we} · HMN ${nr.HMN.sem}/${nr.HMN.we})</div>`;
+  }
 }
 
 function renderMeBadge() {
   const el = $('me-badge');
+  const activeTab = document.querySelector('.tab.active').dataset.tab;
+  // Badge visible uniquement sur la page Perso
+  if (activeTab !== 'voeux') { el.style.display = 'none'; return; }
+  el.style.display = '';
   const me = findDoctor(state.myName);
   if (!me) { el.innerHTML = ''; return; }
   const r = objectivesRemaining(me);
@@ -618,8 +642,9 @@ function renderMeBadge() {
   const totWE = r.ACH.we + r.HMN.we;
   el.innerHTML =
     `<div class="me-name">${state.myName}</div>` +
-    `<div class="me-totals">${totSem} sem / ${totWE} WE+f</div>` +
-    `<div class="me-detail">ACH ${r.ACH.sem}/${r.ACH.we} · HMN ${r.HMN.sem}/${r.HMN.we}</div>`;
+    `<div class="me-totals">Jours de semaine : ${totSem}</div>` +
+    `<div class="me-totals">Jours de WE (+ fériés) : ${totWE}</div>` +
+    `<div class="me-detail">ACH : ${r.ACH.sem}/${r.ACH.we} - HMN : ${r.HMN.sem}/${r.HMN.we}</div>`;
 }
 
 function render() {
@@ -655,50 +680,15 @@ function openAssignModal(dateStr, slotKey = null) {
   const a = state.assignments[dateStr] || {};
   const slotsEl = $('modal-slots');
   slotsEl.innerHTML = '';
-  const splitWrap = $('modal-split-wrapper');
-  const splitCb = $('modal-split-cb');
-
-  if (isCombined(dateStr)) {
-    splitWrap.hidden = false;
-    const isSplit = (a.full24 || []).length === 2;
-    splitCb.checked = isSplit;
-    const labels = isSplit ? ['Demi-1','Demi-2'] : ['24h'];
-    labels.forEach((label, i) => {
-      const b = document.createElement('button');
-      const occ = a.full24 && a.full24[i];
-      b.innerHTML = `${label}${occ?'<span class="assignee">'+occ.doctor+(occ.site?' ('+occ.site+')':'')+'</span>':'<span class="assignee">libre</span>'}`;
-      b.onclick = () => selectSlot(b, `full24:${i}`);
-      slotsEl.appendChild(b);
-    });
-    splitCb.onchange = () => {
-      if (splitCb.checked) {
-        // ajouter un slot vide
-        a.full24 = a.full24 || [];
-        if (a.full24.length < 2) a.full24.push(null);
-        if (Object.keys(a).length) state.assignments[dateStr] = a;
-      } else {
-        // supprimer 2e slot s'il est vide ; sinon refuser
-        if (a.full24 && a.full24[1] && a.full24[1].doctor) {
-          alert('Le 2e médecin est déjà assigné — videz-le d\'abord.');
-          splitCb.checked = true;
-          return;
-        }
-        if (a.full24) a.full24 = [a.full24[0]].filter(Boolean);
-        if (a.full24 && a.full24.length === 0) delete a.full24;
-      }
-      saveState();
-      openAssignModal(dateStr); // reopen for refresh
-    };
-  } else {
-    splitWrap.hidden = true;
-    ['HMN','ACH'].forEach(s => {
-      const b = document.createElement('button');
-      const occ = a[s];
-      b.innerHTML = `${s}${occ?'<span class="assignee">'+occ.doctor+'</span>':'<span class="assignee">libre</span>'}`;
-      b.onclick = () => selectSlot(b, s);
-      slotsEl.appendChild(b);
-    });
-  }
+  $('modal-split-wrapper').hidden = true; // plus de split
+  const longShift = is24h(dateStr);
+  ['HMN','ACH'].forEach(s => {
+    const b = document.createElement('button');
+    const occ = a[s];
+    b.innerHTML = `${s}${longShift?' 24h':''}${occ?'<span class="assignee">'+occ.doctor+'</span>':'<span class="assignee">libre</span>'}`;
+    b.onclick = () => selectSlot(b, s);
+    slotsEl.appendChild(b);
+  });
 
   // sélection initiale : slot demandé, ou premier libre, ou premier
   modalState.slotKey = slotKey || pickDefaultSlot(dateStr);
@@ -732,7 +722,6 @@ function refreshDoctorDropdown() {
 
 function pickDefaultSlot(dateStr) {
   const a = state.assignments[dateStr] || {};
-  if (isCombined(dateStr)) return 'full24:0';
   if (!a.HMN) return 'HMN';
   if (!a.ACH) return 'ACH';
   return 'HMN';
@@ -741,10 +730,6 @@ function readSlotDoctor(dateStr, slotKey) {
   const a = state.assignments[dateStr] || {};
   if (slotKey === 'HMN') return a.HMN ? a.HMN.doctor : null;
   if (slotKey === 'ACH') return a.ACH ? a.ACH.doctor : null;
-  if (slotKey.startsWith('full24:')) {
-    const i = parseInt(slotKey.split(':')[1], 10);
-    return a.full24 && a.full24[i] ? a.full24[i].doctor : null;
-  }
   return null;
 }
 function selectSlot(buttonEl, slotKey) {
@@ -754,9 +739,7 @@ function selectSlot(buttonEl, slotKey) {
 }
 function highlightSlot() {
   document.querySelectorAll('#modal-slots button').forEach((b, i) => {
-    let key;
-    if (isCombined(modalState.dateStr)) key = `full24:${i}`;
-    else key = i === 0 ? 'HMN' : 'ACH';
+    const key = i === 0 ? 'HMN' : 'ACH';
     b.classList.toggle('active', key === modalState.slotKey);
   });
 }
@@ -788,23 +771,7 @@ $('modal-clear').onclick = () => {
 $('modal-save').onclick = () => {
   const doc = $('modal-doctor').value;
   if (!doc) { setAssignment(modalState.dateStr, modalState.slotKey, null, null); }
-  else {
-    let site = null;
-    if (modalState.slotKey.startsWith('full24:')) {
-      const d = findDoctor(doc);
-      const elig = eligibleSites(d);
-      if (elig.length === 0) { alert(`${doc} n'a pas d'objectif HMN ni ACH.`); return; }
-      if (elig.length === 1) {
-        site = elig[0];
-      } else {
-        const r = objectivesRemaining(d);
-        const suggested = r.HMN.we >= r.ACH.we ? 'HMN' : 'ACH';
-        site = prompt(`24h combiné — site à comptabiliser pour ${doc} ?\n(HMN ou ACH)\nSuggéré : ${suggested}\nACH restant : ${r.ACH.we} WE+f · HMN restant : ${r.HMN.we} WE+f`, suggested);
-        if (site !== 'HMN' && site !== 'ACH') return;
-      }
-    }
-    setAssignment(modalState.dateStr, modalState.slotKey, doc, site);
-  }
+  else { setAssignment(modalState.dateStr, modalState.slotKey, doc, null); }
   $('modal-backdrop').hidden = true;
 };
 
@@ -849,13 +816,12 @@ $('undo-btn').onclick = () => {
 // Export / Import CSV
 // ============================================================
 function exportCSV() {
-  const rows = [['date','jour','HMN','ACH','24h_combinés','site_24h']];
+  const rows = [['date','jour','duree','HMN','ACH']];
   for (const d of iterDates(PERIOD_START, PERIOD_END)) {
     const a = state.assignments[d] || {};
     const wk = WEEKDAYS_FR[parseYMD(d).getDay()];
-    const f24 = (a.full24 || []).map(p => p.doctor).join(' / ');
-    const s24 = (a.full24 || []).map(p => p.site || '').join(' / ');
-    rows.push([d, wk, a.HMN ? a.HMN.doctor : '', a.ACH ? a.ACH.doctor : '', f24, s24]);
+    const dur = is24h(d) ? '24h' : '12h';
+    rows.push([d, wk, dur, a.HMN ? a.HMN.doctor : '', a.ACH ? a.ACH.doctor : '']);
   }
   const csv = rows.map(r => r.map(c => `"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
@@ -881,21 +847,19 @@ $('import-file').onchange = e => {
         date: header.indexOf('date'),
         HMN: header.indexOf('HMN'),
         ACH: header.indexOf('ACH'),
-        f24: header.indexOf('24h_combinés'),
-        s24: header.indexOf('site_24h'),
       };
       if (idx.date < 0) { alert('Colonne "date" introuvable'); return; }
       lines.slice(1).forEach(line => {
         const cells = parseCSVLine(line);
         const date = cells[idx.date];
         if (!date) return;
-        if (idx.HMN >= 0 && cells[idx.HMN]) state.assignments[date] = state.assignments[date] || {}, state.assignments[date].HMN = { doctor: cells[idx.HMN] };
-        if (idx.ACH >= 0 && cells[idx.ACH]) state.assignments[date] = state.assignments[date] || {}, state.assignments[date].ACH = { doctor: cells[idx.ACH] };
-        if (idx.f24 >= 0 && cells[idx.f24]) {
-          const docs = cells[idx.f24].split(' / ');
-          const sites = (idx.s24 >= 0 ? cells[idx.s24] : '').split(' / ');
+        if (idx.HMN >= 0 && cells[idx.HMN]) {
           state.assignments[date] = state.assignments[date] || {};
-          state.assignments[date].full24 = docs.map((d, i) => ({ doctor: d, site: sites[i] || 'HMN' }));
+          state.assignments[date].HMN = { doctor: cells[idx.HMN] };
+        }
+        if (idx.ACH >= 0 && cells[idx.ACH]) {
+          state.assignments[date] = state.assignments[date] || {};
+          state.assignments[date].ACH = { doctor: cells[idx.ACH] };
         }
       });
       saveState(); render();

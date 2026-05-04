@@ -1,5 +1,5 @@
-const CACHE = 'garde-v11';
-const ASSETS = ['./', './index.html', './styles.css?v=11', './doctors.js?v=11', './app.js?v=11', './manifest.json'];
+const CACHE = 'garde-v26';
+const ASSETS = ['./', './index.html', './styles.css?v=26', './doctors.js?v=26', './app.js?v=26', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
