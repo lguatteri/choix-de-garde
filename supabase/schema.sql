@@ -81,9 +81,14 @@ create or replace function public.protect_super_admin() returns trigger
 as $$
 declare
   remaining int;
+  any_super boolean;
 begin
-  -- Modification de is_super_admin → réservée aux super_admins
-  if (OLD.is_super_admin is distinct from NEW.is_super_admin) and not public.is_super_admin() then
+  -- Bootstrap : si aucun super admin n'existe encore, on autorise n'importe qui
+  -- à en devenir un (utile pour l'initialisation manuelle du tout 1er admin)
+  select exists (select 1 from public.profiles where is_super_admin = true) into any_super;
+
+  -- Modification de is_super_admin → réservée aux super_admins (sauf bootstrap)
+  if (OLD.is_super_admin is distinct from NEW.is_super_admin) and not public.is_super_admin() and any_super then
     raise exception 'Seul un super admin peut modifier le statut super_admin';
   end if;
   -- Garder au moins 1 super_admin
@@ -94,8 +99,8 @@ begin
       raise exception 'Il doit toujours rester au moins un super admin';
     end if;
   end if;
-  -- Modification de is_admin → réservée aux admins
-  if (OLD.is_admin is distinct from NEW.is_admin) and not public.is_admin() then
+  -- Modification de is_admin → réservée aux admins (sauf bootstrap)
+  if (OLD.is_admin is distinct from NEW.is_admin) and not public.is_admin() and any_super then
     raise exception 'Seul un admin peut modifier le statut admin';
   end if;
   return new;
