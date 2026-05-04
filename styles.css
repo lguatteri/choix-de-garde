@@ -545,3 +545,131 @@ main {
   header h1 { font-size: 16px; }
   .period { display: block; margin: 2px 0 0; }
 }
+
+/* ============================================================
+   Auth screen
+   ============================================================ */
+#auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.auth-card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 28px 26px;
+  box-shadow: var(--shadow);
+  max-width: 380px;
+  width: 100%;
+}
+.auth-card h1 { margin: 0 0 4px; color: var(--primary); font-size: 24px; }
+.auth-tag { margin: 0 0 22px; color: var(--ink-soft); font-size: 14px; }
+.auth-card label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.auth-card input,
+.auth-card select {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 4px;
+  background: white;
+}
+.auth-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.auth-buttons button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.auth-buttons .primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+#profile-save-btn {
+  margin-top: 12px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.auth-error {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--danger);
+  min-height: 16px;
+}
+.auth-card hr { margin: 18px 0; border: none; border-top: 1px solid var(--border); }
+
+.admin-only-tag {
+  display: inline-block;
+  font-size: 9px;
+  background: var(--accent);
+  color: white;
+  padding: 1px 6px;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.read-only .admin-only-tag::after { content: " (lecture seule)"; text-transform: none; }
+.read-only #setup button:not(#logout-btn),
+.read-only #setup input,
+.read-only #planning .actions button,
+.read-only #current-name-select,
+.read-only .day,
+.read-only .day .slot { pointer-events: none; opacity: 0.95; }
+.read-only #setup input { background: #f9fafb; }
+
+#account-info {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+#admins-table {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+#admins-table table { width: 100%; border-collapse: collapse; }
+#admins-table th, #admins-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+#admins-table button {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+}
