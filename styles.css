@@ -282,7 +282,12 @@ main {
 .day:hover { transform: translateY(-1px); }
 .day:hover { box-shadow: 0 0 0 2px var(--primary); }
 .day.empty { visibility: hidden; cursor: default; }
-.day .num { font-weight: 600; font-size: 11px; }
+.day .num {
+  font-weight: 800;
+  font-size: 13px;
+  text-align: center;
+  letter-spacing: -0.2px;
+}
 .day.today { box-shadow: 0 0 0 2px var(--primary); }
 .day.today .num::after {
   content: " ●";
