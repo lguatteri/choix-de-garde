@@ -136,13 +136,25 @@ function onAuthenticated() {
   });
 })();
 
-// Bind UI
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('auth-login-btn').onclick = () => loginOrSignup('login');
-  document.getElementById('auth-signup-btn').onclick = () => loginOrSignup('signup');
-  document.getElementById('profile-save-btn').onclick = saveProfile;
-  document.getElementById('logout-btn').onclick = logout;
-  document.getElementById('auth-password').addEventListener('keydown', e => {
+// Bind UI — direct, sans attendre DOMContentLoaded
+// (auth.js est chargé en fin de <body>, le DOM est déjà parsé)
+function bindAuthUI() {
+  const loginBtn = document.getElementById('auth-login-btn');
+  const signupBtn = document.getElementById('auth-signup-btn');
+  const saveBtn = document.getElementById('profile-save-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const pwdInput = document.getElementById('auth-password');
+  if (!loginBtn) { console.error('Auth UI elements not found'); return; }
+  loginBtn.onclick = () => loginOrSignup('login');
+  signupBtn.onclick = () => loginOrSignup('signup');
+  if (saveBtn) saveBtn.onclick = saveProfile;
+  if (logoutBtn) logoutBtn.onclick = logout;
+  if (pwdInput) pwdInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') loginOrSignup('login');
   });
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bindAuthUI);
+} else {
+  bindAuthUI();
+}
