@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Aperçus — variantes d'affichage</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: #cbd5e1;
+    color: #1f2937;
+    padding: 24px;
+    margin: 0;
+  }
+  h1 { font-size: 18px; margin: 0 0 16px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+  .col {
+    background: white;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(15,23,42,0.18);
+  }
+  .col h2 {
+    font-size: 14px;
+    margin: 0 0 4px;
+    color: #2563eb;
+  }
+  .col .desc { font-size: 11px; color: #6b7280; margin-bottom: 14px; line-height: 1.4; }
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+  .day-base {
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 3px;
+    min-height: 56px;
+    background: white;
+    position: relative;
+    font-size: 9px;
+    line-height: 1.15;
+    display: flex;
+    flex-direction: column;
+  }
+  .num { font-weight: 600; font-size: 11px; }
+
+  /* couleurs jours */
+  .friday  { background: #f3f4f6; }
+  .weekend { background: #d1d5db; }
+  .holiday { background: #d1d5db; }
+
+  /* états sémantiques (communs aux 4 variantes) */
+  .full {
+    background: repeating-linear-gradient(135deg, rgba(185,28,28,0.30) 0 5px, rgba(185,28,28,0.10) 5px 10px);
+  }
+  .mine {
+    background: #dcfce7 !important;
+    box-shadow: inset 0 0 0 2px #16a34a;
+  }
+  .blocked {
+    background: #fee2e2 !important;
+    box-shadow: inset 0 0 0 2px #dc2626;
+  }
+  .blocked::before { content: "🚫"; position: absolute; top: 2px; right: 2px; font-size: 10px; }
+  .wished-h { box-shadow: inset 0 0 0 2px #2563eb; background-color: #dbeafe; }
+  .wished-h::before { content: "💙H"; position: absolute; top: 2px; right: 2px; font-size: 10px; color: #1e3a8a; font-weight: 700; }
+
+  /* ============ VARIANTE A : ACTUELLE (pastilles) ============ */
+  .va .slot {
+    margin-top: 1px;
+    font-size: 8.5px;
+    padding: 0 2px;
+    border-radius: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .va .slot.hmn { background: #ddd6fe; color: #5b21b6; font-weight: 600; }
+  .va .slot.ach { background: #bfdbfe; color: #1e3a8a; font-weight: 600; }
+  .va .slot.empty { border: 1px dashed #cbd5e1; color: #6b7280; }
+  .va .slot.empty.hmn { border-color: #c4b5fd; color: #5b21b6; }
+  .va .slot.empty.ach { border-color: #bfdbfe; color: #1e40af; }
+
+  /* ============ VARIANTE B : SPLIT VERTICAL (2 colonnes) ============ */
+  .vb .day-base { padding: 0; min-height: 56px; }
+  .vb .num { padding: 3px 4px 0; font-size: 10px; }
+  .vb .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    margin-top: 2px;
+    gap: 0;
+    border-top: 1px solid #e5e7eb;
+  }
+  .vb .half {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2px;
+    font-size: 9px;
+    text-align: center;
+  }
+  .vb .half.hmn { background: #ddd6fe; color: #5b21b6; }
+  .vb .half.ach { background: #bfdbfe; color: #1e3a8a; border-left: 1px solid white; }
+  .vb .half .label { font-weight: 700; font-size: 8px; opacity: 0.7; }
+  .vb .half .name { font-weight: 600; font-size: 9px; }
+  .vb .half.empty { background: #f9fafb; color: #9ca3af; }
+
+  /* ============ VARIANTE C : BANDES HAUTES ============ */
+  .vc .day-base { padding: 0; }
+  .vc .bars { display: flex; gap: 1px; padding: 2px 2px 0; }
+  .vc .bar {
+    flex: 1;
+    height: 6px;
+    border-radius: 2px 2px 0 0;
+    background: #e5e7eb;
+  }
+  .vc .bar.hmn { background: #8b5cf6; }
+  .vc .bar.ach { background: #2563eb; }
+  .vc .num { padding: 4px; font-size: 11px; }
+  .vc .names { padding: 0 4px 4px; font-size: 9px; line-height: 1.3; }
+  .vc .names .name-h { color: #5b21b6; font-weight: 600; }
+  .vc .names .name-a { color: #1e3a8a; font-weight: 600; }
+
+  /* ============ VARIANTE D : MINIMALISTE INITIALES ============ */
+  .vd .day-base {
+    align-items: stretch;
+    padding: 4px;
+  }
+  .vd .num { font-size: 11px; margin-bottom: 4px; }
+  .vd .initials {
+    display: flex;
+    gap: 3px;
+    margin-top: auto;
+  }
+  .vd .ini {
+    flex: 1;
+    text-align: center;
+    border-radius: 3px;
+    padding: 3px 0;
+    font-weight: 700;
+    font-size: 11px;
+    line-height: 1;
+  }
+  .vd .ini.hmn { background: #ddd6fe; color: #5b21b6; }
+  .vd .ini.ach { background: #bfdbfe; color: #1e3a8a; }
+  .vd .ini.empty { background: #f3f4f6; color: #d1d5db; font-weight: 400; }
+
+  legend {
+    margin-top: 24px;
+    background: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    box-shadow: 0 4px 12px rgba(15,23,42,0.18);
+  }
+  legend strong { display: block; margin-bottom: 6px; }
+  legend code {
+    background: #f3f4f6;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body>
+<h1>Aperçus — 4 variantes d'affichage des cases du calendrier</h1>
+
+<div class="grid">
+
+  <!-- ============ VARIANTE A ============ -->
+  <div class="col va">
+    <h2>A — Actuelle (pastilles)</h2>
+    <div class="desc">2 pastilles "HMN ZER" / "ACH HOT" sous la date. Référence à comparer.</div>
+    <div class="week-grid">
+      <div class="day-base"><div class="num">1</div><div class="slot empty hmn">HMN</div><div class="slot empty ach">ACH</div></div>
+      <div class="day-base"><div class="num">2</div><div class="slot hmn">HMN BELF.O</div><div class="slot empty ach">ACH</div></div>
+      <div class="day-base"><div class="num">3</div><div class="slot hmn">HMN BOUK.G</div><div class="slot ach">ACH HOT.S</div></div>
+      <div class="day-base mine"><div class="num">4</div><div class="slot hmn">HMN GUAT.L</div><div class="slot empty ach">ACH</div></div>
+      <div class="day-base friday"><div class="num">5</div><div class="slot hmn">HMN KAB.Z</div><div class="slot ach">ACH NEU.N</div></div>
+      <div class="day-base weekend"><div class="num">6</div><div class="slot hmn">HMN 24h ZER</div><div class="slot ach">ACH 24h LADE</div></div>
+      <div class="day-base weekend full"><div class="num">7</div><div class="slot hmn">HMN 24h JEAN</div><div class="slot ach">ACH 24h SAH</div></div>
+
+      <div class="day-base wished-h"><div class="num">8</div><div class="slot empty hmn">HMN</div><div class="slot empty ach">ACH</div></div>
+      <div class="day-base blocked"><div class="num">9</div><div class="slot empty hmn">HMN</div><div class="slot empty ach">ACH</div></div>
+      <div class="day-base"><div class="num">10</div><div class="slot empty hmn">HMN</div><div class="slot empty ach">ACH</div></div>
+      <div class="day-base"><div class="num">11</div><div class="slot empty hmn">HMN</div><div class="slot ach">ACH POPA.D</div></div>
+      <div class="day-base friday"><div class="num">12</div><div class="slot hmn">HMN MACO.A</div><div class="slot empty ach">ACH</div></div>
+      <div class="day-base weekend full"><div class="num">13</div><div class="slot hmn">HMN 24h GERV</div><div class="slot ach">ACH 24h NKAM</div></div>
+      <div class="day-base weekend"><div class="num">14</div><div class="slot empty hmn">HMN 24h</div><div class="slot empty ach">ACH 24h</div></div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANTE B ============ -->
+  <div class="col vb">
+    <h2>B — Split vertical</h2>
+    <div class="desc">Cellule coupée en 2 dans la hauteur : moitié gauche = HMN (lilas), moitié droite = ACH (bleu). Plus visuel pour identifier le site.</div>
+    <div class="week-grid">
+      <div class="day-base"><div class="num">1</div><div class="split"><div class="half empty">—</div><div class="half empty">—</div></div></div>
+      <div class="day-base"><div class="num">2</div><div class="split"><div class="half hmn"><span class="label">HMN</span><span class="name">BELF.O</span></div><div class="half empty">—</div></div></div>
+      <div class="day-base"><div class="num">3</div><div class="split"><div class="half hmn"><span class="label">HMN</span><span class="name">BOUK.G</span></div><div class="half ach"><span class="label">ACH</span><span class="name">HOT.S</span></div></div></div>
+      <div class="day-base mine"><div class="num">4</div><div class="split"><div class="half hmn"><span class="label">HMN</span><span class="name">GUAT.L</span></div><div class="half empty">—</div></div></div>
+      <div class="day-base friday"><div class="num">5</div><div class="split"><div class="half hmn"><span class="label">HMN</span><span class="name">KAB.Z</span></div><div class="half ach"><span class="label">ACH</span><span class="name">NEU.N</span></div></div></div>
+      <div class="day-base weekend"><div class="num">6</div><div class="split"><div class="half hmn"><span class="label">HMN 24h</span><span class="name">ZER</span></div><div class="half ach"><span class="label">ACH 24h</span><span class="name">LADE</span></div></div></div>
+      <div class="day-base weekend full"><div class="num">7</div><div class="split"><div class="half hmn"><span class="label">HMN 24h</span><span class="name">JEAN</span></div><div class="half ach"><span class="label">ACH 24h</span><span class="name">SAH</span></div></div></div>
+
+      <div class="day-base wished-h"><div class="num">8</div><div class="split"><div class="half empty">—</div><div class="half empty">—</div></div></div>
+      <div class="day-base blocked"><div class="num">9</div><div class="split"><div class="half empty">—</div><div class="half empty">—</div></div></div>
+      <div class="day-base"><div class="num">10</div><div class="split"><div class="half empty">—</div><div class="half empty">—</div></div></div>
+      <div class="day-base"><div class="num">11</div><div class="split"><div class="half empty">—</div><div class="half ach"><span class="label">ACH</span><span class="name">POPA.D</span></div></div></div>
+      <div class="day-base friday"><div class="num">12</div><div class="split"><div class="half hmn"><span class="label">HMN</span><span class="name">MACO.A</span></div><div class="half empty">—</div></div></div>
+      <div class="day-base weekend full"><div class="num">13</div><div class="split"><div class="half hmn"><span class="label">HMN 24h</span><span class="name">GERV</span></div><div class="half ach"><span class="label">ACH 24h</span><span class="name">NKAM</span></div></div></div>
+      <div class="day-base weekend"><div class="num">14</div><div class="split"><div class="half empty">— 24h —</div><div class="half empty">— 24h —</div></div></div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANTE C ============ -->
+  <div class="col vc">
+    <h2>C — Bandes hautes + noms</h2>
+    <div class="desc">Une fine bande de couleur en haut de la cellule indique l'occupation par site. Noms écrits en dessous, plus aérés.</div>
+    <div class="week-grid">
+      <div class="day-base"><div class="bars"><div class="bar"></div><div class="bar"></div></div><div class="num">1</div><div class="names">&nbsp;</div></div>
+      <div class="day-base"><div class="bars"><div class="bar hmn"></div><div class="bar"></div></div><div class="num">2</div><div class="names"><div class="name-h">BELF.O</div></div></div>
+      <div class="day-base"><div class="bars"><div class="bar hmn"></div><div class="bar ach"></div></div><div class="num">3</div><div class="names"><div class="name-h">BOUK.G</div><div class="name-a">HOT.S</div></div></div>
+      <div class="day-base mine"><div class="bars"><div class="bar hmn"></div><div class="bar"></div></div><div class="num">4</div><div class="names"><div class="name-h">GUAT.L</div></div></div>
+      <div class="day-base friday"><div class="bars"><div class="bar hmn"></div><div class="bar ach"></div></div><div class="num">5</div><div class="names"><div class="name-h">KAB.Z</div><div class="name-a">NEU.N</div></div></div>
+      <div class="day-base weekend"><div class="bars"><div class="bar hmn"></div><div class="bar ach"></div></div><div class="num">6</div><div class="names"><div class="name-h">ZER</div><div class="name-a">LADE</div></div></div>
+      <div class="day-base weekend full"><div class="bars"><div class="bar hmn"></div><div class="bar ach"></div></div><div class="num">7</div><div class="names"><div class="name-h">JEAN</div><div class="name-a">SAH</div></div></div>
+
+      <div class="day-base wished-h"><div class="bars"><div class="bar"></div><div class="bar"></div></div><div class="num">8</div><div class="names">&nbsp;</div></div>
+      <div class="day-base blocked"><div class="bars"><div class="bar"></div><div class="bar"></div></div><div class="num">9</div><div class="names">&nbsp;</div></div>
+      <div class="day-base"><div class="bars"><div class="bar"></div><div class="bar"></div></div><div class="num">10</div><div class="names">&nbsp;</div></div>
+      <div class="day-base"><div class="bars"><div class="bar"></div><div class="bar ach"></div></div><div class="num">11</div><div class="names"><div class="name-a">POPA.D</div></div></div>
+      <div class="day-base friday"><div class="bars"><div class="bar hmn"></div><div class="bar"></div></div><div class="num">12</div><div class="names"><div class="name-h">MACO.A</div></div></div>
+      <div class="day-base weekend full"><div class="bars"><div class="bar hmn"></div><div class="bar ach"></div></div><div class="num">13</div><div class="names"><div class="name-h">GERV</div><div class="name-a">NKAM</div></div></div>
+      <div class="day-base weekend"><div class="bars"><div class="bar"></div><div class="bar"></div></div><div class="num">14</div><div class="names">&nbsp;</div></div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANTE D ============ -->
+  <div class="col vd">
+    <h2>D — Initiales colorées</h2>
+    <div class="desc">Très épurée : 2 grosses pastilles d'initiales en bas de la case (rien sur les vides). Optimal pour vue d'ensemble rapide.</div>
+    <div class="week-grid">
+      <div class="day-base"><div class="num">1</div><div class="initials"><div class="ini empty">—</div><div class="ini empty">—</div></div></div>
+      <div class="day-base"><div class="num">2</div><div class="initials"><div class="ini hmn">BO</div><div class="ini empty">—</div></div></div>
+      <div class="day-base"><div class="num">3</div><div class="initials"><div class="ini hmn">BG</div><div class="ini ach">HS</div></div></div>
+      <div class="day-base mine"><div class="num">4</div><div class="initials"><div class="ini hmn">GL</div><div class="ini empty">—</div></div></div>
+      <div class="day-base friday"><div class="num">5</div><div class="initials"><div class="ini hmn">KZ</div><div class="ini ach">NN</div></div></div>
+      <div class="day-base weekend"><div class="num">6</div><div class="initials"><div class="ini hmn">ZE</div><div class="ini ach">LM</div></div></div>
+      <div class="day-base weekend full"><div class="num">7</div><div class="initials"><div class="ini hmn">JJ</div><div class="ini ach">SC</div></div></div>
+
+      <div class="day-base wished-h"><div class="num">8</div><div class="initials"><div class="ini empty">—</div><div class="ini empty">—</div></div></div>
+      <div class="day-base blocked"><div class="num">9</div><div class="initials"><div class="ini empty">—</div><div class="ini empty">—</div></div></div>
+      <div class="day-base"><div class="num">10</div><div class="initials"><div class="ini empty">—</div><div class="ini empty">—</div></div></div>
+      <div class="day-base"><div class="num">11</div><div class="initials"><div class="ini empty">—</div><div class="ini ach">PD</div></div></div>
+      <div class="day-base friday"><div class="num">12</div><div class="initials"><div class="ini hmn">MA</div><div class="ini empty">—</div></div></div>
+      <div class="day-base weekend full"><div class="num">13</div><div class="initials"><div class="ini hmn">GC</div><div class="ini ach">NI</div></div></div>
+      <div class="day-base weekend"><div class="num">14</div><div class="initials"><div class="ini empty">—</div><div class="ini empty">—</div></div></div>
+    </div>
+  </div>
+
+</div>
+
+<legend>
+  <strong>Code couleur sémantique (commun aux 4 variantes)</strong>
+  <code style="background:#fde68a">jaune</code> retiré → <code>gris clair = vendredi</code>, <code style="background:#d1d5db">gris moyen = WE/férié</code>,
+  <code style="background:#ddd6fe">lilas = HMN</code>,
+  <code style="background:#bfdbfe">bleu = ACH</code>,
+  <code style="background:#dcfce7">vert = mes gardes</code>,
+  <code style="background:repeating-linear-gradient(135deg, rgba(185,28,28,0.30) 0 5px, rgba(185,28,28,0.10) 5px 10px)">hachures rouges = jour plein</code>,
+  <code style="background:#fee2e2">rouge plein = indispo</code>,
+  <code style="background:#dbeafe">bleu clair + 💙 = vœu</code>.
+</legend>
+
+</body>
+</html>
