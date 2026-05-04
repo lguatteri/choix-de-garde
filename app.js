@@ -13,6 +13,9 @@ function defaultState() {
     myName: null,             // = currentProfile.doctor_name après login
     firstPicker: null,
     pickerCursor: 0,
+    currentTour: 1,           // tour de groupe (admin contrôle son avancement)
+    tourStartIdx: 0,          // index du 1er picker du tour courant dans state.doctors
+    tourDirection: 1,         // 1 = alphabétique avant, -1 = arrière
     currentTurnPickCount: 0,
     currentTurnSlots: [],     // ['date:site', ...] des picks faits dans le tour courant — local
     forcedNextPicker: null,
@@ -57,6 +60,9 @@ async function loadAllFromSupabase() {
     state.pickerCursor = sess.data.picker_cursor;
     state.currentTurnPickCount = sess.data.current_turn_pick_count;
     state.forcedNextPicker = sess.data.forced_next_picker;
+    state.currentTour = sess.data.current_tour ?? 1;
+    state.tourStartIdx = sess.data.tour_start_idx ?? 0;
+    state.tourDirection = sess.data.tour_direction ?? 1;
   }
 
   state.voeux = {};
@@ -94,6 +100,9 @@ async function syncSession() {
     picker_cursor: state.pickerCursor,
     current_turn_pick_count: state.currentTurnPickCount || 0,
     forced_next_picker: state.forcedNextPicker,
+    current_tour: state.currentTour,
+    tour_start_idx: state.tourStartIdx,
+    tour_direction: state.tourDirection,
     updated_at: new Date().toISOString(),
   }).eq('id', 1);
 }
@@ -242,24 +251,16 @@ function objectivesRemaining(d) {
 }
 
 // ============================================================
-// Snake order
+// Ordre des choisisseurs : tour de groupe contrôlé par l'admin
 // ============================================================
-function buildSnake(maxTours = 15) {
+function pickerAt(tourCursor) {
   const N = state.doctors.length;
-  if (!N) return [];
-  if (!state.firstPicker) state.firstPicker = state.doctors[0].name;
-  let cursor = state.doctors.findIndex(d => d.name === state.firstPicker);
-  if (cursor < 0) cursor = 0;
-  const seq = [];
-  let dir = 1;
-  for (let tour = 1; tour <= maxTours; tour++) {
-    for (let i = 0; i < N; i++) {
-      seq.push({ name: state.doctors[cursor].name, tour });
-      if (i < N - 1) cursor = (cursor + dir + N) % N;
-    }
-    dir = -dir;
-  }
-  return seq;
+  if (!N || tourCursor < 0 || tourCursor >= N) return null;
+  const idx = ((state.tourStartIdx + tourCursor * state.tourDirection) % N + N) % N;
+  return state.doctors[idx];
+}
+function lastPickerOfTour() {
+  return pickerAt(state.doctors.length - 1);
 }
 
 // ============================================================
@@ -306,58 +307,52 @@ function tourComplete(name, tour) {
 // Curseur courant
 // ============================================================
 function currentPickerInfo() {
-  const seq = buildSnake();
   if (state.forcedNextPicker) {
     const d = findDoctor(state.forcedNextPicker);
-    if (d) return { name: d.name, tour: '?', forced: true, cursor: state.pickerCursor };
+    if (d) return { name: d.name, tour: state.currentTour, forced: true, cursor: state.pickerCursor };
   }
-  let cursor = state.pickerCursor;
-  while (cursor < seq.length) {
-    const e = seq[cursor];
-    const d = findDoctor(e.name);
-    if (!d) { cursor++; continue; }
-    // sauter les docs qui ont fini leurs objectifs
-    if (objectivesRemaining(d).total <= 0) { cursor++; continue; }
-    // sauter aussi si tour déjà complet (ex: rattrapé hors-ordre par une assignation manuelle)
-    if (tourComplete(e.name, e.tour)) { cursor++; continue; }
-    return { name: e.name, tour: e.tour, cursor, forced: false };
+  const N = state.doctors.length;
+  let c = state.pickerCursor;
+  while (c < N) {
+    const d = pickerAt(c);
+    if (!d) { c++; continue; }
+    if (objectivesRemaining(d).total <= 0) { c++; continue; } // doctor a fini ses objectifs
+    return { name: d.name, tour: state.currentTour, cursor: c, forced: false };
   }
-  return null;
+  return null; // tout le monde a joué dans ce tour → admin doit cliquer "Tour suivant"
 }
 
 function nextPickerInfo() {
-  const seq = buildSnake();
+  const N = state.doctors.length;
   const cur = currentPickerInfo();
   let start = (cur ? cur.cursor : state.pickerCursor) + 1;
-  while (start < seq.length) {
-    const e = seq[start];
-    const d = findDoctor(e.name);
-    if (!d) { start++; continue; }
-    if (objectivesRemaining(d).total <= 0) { start++; continue; }
-    if (tourComplete(e.name, e.tour)) { start++; continue; }
-    return { name: e.name, tour: e.tour };
+  while (start < N) {
+    const d = pickerAt(start);
+    if (d && objectivesRemaining(d).total > 0) {
+      return { name: d.name, tour: state.currentTour };
+    }
+    start++;
+  }
+  // Tour terminé → suivant = première personne du tour suivant
+  // (= la dernière personne du tour actuel, back-to-back, en sens inverse)
+  const last = lastPickerOfTour();
+  if (last && objectivesRemaining(last).total > 0) {
+    return { name: last.name, tour: state.currentTour + 1, isNextTour: true };
   }
   return null;
 }
 
-// Recale le curseur sur la prochaine apparition de `name` dans la séquence snake
-// dont le tour n'est pas encore complet. Sert à revenir en arrière sur une personne.
+// Recale le curseur sur la position de `name` dans le tour de groupe courant.
+// Garde le tour inchangé (pas de saut au prochain tour automatique).
 function setCurrentPickerManually(name) {
   if (!name) return;
   snapshotForUndo();
-  const seq = buildSnake();
-  let target = -1;
-  for (let i = 0; i < seq.length; i++) {
-    if (seq[i].name === name && !tourComplete(name, seq[i].tour)) { target = i; break; }
-  }
-  if (target < 0) {
-    // tous ses tours sont complets — repositionner au tout 1er passage de cette personne quand même
-    for (let i = 0; i < seq.length; i++) {
-      if (seq[i].name === name) { target = i; break; }
-    }
-  }
-  if (target < 0) return;
-  state.pickerCursor = target;
+  const N = state.doctors.length;
+  const docIdx = state.doctors.findIndex(d => d.name === name);
+  if (docIdx < 0) return;
+  // Position dans le tour : (docIdx - tourStartIdx) * direction mod N
+  const cursor = ((docIdx - state.tourStartIdx) * state.tourDirection % N + N) % N;
+  state.pickerCursor = cursor;
   state.currentTurnPickCount = 0;
   state.currentTurnSlots = [];
   state.forcedNextPicker = null;
@@ -375,12 +370,30 @@ function advanceCursorIfNeeded() {
   const d = findDoctor(cur.name);
   const q = quotaSum(d, cur.tour);
   const objDone = objectivesRemaining(d).total <= 0;
-  // Avance dès que le picker courant a fait son nombre de picks de tour, ou qu'il a atteint ses objectifs totaux
   if ((state.currentTurnPickCount || 0) >= q || objDone) {
-    state.pickerCursor = cur.cursor + 1;
+    state.pickerCursor = cur.cursor + 1; // s'arrêtera à N → tour terminé, attendra l'admin
     state.currentTurnPickCount = 0;
     state.currentTurnSlots = [];
   }
+}
+
+// Avancement explicite du tour de groupe (bouton admin)
+function advanceTour() {
+  if (!isAdmin()) return alert('Admin uniquement');
+  snapshotForUndo();
+  const N = state.doctors.length;
+  // Le 1er picker du nouveau tour = la dernière personne du tour actuel (back-to-back)
+  // Cette personne est à l'index (tourStartIdx + (N-1)*direction) % N
+  const lastIdx = ((state.tourStartIdx + (N - 1) * state.tourDirection) % N + N) % N;
+  state.tourStartIdx = lastIdx;
+  state.tourDirection = -state.tourDirection;
+  state.currentTour += 1;
+  state.pickerCursor = 0;
+  state.currentTurnPickCount = 0;
+  state.currentTurnSlots = [];
+  state.forcedNextPicker = null;
+  syncSession();
+  render();
 }
 
 // ============================================================
@@ -664,10 +677,10 @@ function renderPickerInfo() {
 
   if (!cur) {
     const o = document.createElement('option');
-    o.value = ''; o.textContent = '✓ Choix terminé';
+    o.value = ''; o.textContent = `Tour ${state.currentTour} terminé — clique "Tour suivant"`;
     nameSel.insertBefore(o, nameSel.firstChild);
     nameSel.value = '';
-    tourEl.textContent = '';
+    tourEl.innerHTML = `<em>Toutes les personnes du tour ${state.currentTour} ont joué.</em>`;
     objEl.textContent = '';
     nextEl.innerHTML = '';
     return;
@@ -684,7 +697,8 @@ function renderPickerInfo() {
     const quota = tourQuota(d, cur.tour);
     const totalNeeded = Object.values(quota).reduce((a,b)=>a+b, 0);
     const done = state.currentTurnPickCount || 0;
-    let html = `<strong>Tour ${cur.tour}</strong> — <span class="quota-item ${done>=totalNeeded?'done':'todo'}">${done}/${totalNeeded} choisies</span> `;
+    const progress = `${cur.cursor + 1}/${state.doctors.length}`;
+    let html = `<strong>Tour ${cur.tour}</strong> <span style="color:var(--ink-soft);font-size:11px">(${progress} ont joué)</span> — <span class="quota-item ${done>=totalNeeded?'done':'todo'}">${done}/${totalNeeded} choisies</span> `;
     Object.keys(quota).forEach(k => {
       const label = ({libre:'libre', vendredi:'vendredi', we:'WE/f', semaine:'semaine'})[k] || k;
       html += `<span class="quota-item">${quota[k]} ${label}</span>`;
@@ -885,6 +899,10 @@ $('force-save').onclick = () => {
 $('clear-override').onclick = () => {
   state.forcedNextPicker = null; syncSession(); render();
 };
+$('advance-tour-btn').onclick = () => {
+  if (!confirm(`Passer au tour ${state.currentTour + 1} ? (la dernière personne du tour ${state.currentTour} enchaîne en sens inverse)`)) return;
+  advanceTour();
+};
 
 // ============================================================
 // Undo
@@ -1027,8 +1045,12 @@ function renderSetup() {
   fp.onchange = () => {
     if (!isAdmin()) return alert('Seul un admin peut changer le premier choisisseur.');
     state.firstPicker = fp.value;
+    state.tourStartIdx = state.doctors.findIndex(d => d.name === fp.value);
+    state.tourDirection = 1;
+    state.currentTour = 1;
     state.pickerCursor = 0;
     state.currentTurnPickCount = 0;
+    state.currentTurnSlots = [];
     syncSession(); render();
   };
 
@@ -1135,7 +1157,12 @@ async function initApp() {
   try {
     await loadAllFromSupabase();
   } catch (e) { console.error('loadAllFromSupabase failed', e); }
-  if (!state.firstPicker) state.firstPicker = state.doctors[0].name;
+  if (!state.firstPicker) {
+    state.firstPicker = state.doctors[0].name;
+    state.tourStartIdx = 0;
+    state.tourDirection = 1;
+    state.currentTour = 1;
+  }
   applyPermissions();
   setupRealtime();
   render();
@@ -1167,6 +1194,9 @@ function setupRealtime() {
         state.pickerCursor = payload.new.picker_cursor;
         state.currentTurnPickCount = payload.new.current_turn_pick_count;
         state.forcedNextPicker = payload.new.forced_next_picker;
+        state.currentTour = payload.new.current_tour ?? state.currentTour;
+        state.tourStartIdx = payload.new.tour_start_idx ?? state.tourStartIdx;
+        state.tourDirection = payload.new.tour_direction ?? state.tourDirection;
         render();
       }
     })

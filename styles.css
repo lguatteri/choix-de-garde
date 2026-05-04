@@ -510,6 +510,13 @@ main {
 .actions button:active { transform: translateY(1px); }
 .actions .danger { color: var(--danger); border-color: #fecaca; }
 .actions .danger:hover { background: #fef2f2; border-color: var(--danger); }
+.actions .primary-action {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  font-weight: 600;
+}
+.actions .primary-action:hover { background: #1e40af; border-color: #1e40af; }
 
 .hint { font-size: 12px; color: var(--ink-soft); margin: 0 0 12px; }
 
