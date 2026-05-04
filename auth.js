@@ -59,13 +59,21 @@ async function loginOrSignup(mode) {
   const email = document.getElementById('auth-email').value.trim();
   const pwd = document.getElementById('auth-password').value;
   const errEl = document.getElementById('auth-error');
+  errEl.style.color = '';   // reset (rouge par défaut)
   errEl.textContent = '';
   if (!email || !pwd) { errEl.textContent = 'Email et mot de passe requis'; return; }
   if (mode === 'signup' && pwd.length < 6) { errEl.textContent = 'Mot de passe : 6 caractères minimum'; return; }
 
+  errEl.textContent = mode === 'signup' ? 'Création…' : 'Connexion…';
+  errEl.style.color = '#6b7280';
   const fn = mode === 'signup' ? 'signUp' : 'signInWithPassword';
   const { data, error } = await sbClient.auth[fn]({ email, password: pwd });
-  if (error) { errEl.textContent = error.message; return; }
+  if (error) {
+    errEl.style.color = '';
+    errEl.textContent = error.message + ' (code ' + (error.status || '?') + ')';
+    return;
+  }
+  errEl.textContent = '';
 
   // signUp : si email confirmation activée, data.user existe mais session=null
   if (mode === 'signup' && !data.session) {
