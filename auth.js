@@ -1,0 +1,148 @@
+'use strict';
+
+// ============================================================
+// Auth UI : login / inscription / sélection du nom de médecin
+// ============================================================
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.supabaseClient = supabase; // accessible depuis app.js
+
+let currentUser = null;
+let currentProfile = null; // { user_id, doctor_name, is_admin, is_super_admin }
+window.currentUser = null;
+window.currentProfile = null;
+function syncUserGlobals() {
+  window.currentUser = currentUser;
+  window.currentProfile = currentProfile;
+}
+
+async function getProfile(userId) {
+  const { data, error } = await supabase
+    .from('profiles').select('*').eq('user_id', userId).maybeSingle();
+  if (error) console.warn('getProfile error', error);
+  return data;
+}
+
+async function refreshSession() {
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUser = user;
+  currentProfile = user ? await getProfile(user.id) : null;
+  return { user, profile: currentProfile };
+}
+
+function showAuthScreen() {
+  document.getElementById('auth-screen').hidden = false;
+  document.getElementById('app-root').hidden = true;
+}
+function hideAuthScreen() {
+  document.getElementById('auth-screen').hidden = true;
+  document.getElementById('app-root').hidden = false;
+}
+
+async function showProfileSetup() {
+  const sel = document.getElementById('profile-doctor-select');
+  sel.innerHTML = '';
+  // Charger la liste des médecins déjà attribués pour les exclure
+  const { data: doctors } = await supabase.from('doctors').select('name').order('name');
+  const { data: profiles } = await supabase.from('profiles').select('doctor_name');
+  const taken = new Set((profiles || []).map(p => p.doctor_name));
+  (doctors || []).forEach(d => {
+    if (taken.has(d.name)) return;
+    const opt = document.createElement('option');
+    opt.value = d.name; opt.textContent = d.name;
+    sel.appendChild(opt);
+  });
+  document.getElementById('profile-setup').hidden = false;
+}
+
+async function loginOrSignup(mode) {
+  const email = document.getElementById('auth-email').value.trim();
+  const pwd = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if (!email || !pwd) { errEl.textContent = 'Email et mot de passe requis'; return; }
+  if (mode === 'signup' && pwd.length < 6) { errEl.textContent = 'Mot de passe : 6 caractères minimum'; return; }
+
+  const fn = mode === 'signup' ? 'signUp' : 'signInWithPassword';
+  const { data, error } = await supabase.auth[fn]({ email, password: pwd });
+  if (error) { errEl.textContent = error.message; return; }
+
+  // signUp : si email confirmation activée, data.user existe mais session=null
+  if (mode === 'signup' && !data.session) {
+    errEl.style.color = '#16a34a';
+    errEl.textContent = 'Compte créé. Confirme l\'email reçu puis re-clique "Se connecter".';
+    return;
+  }
+
+  currentUser = data.user;
+  currentProfile = await getProfile(currentUser.id);
+  syncUserGlobals();
+  if (!currentProfile) {
+    // 1ère connexion : choisir le médecin
+    await showProfileSetup();
+  } else {
+    onAuthenticated();
+  }
+}
+
+async function saveProfile() {
+  const doc = document.getElementById('profile-doctor-select').value;
+  const errEl = document.getElementById('profile-error');
+  errEl.textContent = '';
+  if (!doc) { errEl.textContent = 'Choisis un nom de médecin'; return; }
+  const { error } = await supabase
+    .from('profiles')
+    .insert({ user_id: currentUser.id, doctor_name: doc });
+  if (error) { errEl.textContent = error.message; return; }
+  currentProfile = await getProfile(currentUser.id);
+  syncUserGlobals();
+  document.getElementById('profile-setup').hidden = true;
+  onAuthenticated();
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  currentUser = null; currentProfile = null;
+  syncUserGlobals();
+  location.reload();
+}
+
+function onAuthenticated() {
+  hideAuthScreen();
+  // Trigger l'init de l'app principale
+  if (typeof initApp === 'function') initApp();
+}
+
+// Bootstrap
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    currentProfile = await getProfile(currentUser.id);
+    syncUserGlobals();
+    if (!currentProfile) {
+      showAuthScreen();
+      await showProfileSetup();
+    } else {
+      hideAuthScreen();
+      if (typeof initApp === 'function') initApp();
+    }
+  } else {
+    showAuthScreen();
+  }
+  // Réagir aux changements de session
+  supabase.auth.onAuthStateChange((_evt, sess) => {
+    if (!sess) showAuthScreen();
+  });
+})();
+
+// Bind UI
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('auth-login-btn').onclick = () => loginOrSignup('login');
+  document.getElementById('auth-signup-btn').onclick = () => loginOrSignup('signup');
+  document.getElementById('profile-save-btn').onclick = saveProfile;
+  document.getElementById('logout-btn').onclick = logout;
+  document.getElementById('auth-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') loginOrSignup('login');
+  });
+});

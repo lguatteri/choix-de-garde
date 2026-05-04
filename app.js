@@ -1,44 +1,111 @@
 'use strict';
 
 // ============================================================
-// État + persistence
+// État (en mémoire — la persistance se fait via Supabase)
 // ============================================================
-const STORAGE_KEY = 'garde-state-v1';
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
 function defaultState() {
   return {
-    assignments: {},          // dateStr -> { HMN: {doctor}, ACH: {doctor}, full24: [{doctor, site}] }
-    history: [],              // [{ ts, action, date, slot, doctor, prevDoctor, byCurrentPicker }]
-    voeux: {},                // dateStr -> 'wished' | 'blocked'
-    myName: 'GUATTERI Laura',
+    assignments: {},          // dateStr -> { HMN: {doctor}, ACH: {doctor} }
+    history: [],              // pour undo en mémoire (snapshots)
+    voeux: {},                // dateStr -> 'wishedHMN' | 'wishedACH' | 'wishedBoth' | 'blocked'
+    myName: null,             // = currentProfile.doctor_name après login
     firstPicker: null,
-    pickerCursor: 0,          // index dans la séquence snake
-    currentTurnPickCount: 0,  // nb de picks faits par le picker courant pendant son tour
+    pickerCursor: 0,
+    currentTurnPickCount: 0,
     forcedNextPicker: null,
     doctors: deepClone(DOCTORS),
     holidays: HOLIDAYS.slice(),
   };
 }
-function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
-let state = loadState();
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const merged = Object.assign(defaultState(), parsed);
-      // Si la liste des médecins a changé en dur, garder ceux du localStorage
-      if (!merged.doctors || merged.doctors.length === 0) merged.doctors = deepClone(DOCTORS);
-      return merged;
-    }
-  } catch (e) { console.warn('loadState failed', e); }
-  return defaultState();
+let state = defaultState();
+const sb = () => window.supabaseClient; // raccourci
+
+// ============================================================
+// Chargement initial depuis Supabase
+// ============================================================
+async function loadAllFromSupabase() {
+  const [doctors, holidays, assignments, sess, voeux, profile] = await Promise.all([
+    sb().from('doctors').select('*').order('name'),
+    sb().from('holidays').select('date'),
+    sb().from('assignments').select('*'),
+    sb().from('session_state').select('*').eq('id', 1).maybeSingle(),
+    sb().from('voeux').select('*'),
+    sb().from('profiles').select('*'),
+  ]);
+
+  if (doctors.data) {
+    state.doctors = doctors.data.map(d => ({
+      name: d.name,
+      ACH: { sem: d.ach_sem, we: d.ach_we },
+      HMN: { sem: d.hmn_sem, we: d.hmn_we },
+    })).sort((a,b) => a.name.localeCompare(b.name, 'fr'));
+  }
+  if (holidays.data) state.holidays = holidays.data.map(h => h.date);
+
+  state.assignments = {};
+  (assignments.data || []).forEach(row => {
+    if (!state.assignments[row.date]) state.assignments[row.date] = {};
+    state.assignments[row.date][row.site] = { doctor: row.doctor_name };
+  });
+
+  if (sess.data) {
+    state.firstPicker = sess.data.first_picker;
+    state.pickerCursor = sess.data.picker_cursor;
+    state.currentTurnPickCount = sess.data.current_turn_pick_count;
+    state.forcedNextPicker = sess.data.forced_next_picker;
+  }
+
+  state.voeux = {};
+  (voeux.data || []).forEach(row => { state.voeux[row.date] = row.voeu; });
+
+  state.allProfiles = profile.data || [];
+  if (window.currentProfile) state.myName = window.currentProfile.doctor_name;
 }
-function saveState() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-  catch(e) { alert('Sauvegarde impossible : ' + e.message); }
+
+// ============================================================
+// Sync vers Supabase (par table) — idempotent
+// ============================================================
+async function syncAssignment(date, site, doctorName) {
+  if (doctorName) {
+    return sb().from('assignments').upsert({
+      date, site, doctor_name: doctorName,
+      updated_at: new Date().toISOString(),
+      updated_by: window.currentUser ? window.currentUser.id : null,
+    });
+  }
+  return sb().from('assignments').delete().eq('date', date).eq('site', site);
 }
+async function syncVoeu(date, voeu) {
+  if (voeu) {
+    return sb().from('voeux').upsert({
+      user_id: window.currentUser.id,
+      date, voeu,
+    });
+  }
+  return sb().from('voeux').delete().eq('user_id', window.currentUser.id).eq('date', date);
+}
+async function syncSession() {
+  return sb().from('session_state').update({
+    first_picker: state.firstPicker,
+    picker_cursor: state.pickerCursor,
+    current_turn_pick_count: state.currentTurnPickCount || 0,
+    forced_next_picker: state.forcedNextPicker,
+    updated_at: new Date().toISOString(),
+  }).eq('id', 1);
+}
+async function syncDoctor(d) {
+  return sb().from('doctors').update({
+    ach_sem: d.ACH.sem, ach_we: d.ACH.we,
+    hmn_sem: d.HMN.sem, hmn_we: d.HMN.we,
+  }).eq('name', d.name);
+}
+
+// Compat : dans le code existant on appelle saveState() après les changements
+// d'état. On la garde comme no-op (les sync sont faits explicitement).
+function saveState() { /* no-op : sync explicite via syncXxx */ }
 
 // ============================================================
 // Dates
@@ -292,7 +359,7 @@ function setCurrentPickerManually(name) {
   state.pickerCursor = target;
   state.currentTurnPickCount = 0;
   state.forcedNextPicker = null;
-  saveState();
+  syncSession();
   render();
 }
 
@@ -365,7 +432,9 @@ function setAssignment(date, slotKey, doctorName, site) {
     state.forcedNextPicker = null;
   }
   advanceCursorIfNeeded();
-  saveState();
+  // Sync vers Supabase
+  syncAssignment(date, slotKey, doctorName);
+  syncSession();
   render();
 }
 
@@ -529,15 +598,12 @@ function shortName(name) {
 // ============================================================
 // Vœux
 // ============================================================
-// Toggle indispo (clic sur la date) : neutre ↔ blocked
 function toggleBlocked(dateStr) {
-  if (state.voeux[dateStr] === 'blocked') delete state.voeux[dateStr];
-  else state.voeux[dateStr] = 'blocked';
-  saveState(); render();
+  const next = state.voeux[dateStr] === 'blocked' ? null : 'blocked';
+  if (next) state.voeux[dateStr] = next; else delete state.voeux[dateStr];
+  syncVoeu(dateStr, next);
+  render();
 }
-
-// Toggle vœu sur un site (clic sur HMN ou ACH).
-// Si indispo, l'efface au passage (mutuellement exclusif).
 function toggleWishSite(dateStr, site) {
   const cur = state.voeux[dateStr];
   let hasHMN = (cur === 'wishedHMN' || cur === 'wishedBoth');
@@ -545,11 +611,13 @@ function toggleWishSite(dateStr, site) {
   if (cur === 'blocked') { hasHMN = false; hasACH = false; }
   if (site === 'HMN') hasHMN = !hasHMN;
   else if (site === 'ACH') hasACH = !hasACH;
-  if (hasHMN && hasACH) state.voeux[dateStr] = 'wishedBoth';
-  else if (hasHMN) state.voeux[dateStr] = 'wishedHMN';
-  else if (hasACH) state.voeux[dateStr] = 'wishedACH';
-  else delete state.voeux[dateStr];
-  saveState(); render();
+  let next = null;
+  if (hasHMN && hasACH) next = 'wishedBoth';
+  else if (hasHMN) next = 'wishedHMN';
+  else if (hasACH) next = 'wishedACH';
+  if (next) state.voeux[dateStr] = next; else delete state.voeux[dateStr];
+  syncVoeu(dateStr, next);
+  render();
 }
 
 // ============================================================
@@ -791,11 +859,11 @@ $('force-picker-btn').onclick = () => {
 $('force-cancel').onclick = () => { $('modal-backdrop-picker').hidden = true; };
 $('force-save').onclick = () => {
   state.forcedNextPicker = $('force-picker-select').value;
-  saveState(); render();
+  syncSession(); render();
   $('modal-backdrop-picker').hidden = true;
 };
 $('clear-override').onclick = () => {
-  state.forcedNextPicker = null; saveState(); render();
+  state.forcedNextPicker = null; syncSession(); render();
 };
 
 // ============================================================
@@ -803,14 +871,31 @@ $('clear-override').onclick = () => {
 // ============================================================
 $('undo-btn').onclick = () => {
   if (!UNDO_STACK.length) { alert('Rien à annuler.'); return; }
+  if (!isAdmin()) { alert('Seul un admin peut annuler.'); return; }
   const snap = JSON.parse(UNDO_STACK.pop());
+  const oldAssign = state.assignments;
   state.assignments = snap.assignments;
   state.history = snap.history;
   state.pickerCursor = snap.pickerCursor;
   state.currentTurnPickCount = snap.currentTurnPickCount || 0;
   state.forcedNextPicker = snap.forcedNextPicker;
-  saveState(); render();
+  // Diff & sync les assignments qui ont changé
+  diffAndSyncAssignments(oldAssign, state.assignments);
+  syncSession();
+  render();
 };
+
+function diffAndSyncAssignments(oldA, newA) {
+  const keys = new Set();
+  Object.keys(oldA).forEach(d => Object.keys(oldA[d]).forEach(s => keys.add(d+':'+s)));
+  Object.keys(newA).forEach(d => Object.keys(newA[d]).forEach(s => keys.add(d+':'+s)));
+  for (const k of keys) {
+    const [date, site] = k.split(':');
+    const oldDoc = oldA[date] && oldA[date][site] && oldA[date][site].doctor;
+    const newDoc = newA[date] && newA[date][site] && newA[date][site].doctor;
+    if (oldDoc !== newDoc) syncAssignment(date, site, newDoc || null);
+  }
+}
 
 // ============================================================
 // Export / Import CSV
@@ -862,7 +947,12 @@ $('import-file').onchange = e => {
           state.assignments[date].ACH = { doctor: cells[idx.ACH] };
         }
       });
-      saveState(); render();
+      // Sync chaque assignation importée vers Supabase
+      Object.entries(state.assignments).forEach(([d, slots]) => {
+        if (slots.HMN) syncAssignment(d, 'HMN', slots.HMN.doctor);
+        if (slots.ACH) syncAssignment(d, 'ACH', slots.ACH.doctor);
+      });
+      render();
       alert('Import terminé.');
     } catch(err) { alert('Erreur import : ' + err.message); }
   };
@@ -889,36 +979,38 @@ function parseCSVLine(line) {
 // ============================================================
 // Reset
 // ============================================================
-$('reset-btn').onclick = () => {
-  if (!confirm('Tout effacer (assignations, vœux, historique) ? Les médecins/objectifs gardés.')) return;
-  const docs = state.doctors;
-  const my = state.myName;
-  const fp = state.firstPicker;
-  state = defaultState();
-  state.doctors = docs;
-  state.myName = my;
-  state.firstPicker = fp;
-  saveState(); render();
+$('reset-btn').onclick = async () => {
+  if (!isAdmin()) { alert('Seul un admin peut réinitialiser.'); return; }
+  if (!confirm('Effacer TOUTES les assignations du planning ? (vœux et objectifs conservés)')) return;
+  // Effacer côté Supabase
+  await sb().from('assignments').delete().neq('date', '1900-01-01');
+  state.assignments = {};
+  state.pickerCursor = 0;
+  state.currentTurnPickCount = 0;
+  state.forcedNextPicker = null;
+  syncSession();
+  render();
 };
 
 // ============================================================
 // Setup tab
 // ============================================================
 function renderSetup() {
-  const my = $('my-name');
   const fp = $('first-picker');
-  [my, fp].forEach(sel => {
-    sel.innerHTML = '';
-    state.doctors.forEach(d => {
-      const o = document.createElement('option');
-      o.value = d.name; o.textContent = d.name;
-      sel.appendChild(o);
-    });
+  fp.innerHTML = '';
+  state.doctors.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.name; o.textContent = d.name;
+    fp.appendChild(o);
   });
-  my.value = state.myName;
   fp.value = state.firstPicker || state.doctors[0].name;
-  my.onchange = () => { state.myName = my.value; saveState(); };
-  fp.onchange = () => { state.firstPicker = fp.value; state.pickerCursor = 0; saveState(); };
+  fp.onchange = () => {
+    if (!isAdmin()) return alert('Seul un admin peut changer le premier choisisseur.');
+    state.firstPicker = fp.value;
+    state.pickerCursor = 0;
+    state.currentTurnPickCount = 0;
+    syncSession(); render();
+  };
 
   // Doctors table
   const t = $('doctors-table');
@@ -944,17 +1036,140 @@ function renderSetup() {
   t.innerHTML = html;
   t.querySelectorAll('input').forEach(inp => {
     inp.onchange = () => {
+      if (!isAdmin()) { renderSetup(); return alert('Seul un admin peut modifier les objectifs.'); }
       const i = parseInt(inp.dataset.i, 10);
       const [site, k] = inp.dataset.k.split('-');
       state.doctors[i][site][k] = parseInt(inp.value, 10) || 0;
-      saveState();
-      renderSetup(); // refresh categories
+      syncDoctor(state.doctors[i]);
+      renderSetup();
+    };
+  });
+
+  renderAdminsTable();
+  renderAccountInfo();
+}
+
+function renderAccountInfo() {
+  const el = $('account-info');
+  if (!window.currentProfile) { el.textContent = 'Non connecté'; return; }
+  const role = window.currentProfile.is_super_admin ? 'super admin'
+             : window.currentProfile.is_admin ? 'admin'
+             : 'utilisateur';
+  el.innerHTML = `<strong>${state.myName}</strong> — ${window.currentUser?.email || ''} <em>(${role})</em>`;
+}
+
+async function renderAdminsTable() {
+  const t = $('admins-table');
+  if (!isAdmin()) {
+    t.innerHTML = '<em style="font-size:12px;color:var(--ink-soft)">Réservé aux admins.</em>';
+    return;
+  }
+  // Recharger les profiles depuis Supabase à chaque ouverture
+  const { data: profiles } = await sb().from('profiles').select('*').order('doctor_name');
+  state.allProfiles = profiles || [];
+  let html = '<table><thead><tr><th>Médecin</th><th>Rôle</th><th></th></tr></thead><tbody>';
+  state.allProfiles.forEach(p => {
+    const role = p.is_super_admin ? 'super admin' : p.is_admin ? 'admin' : '—';
+    let actions = '';
+    if (!p.is_super_admin) {
+      actions += p.is_admin
+        ? `<button data-action="demote" data-uid="${p.user_id}">Retirer admin</button> `
+        : `<button data-action="promote" data-uid="${p.user_id}">Promouvoir admin</button> `;
+    }
+    if (window.currentProfile.is_super_admin && !p.is_super_admin) {
+      actions += `<button data-action="super" data-uid="${p.user_id}">→ super admin</button>`;
+    }
+    html += `<tr><td>${p.doctor_name}</td><td>${role}</td><td>${actions}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  t.innerHTML = html;
+  t.querySelectorAll('button').forEach(btn => {
+    btn.onclick = async () => {
+      const uid = btn.dataset.uid;
+      const action = btn.dataset.action;
+      let upd = {};
+      if (action === 'promote') upd = { is_admin: true };
+      else if (action === 'demote') upd = { is_admin: false };
+      else if (action === 'super') upd = { is_super_admin: true, is_admin: true };
+      const { error } = await sb().from('profiles').update(upd).eq('user_id', uid);
+      if (error) alert(error.message);
+      renderAdminsTable();
     };
   });
 }
 
+function isAdmin() {
+  return !!(window.currentProfile && (window.currentProfile.is_admin || window.currentProfile.is_super_admin));
+}
+function applyPermissions() {
+  document.body.classList.toggle('read-only', !isAdmin());
+}
+
 // ============================================================
-// Init
+// Init multi-utilisateur (appelé par auth.js après login)
 // ============================================================
-if (!state.firstPicker) state.firstPicker = state.doctors[0].name;
-render();
+let _appInitialised = false;
+async function initApp() {
+  if (_appInitialised) return;
+  _appInitialised = true;
+  try {
+    await loadAllFromSupabase();
+  } catch (e) { console.error('loadAllFromSupabase failed', e); }
+  if (!state.firstPicker) state.firstPicker = state.doctors[0].name;
+  applyPermissions();
+  setupRealtime();
+  render();
+}
+window.initApp = initApp;
+
+// ============================================================
+// Realtime : sync entre clients
+// ============================================================
+function setupRealtime() {
+  const ch = sb().channel('garde-room')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, payload => {
+      if (payload.eventType === 'DELETE') {
+        const r = payload.old;
+        if (state.assignments[r.date]) {
+          delete state.assignments[r.date][r.site];
+          if (Object.keys(state.assignments[r.date]).length === 0) delete state.assignments[r.date];
+        }
+      } else {
+        const r = payload.new;
+        if (!state.assignments[r.date]) state.assignments[r.date] = {};
+        state.assignments[r.date][r.site] = { doctor: r.doctor_name };
+      }
+      render();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'session_state' }, payload => {
+      if (payload.new) {
+        state.firstPicker = payload.new.first_picker;
+        state.pickerCursor = payload.new.picker_cursor;
+        state.currentTurnPickCount = payload.new.current_turn_pick_count;
+        state.forcedNextPicker = payload.new.forced_next_picker;
+        render();
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, payload => {
+      if (payload.new) {
+        const d = state.doctors.find(x => x.name === payload.new.name);
+        if (d) {
+          d.ACH = { sem: payload.new.ach_sem, we: payload.new.ach_we };
+          d.HMN = { sem: payload.new.hmn_sem, we: payload.new.hmn_we };
+        }
+        render();
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
+      // Quelqu'un a été promu/démuté ou s'est inscrit → re-fetch profils + ré-applique permissions
+      const { data } = await sb().from('profiles').select('*');
+      state.allProfiles = data || [];
+      if (window.currentUser) {
+        const my = state.allProfiles.find(p => p.user_id === window.currentUser.id);
+        if (my) window.currentProfile = my;
+      }
+      applyPermissions();
+      render();
+    });
+  ch.subscribe();
+}

@@ -6,109 +6,152 @@
 <meta name="theme-color" content="#1e3a8a">
 <title>Choix Garde — juin–sept 2026</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css?v=26">
+<link rel="stylesheet" href="styles.css?v=27">
 </head>
 <body>
-  <header>
-    <h1>Choix Garde</h1>
-    <span class="period">juin – sept 2026</span>
-    <div class="me-badge" id="me-badge" title="Mes objectifs restants"></div>
-    <nav class="tabs">
-      <button class="tab active" data-tab="planning">Planning</button>
-      <button class="tab" data-tab="voeux">Perso</button>
-      <button class="tab" data-tab="setup">Réglages</button>
-    </nav>
-  </header>
 
-  <main>
-    <section id="planning" class="view active">
-      <div class="picker-info">
-        <div class="override-notice" id="override-notice">
-          Choix manuel forcé.
-          <button id="clear-override">Reprendre l'ordre auto</button>
-        </div>
-        <div class="picker-cols">
-          <div class="picker-col current-col">
-            <div class="current-picker">
-              <span class="label">Au tour de</span>
-              <select class="name name-select" id="current-name-select"></select>
-            </div>
-            <div class="tour-info" id="tour-info"></div>
-            <div class="objectives-remaining" id="obj-remaining"></div>
-          </div>
-          <div class="picker-col next-col" id="next-picker"></div>
-        </div>
-      </div>
-      <div class="calendar" id="planning-calendar"></div>
-      <div class="actions">
-        <button id="undo-btn">↶ Annuler dernier choix</button>
-        <button id="export-btn">⇣ Exporter CSV</button>
-        <button id="force-picker-btn">⇄ Forcer un autre choisisseur</button>
-      </div>
-    </section>
+  <!-- ============== ÉCRAN AUTH (visible avant connexion) ============== -->
+  <section id="auth-screen" hidden>
+    <div class="auth-card">
+      <h1>Choix Garde</h1>
+      <p class="auth-tag">juin – sept 2026</p>
 
-    <section id="voeux" class="view">
-      <p class="hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💚 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
-      <div class="calendar" id="voeux-calendar"></div>
-    </section>
-
-    <section id="setup" class="view">
-      <h2>1. Mon nom (pour l'onglet "Mes vœux")</h2>
-      <select id="my-name"></select>
-
-      <h2>2. Premier à choisir (tirage au sort)</h2>
-      <select id="first-picker"></select>
-      <p class="hint">Le tour passe ensuite alphabétiquement, et rebondit en arrière à la fin de la liste.</p>
-
-      <h2>3. Données</h2>
-      <button id="import-btn">⇡ Importer planning depuis CSV</button>
-      <input type="file" id="import-file" accept=".csv,.txt" hidden>
-      <button id="export-btn-2">⇣ Exporter planning CSV</button>
-      <button id="reset-btn" class="danger">⚠ Tout réinitialiser</button>
-
-      <h2>4. Médecins &amp; objectifs (modifiable)</h2>
-      <div id="doctors-table"></div>
-    </section>
-  </main>
-
-  <div id="modal-backdrop" hidden>
-    <div class="modal" id="assign-modal">
-      <h3 id="modal-day"></h3>
-      <div id="modal-day-info" class="hint"></div>
-      <div class="slot-buttons" id="modal-slots"></div>
-      <div id="modal-split-wrapper" hidden>
-        <label id="modal-split">
-          <input type="checkbox" id="modal-split-cb">
-          Garde 24h scindée en 2 (deux médecins)
+      <div id="auth-form">
+        <label>Email
+          <input type="email" id="auth-email" autocomplete="username">
         </label>
+        <label>Mot de passe
+          <input type="password" id="auth-password" autocomplete="current-password">
+        </label>
+        <div class="auth-buttons">
+          <button id="auth-login-btn" class="primary">Se connecter</button>
+          <button id="auth-signup-btn">Créer un compte</button>
+        </div>
+        <div class="auth-error" id="auth-error"></div>
       </div>
-      <label>Médecin :
-        <select id="modal-doctor"></select>
-      </label>
-      <div class="modal-actions">
-        <button id="modal-cancel">Annuler</button>
-        <button id="modal-clear" class="danger">Vider</button>
-        <button id="modal-save" class="primary">Assigner</button>
+
+      <div id="profile-setup" hidden>
+        <hr>
+        <p>Première connexion — choisis ton nom dans la liste :</p>
+        <label>Nom
+          <select id="profile-doctor-select"></select>
+        </label>
+        <button id="profile-save-btn" class="primary">Valider</button>
+        <div class="auth-error" id="profile-error"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== APP PRINCIPALE (visible après connexion) ========== -->
+  <div id="app-root" hidden>
+    <header>
+      <h1>Choix Garde</h1>
+      <span class="period">juin – sept 2026</span>
+      <div class="me-badge" id="me-badge" title="Mes objectifs restants"></div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="planning">Planning</button>
+        <button class="tab" data-tab="voeux">Perso</button>
+        <button class="tab" data-tab="setup">Réglages</button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="planning" class="view active">
+        <div class="picker-info">
+          <div class="override-notice" id="override-notice">
+            Choix manuel forcé.
+            <button id="clear-override">Reprendre l'ordre auto</button>
+          </div>
+          <div class="picker-cols">
+            <div class="picker-col current-col">
+              <div class="current-picker">
+                <span class="label">Au tour de</span>
+                <select class="name name-select" id="current-name-select"></select>
+              </div>
+              <div class="tour-info" id="tour-info"></div>
+              <div class="objectives-remaining" id="obj-remaining"></div>
+            </div>
+            <div class="picker-col next-col" id="next-picker"></div>
+          </div>
+        </div>
+        <div class="calendar" id="planning-calendar"></div>
+        <div class="actions">
+          <button id="undo-btn">↶ Annuler dernier choix</button>
+          <button id="export-btn">⇣ Exporter CSV</button>
+          <button id="force-picker-btn">⇄ Forcer un autre choisisseur</button>
+        </div>
+      </section>
+
+      <section id="voeux" class="view">
+        <p class="hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💚 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
+        <div class="calendar" id="voeux-calendar"></div>
+      </section>
+
+      <section id="setup" class="view">
+        <h2>Premier à choisir (tirage au sort) <span class="admin-only-tag">admin</span></h2>
+        <select id="first-picker"></select>
+        <p class="hint">Le tour passe ensuite alphabétiquement, et rebondit en arrière à la fin de la liste.</p>
+
+        <h2>Données <span class="admin-only-tag">admin</span></h2>
+        <button id="import-btn">⇡ Importer planning depuis CSV</button>
+        <input type="file" id="import-file" accept=".csv,.txt" hidden>
+        <button id="export-btn-2">⇣ Exporter planning CSV</button>
+        <button id="reset-btn" class="danger">⚠ Tout réinitialiser le planning</button>
+
+        <h2>Médecins &amp; objectifs (modifiable) <span class="admin-only-tag">admin</span></h2>
+        <div id="doctors-table"></div>
+
+        <h2>Administrateurs <span class="admin-only-tag">admin</span></h2>
+        <div id="admins-table"></div>
+
+        <h2>Compte</h2>
+        <div id="account-info"></div>
+        <button id="logout-btn">Se déconnecter</button>
+      </section>
+    </main>
+
+    <div id="modal-backdrop" hidden>
+      <div class="modal" id="assign-modal">
+        <h3 id="modal-day"></h3>
+        <div id="modal-day-info" class="hint"></div>
+        <div class="slot-buttons" id="modal-slots"></div>
+        <div id="modal-split-wrapper" hidden>
+          <label id="modal-split">
+            <input type="checkbox" id="modal-split-cb">
+            Garde 24h scindée en 2 (deux médecins)
+          </label>
+        </div>
+        <label>Médecin :
+          <select id="modal-doctor"></select>
+        </label>
+        <div class="modal-actions">
+          <button id="modal-cancel">Annuler</button>
+          <button id="modal-clear" class="danger">Vider</button>
+          <button id="modal-save" class="primary">Assigner</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-backdrop-picker" hidden>
+      <div class="modal">
+        <h3>Forcer un autre choisisseur</h3>
+        <p class="hint">Sera utilisé pour le prochain choix uniquement (l'ordre reprendra ensuite).</p>
+        <label>Choisisseur :
+          <select id="force-picker-select"></select>
+        </label>
+        <div class="modal-actions">
+          <button id="force-cancel">Annuler</button>
+          <button id="force-save" class="primary">Forcer</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div id="modal-backdrop-picker" hidden>
-    <div class="modal">
-      <h3>Forcer un autre choisisseur</h3>
-      <p class="hint">Sera utilisé pour le prochain choix uniquement (l'ordre reprendra ensuite).</p>
-      <label>Choisisseur :
-        <select id="force-picker-select"></select>
-      </label>
-      <div class="modal-actions">
-        <button id="force-cancel">Annuler</button>
-        <button id="force-save" class="primary">Forcer</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="doctors.js?v=26"></script>
-  <script src="app.js?v=26"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js?v=27"></script>
+  <script src="auth.js?v=27"></script>
+  <script src="doctors.js?v=27"></script>
+  <script src="app.js?v=27"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
