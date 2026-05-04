@@ -14,6 +14,7 @@ function defaultState() {
     firstPicker: null,
     pickerCursor: 0,
     currentTurnPickCount: 0,
+    currentTurnSlots: [],     // ['date:site', ...] des picks faits dans le tour courant — local
     forcedNextPicker: null,
     doctors: deepClone(DOCTORS),
     holidays: HOLIDAYS.slice(),
@@ -358,6 +359,7 @@ function setCurrentPickerManually(name) {
   if (target < 0) return;
   state.pickerCursor = target;
   state.currentTurnPickCount = 0;
+  state.currentTurnSlots = [];
   state.forcedNextPicker = null;
   syncSession();
   render();
@@ -377,6 +379,7 @@ function advanceCursorIfNeeded() {
   if ((state.currentTurnPickCount || 0) >= q || objDone) {
     state.pickerCursor = cur.cursor + 1;
     state.currentTurnPickCount = 0;
+    state.currentTurnSlots = [];
   }
 }
 
@@ -422,9 +425,21 @@ function setAssignment(date, slotKey, doctorName, site) {
     site: site || (prev && prev.site) || null,
   });
 
-  // Compter le pick si fait par le picker courant (pour auto-avancer après N picks)
-  if (doctorName && curBefore && !curBefore.forced && doctorName === curBefore.name) {
-    state.currentTurnPickCount = (state.currentTurnPickCount || 0) + 1;
+  // Tracker les picks du tour en cours (pour pouvoir décrémenter au "vider")
+  if (curBefore && !curBefore.forced) {
+    state.currentTurnSlots = state.currentTurnSlots || [];
+    const slotKey2 = `${date}:${slotKey}`;
+    if (doctorName && doctorName === curBefore.name) {
+      // ASSIGN par le picker courant : on ajoute si pas déjà compté
+      if (!state.currentTurnSlots.includes(slotKey2)) state.currentTurnSlots.push(slotKey2);
+    } else if (!doctorName && prev && prev.doctor === curBefore.name) {
+      // CLEAR d'une garde du picker courant : décrémente uniquement si elle a été
+      // prise pendant ce tour (sinon c'est une garde d'un tour précédent → on la
+      // libère sans modifier le compteur du tour actuel)
+      const i = state.currentTurnSlots.indexOf(slotKey2);
+      if (i >= 0) state.currentTurnSlots.splice(i, 1);
+    }
+    state.currentTurnPickCount = state.currentTurnSlots.length;
   }
 
   // Le forcedNextPicker n'est valable que pour UN choix
@@ -554,8 +569,8 @@ function buildDayCell(dateStr, mode) {
   const refDoctor = (mode === 'planning') ? curName : state.myName;
   const hasMine = refDoctor && ['HMN','ACH'].some(s => a[s] && a[s].doctor === refDoctor);
 
-  // Indispo : tous les sites éligibles du picker sont pris (planning seulement)
   if (curName) {
+    // Planning : indispo si tous les sites éligibles du picker sont pris
     const allTaken = curEligible.every(site => !!a[site]);
     if (allTaken) {
       el.classList.add('day-unavailable');
@@ -563,9 +578,14 @@ function buildDayCell(dateStr, mode) {
     } else if (hasMine) {
       el.classList.add('day-mine');
     }
-  } else if (hasMine) {
-    // Onglet perso
-    el.classList.add('day-mine');
+  } else {
+    // Perso : indispo si HMN ET ACH sont pris (peu importe par qui)
+    if (a.HMN && a.ACH) {
+      el.classList.add('day-unavailable');
+      if (hasMine) el.classList.add('day-unavailable-mine');
+    } else if (hasMine) {
+      el.classList.add('day-mine');
+    }
   }
 
   if (mode === 'planning') {
