@@ -4,8 +4,8 @@
 // Auth UI : login / inscription / sélection du nom de médecin
 // ============================================================
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-window.supabaseClient = supabase; // accessible depuis app.js
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.supabaseClient = sbClient; // accessible depuis app.js
 
 let currentUser = null;
 let currentProfile = null; // { user_id, doctor_name, is_admin, is_super_admin }
@@ -17,14 +17,14 @@ function syncUserGlobals() {
 }
 
 async function getProfile(userId) {
-  const { data, error } = await supabase
+  const { data, error } = await sbClient
     .from('profiles').select('*').eq('user_id', userId).maybeSingle();
   if (error) console.warn('getProfile error', error);
   return data;
 }
 
 async function refreshSession() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await sbClient.auth.getUser();
   currentUser = user;
   currentProfile = user ? await getProfile(user.id) : null;
   return { user, profile: currentProfile };
@@ -43,8 +43,8 @@ async function showProfileSetup() {
   const sel = document.getElementById('profile-doctor-select');
   sel.innerHTML = '';
   // Charger la liste des médecins déjà attribués pour les exclure
-  const { data: doctors } = await supabase.from('doctors').select('name').order('name');
-  const { data: profiles } = await supabase.from('profiles').select('doctor_name');
+  const { data: doctors } = await sbClient.from('doctors').select('name').order('name');
+  const { data: profiles } = await sbClient.from('profiles').select('doctor_name');
   const taken = new Set((profiles || []).map(p => p.doctor_name));
   (doctors || []).forEach(d => {
     if (taken.has(d.name)) return;
@@ -64,7 +64,7 @@ async function loginOrSignup(mode) {
   if (mode === 'signup' && pwd.length < 6) { errEl.textContent = 'Mot de passe : 6 caractères minimum'; return; }
 
   const fn = mode === 'signup' ? 'signUp' : 'signInWithPassword';
-  const { data, error } = await supabase.auth[fn]({ email, password: pwd });
+  const { data, error } = await sbClient.auth[fn]({ email, password: pwd });
   if (error) { errEl.textContent = error.message; return; }
 
   // signUp : si email confirmation activée, data.user existe mais session=null
@@ -90,7 +90,7 @@ async function saveProfile() {
   const errEl = document.getElementById('profile-error');
   errEl.textContent = '';
   if (!doc) { errEl.textContent = 'Choisis un nom de médecin'; return; }
-  const { error } = await supabase
+  const { error } = await sbClient
     .from('profiles')
     .insert({ user_id: currentUser.id, doctor_name: doc });
   if (error) { errEl.textContent = error.message; return; }
@@ -101,7 +101,7 @@ async function saveProfile() {
 }
 
 async function logout() {
-  await supabase.auth.signOut();
+  await sbClient.auth.signOut();
   currentUser = null; currentProfile = null;
   syncUserGlobals();
   location.reload();
@@ -115,7 +115,7 @@ function onAuthenticated() {
 
 // Bootstrap
 (async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await sbClient.auth.getSession();
   if (session) {
     currentUser = session.user;
     currentProfile = await getProfile(currentUser.id);
@@ -131,7 +131,7 @@ function onAuthenticated() {
     showAuthScreen();
   }
   // Réagir aux changements de session
-  supabase.auth.onAuthStateChange((_evt, sess) => {
+  sbClient.auth.onAuthStateChange((_evt, sess) => {
     if (!sess) showAuthScreen();
   });
 })();
