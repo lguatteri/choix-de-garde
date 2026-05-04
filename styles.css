@@ -556,6 +556,7 @@ main {
   justify-content: center;
   padding: 20px;
 }
+#auth-screen[hidden] { display: none; }
 .auth-card {
   background: var(--surface);
   border-radius: 14px;
