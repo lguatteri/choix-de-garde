@@ -1,41 +1,60 @@
 * { box-sizing: border-box; }
 :root {
-  --bg: #cbd5e1;            /* fond plus foncé : slate-300 */
+  --bg: #eef1f6;            /* fond plus doux */
   --surface: #ffffff;
-  --ink: #1f2937;
-  --ink-soft: #6b7280;
-  --primary: #2563eb;
+  --ink: #0f172a;
+  --ink-soft: #64748b;
+  --primary: #1d4ed8;
   --primary-soft: #dbeafe;
   --accent: #7c3aed;
-  --ok: #16a34a;
+  --ok: #15803d;
   --warn: #f59e0b;
-  --danger: #dc2626;
-  --wished: #bbf7d0;
-  --blocked: #fecaca;
-  --friday:  #f3f4f6;  /* gris clair */
-  --weekend: #d1d5db;  /* gris moins clair (= férié) */
-  --holiday: #d1d5db;
-  --border: #cbd5e1;
-  --shadow: 0 4px 12px rgba(15,23,42,0.18), 0 1px 3px rgba(15,23,42,0.10);
+  --danger: #b91c1c;
+  --friday:  #f1f5f9;
+  --weekend: #cbd5e1;
+  --holiday: #cbd5e1;
+  --border: #e2e8f0;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+  --shadow:    0 1px 3px rgba(15,23,42,0.06), 0 8px 20px -8px rgba(15,23,42,0.10);
+  --shadow-lg: 0 4px 6px rgba(15,23,42,0.04), 0 24px 40px -12px rgba(15,23,42,0.18);
 }
+html, body { height: 100%; }
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
   background: var(--bg);
   color: var(--ink);
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 header {
-  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
   color: white;
-  padding: 12px 16px 0;
+  padding: 14px 20px 0;
   position: sticky;
   top: 0;
   z-index: 50;
   box-shadow: var(--shadow);
   position: relative;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+header h1 {
+  margin: 0;
+  font-size: 19px;
+  letter-spacing: -0.3px;
+  font-weight: 700;
+  display: inline-block;
+}
+.period {
+  display: inline-block;
+  margin-left: 12px;
+  font-size: 12.5px;
+  opacity: 0.75;
+  font-weight: 500;
+  letter-spacing: 0.2px;
 }
 .me-badge {
   position: absolute;
@@ -74,39 +93,31 @@ header {
     text-align: left;
   }
 }
-header h1 {
-  margin: 0;
-  font-size: 18px;
-  display: inline-block;
-}
-.period {
-  display: inline-block;
-  margin-left: 12px;
-  font-size: 13px;
-  opacity: 0.85;
-}
 .tabs {
   display: flex;
-  gap: 4px;
-  margin-top: 12px;
+  gap: 2px;
+  margin-top: 14px;
 }
 .tab {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.08);
   border: none;
-  color: white;
-  padding: 8px 14px;
-  border-radius: 6px 6px 0 0;
+  color: rgba(255,255,255,0.85);
+  padding: 9px 16px;
+  border-radius: 8px 8px 0 0;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
+  transition: background 0.15s, color 0.15s;
 }
+.tab:hover { background: rgba(255,255,255,0.14); color: white; }
 .tab.active {
   background: var(--bg);
   color: var(--ink);
+  font-weight: 600;
 }
 
 main {
-  padding: 16px;
+  padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -116,9 +127,9 @@ main {
 /* Picker info banner */
 .picker-info {
   background: var(--surface);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
   box-shadow: var(--shadow);
   border-left: 4px solid var(--primary);
 }
@@ -227,16 +238,17 @@ main {
 .calendar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .month {
   background: var(--surface);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 12px;
+  padding: 14px;
   box-shadow: var(--shadow);
-  border: 1px solid rgba(15,23,42,0.06);
 }
 .month h2 {
-  margin: 0 0 6px;
-  font-size: 13px;
-  color: var(--ink-soft);
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--ink);
   text-transform: capitalize;
+  font-weight: 600;
+  letter-spacing: -0.2px;
 }
 .weekdays {
   display: grid;
@@ -255,18 +267,19 @@ main {
 }
 .day {
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 3px;
-  min-height: 44px;
+  border-radius: 6px;
+  padding: 3px 4px;
+  min-height: 48px;
   background: var(--surface);
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  font-size: 9px;
-  line-height: 1.15;
+  font-size: 9.5px;
+  line-height: 1.2;
   position: relative;
-  transition: transform 0.05s;
+  transition: box-shadow 0.12s, transform 0.05s;
 }
+.day:hover { transform: translateY(-1px); }
 .day:hover { box-shadow: 0 0 0 2px var(--primary); }
 .day.empty { visibility: hidden; cursor: default; }
 .day .num { font-weight: 600; font-size: 11px; }
@@ -301,14 +314,15 @@ main {
   background-color: #fee2e2;  /* rouge léger */
 }
 .day .slot {
-  margin-top: 1px;
-  font-size: 8.5px;
-  padding: 0 2px;
-  border-radius: 2px;
-  background: #f3f4f6;
+  margin-top: 2px;
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #f1f5f9;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: 0.1px;
 }
 .day .slot.HMN { background: #ddd6fe; color: #5b21b6; font-weight: 600; }   /* lilas / violet */
 .day .slot.ACH { background: #bfdbfe; color: #1e3a8a; font-weight: 600; }   /* bleu */
@@ -472,18 +486,25 @@ main {
 .actions {
   display: flex;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 18px;
   flex-wrap: wrap;
 }
 .actions button {
-  padding: 8px 14px;
-  border-radius: 6px;
+  padding: 9px 14px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: white;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  transition: background 0.12s, border-color 0.12s, transform 0.05s;
 }
-.actions .danger { color: var(--danger); border-color: var(--danger); }
+.actions button:hover { background: #f8fafc; border-color: #94a3b8; }
+.actions button:active { transform: translateY(1px); }
+.actions .danger { color: var(--danger); border-color: #fecaca; }
+.actions .danger:hover { background: #fef2f2; border-color: var(--danger); }
 
 .hint { font-size: 12px; color: var(--ink-soft); margin: 0 0 12px; }
 
