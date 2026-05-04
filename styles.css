@@ -288,13 +288,13 @@ main {
   font-weight: 700;
   line-height: 1;
 }
-.day[data-voeu="wishedBoth"]::before { content: "💚"; }
-.day[data-voeu="wishedHMN"]::before  { content: "💚H"; color: #9d174d; }
-.day[data-voeu="wishedACH"]::before  { content: "💚A"; color: #1e40af; }
+.day[data-voeu="wishedBoth"]::before { content: "💙"; }
+.day[data-voeu="wishedHMN"]::before  { content: "💙H"; color: #1e3a8a; }
+.day[data-voeu="wishedACH"]::before  { content: "💙A"; color: #1e3a8a; }
 .day[data-voeu="blocked"]::before    { content: "🚫"; }
 .day[data-voeu^="wished"] {
-  box-shadow: inset 0 0 0 2px var(--ok);
-  background-color: #dcfce7;  /* vert très léger */
+  box-shadow: inset 0 0 0 2px var(--primary);
+  background-color: #dbeafe;  /* bleu très léger */
 }
 .day[data-voeu="blocked"] {
   box-shadow: inset 0 0 0 2px var(--danger);
@@ -365,7 +365,7 @@ main {
 .day[data-voeu="wishedBoth"] .slot.HMN,
 .day[data-voeu="wishedACH"]  .slot.ACH,
 .day[data-voeu="wishedBoth"] .slot.ACH {
-  outline: 2px solid var(--ok);
+  outline: 2px solid var(--primary);
   outline-offset: -2px;
 }
 
