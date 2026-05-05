@@ -19,6 +19,7 @@ function defaultState() {
     currentTurnPickCount: 0,
     currentTurnSlots: [],     // ['date:site', ...] des picks faits dans le tour courant — local
     forcedNextPicker: null,
+    allVoeux: {},             // doctorName -> { date -> voeu }, chargé depuis Supabase
     doctors: deepClone(DOCTORS),
     holidays: HOLIDAYS.slice(),
   };
@@ -65,11 +66,19 @@ async function loadAllFromSupabase() {
     state.tourDirection = sess.data.tour_direction ?? 1;
   }
 
-  state.voeux = {};
-  (voeux.data || []).forEach(row => { state.voeux[row.date] = row.voeu; });
-
   state.allProfiles = profile.data || [];
   if (window.currentProfile) state.myName = window.currentProfile.doctor_name;
+
+  // Construire allVoeux : { doctorName -> { date -> voeu } }
+  const profByUid = Object.fromEntries(state.allProfiles.map(p => [p.user_id, p.doctor_name]));
+  state.allVoeux = {};
+  (voeux.data || []).forEach(row => {
+    const dn = profByUid[row.user_id];
+    if (!dn) return;
+    if (!state.allVoeux[dn]) state.allVoeux[dn] = {};
+    state.allVoeux[dn][row.date] = row.voeu;
+  });
+  state.voeux = state.allVoeux[state.myName] || {};
 }
 
 // ============================================================
@@ -409,11 +418,16 @@ function getRemainingTurnQuota(name) {
 function isDateSuggestedFor(name, dateStr) {
   const d = findDoctor(name);
   if (!d) return false;
+  // Indispo perso de ce médecin → ne jamais suggérer
+  const v = (state.allVoeux[name] || {})[dateStr];
+  if (v === 'blocked') return false;
   const a = state.assignments[dateStr] || {};
   const elig = eligibleSites(d);
   const r = objectivesRemaining(d);
   const bucket = objectiveBucket(dateStr);
-  const sitesOK = elig.filter(s => !a[s] && r[s][bucket] > 0);
+  let sitesOK = elig.filter(s => !a[s] && r[s][bucket] > 0);
+  // Si le médecin a un vœu spécifique HMN ou ACH, ne pas filtrer plus
+  // (le vœu n'EXCLUT pas l'autre site, c'est juste une préférence visuelle)
   if (sitesOK.length === 0) return false;
   const { remaining } = getRemainingTurnQuota(name);
   const t = tourSlotType(dateStr);
@@ -702,11 +716,18 @@ function shortName(name) {
 // ============================================================
 // Vœux
 // ============================================================
-function toggleBlocked(dateStr) {
-  const next = state.voeux[dateStr] === 'blocked' ? null : 'blocked';
+function setMyVoeu(dateStr, next) {
   if (next) state.voeux[dateStr] = next; else delete state.voeux[dateStr];
+  if (!state.allVoeux[state.myName]) state.allVoeux[state.myName] = {};
+  if (next) state.allVoeux[state.myName][dateStr] = next;
+  else delete state.allVoeux[state.myName][dateStr];
   syncVoeu(dateStr, next);
   render();
+}
+
+function toggleBlocked(dateStr) {
+  const next = state.voeux[dateStr] === 'blocked' ? null : 'blocked';
+  setMyVoeu(dateStr, next);
 }
 function toggleWishSite(dateStr, site) {
   const cur = state.voeux[dateStr];
@@ -719,9 +740,7 @@ function toggleWishSite(dateStr, site) {
   if (hasHMN && hasACH) next = 'wishedBoth';
   else if (hasHMN) next = 'wishedHMN';
   else if (hasACH) next = 'wishedACH';
-  if (next) state.voeux[dateStr] = next; else delete state.voeux[dateStr];
-  syncVoeu(dateStr, next);
-  render();
+  setMyVoeu(dateStr, next);
 }
 
 // ============================================================
@@ -1296,6 +1315,17 @@ function setupRealtime() {
         }
         render();
       }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'voeux' }, payload => {
+      const row = payload.new || payload.old;
+      const profByUid = Object.fromEntries((state.allProfiles||[]).map(p => [p.user_id, p.doctor_name]));
+      const dn = profByUid[row.user_id];
+      if (!dn) return;
+      if (!state.allVoeux[dn]) state.allVoeux[dn] = {};
+      if (payload.eventType === 'DELETE') delete state.allVoeux[dn][row.date];
+      else state.allVoeux[dn][row.date] = row.voeu;
+      if (dn === state.myName) state.voeux = state.allVoeux[dn];
+      render();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
       // Quelqu'un a été promu/démuté ou s'est inscrit → re-fetch profils + ré-applique permissions
