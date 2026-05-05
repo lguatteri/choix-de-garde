@@ -431,6 +431,14 @@ main {
 }
 .day .slot:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
 
+/* Site où l'objectif du picker courant (sur ce type de jour) est rempli */
+.day .slot.slot-greyed {
+  color: #9ca3af !important;
+}
+.day .slot.empty-slot.slot-greyed {
+  color: #9ca3af !important;
+}
+
 /* Date suggérée pour le picker courant : cadre bleu */
 .day.day-suggested {
   box-shadow: inset 0 0 0 2px var(--primary);

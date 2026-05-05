@@ -639,6 +639,9 @@ function buildDayCell(dateStr, mode) {
   }
 
   const longShift = is24h(dateStr);
+  const curPicker = (mode === 'planning' && curName) ? findDoctor(curName) : null;
+  const curRem = curPicker ? objectivesRemaining(curPicker) : null;
+  const bucket = objectiveBucket(dateStr);
   ['HMN','ACH'].forEach(site => {
     // Si le picker est mono-site, masquer l'autre site (mode planning seulement)
     if (mode === 'planning' && curName && !curEligible.includes(site)) return;
@@ -652,6 +655,10 @@ function buildDayCell(dateStr, mode) {
     } else {
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
+    }
+    // Site où l'objectif (sur ce bucket) du picker courant est déjà rempli → grise
+    if (curRem && curRem[site][bucket] <= 0) {
+      s.classList.add('slot-greyed');
     }
     s.dataset.slotKey = site;
     el.appendChild(s); slotEls.push(s);
