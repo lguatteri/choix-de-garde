@@ -1011,6 +1011,26 @@ $('advance-tour-btn').onclick = () => {
   advanceTour();
 };
 
+// Tirage au sort du premier choisisseur (admin uniquement)
+$('draw-btn').onclick = () => {
+  if (!isAdmin()) return alert('Admin uniquement');
+  if (!confirm('Tirer au sort le premier choisisseur ? (le tour reprend à 1)')) return;
+  const N = state.doctors.length;
+  const idx = Math.floor(Math.random() * N);
+  const drawn = state.doctors[idx];
+  state.firstPicker = drawn.name;
+  state.tourStartIdx = idx;
+  state.tourDirection = 1;
+  state.currentTour = 1;
+  state.pickerCursor = 0;
+  state.currentTurnPickCount = 0;
+  state.currentTurnSlots = [];
+  state.forcedNextPicker = null;
+  syncSession();
+  render();
+  alert(`🎲 Premier à choisir : ${drawn.name}`);
+};
+
 // ============================================================
 // Undo
 // ============================================================

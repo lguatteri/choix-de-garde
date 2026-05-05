@@ -580,6 +580,18 @@ main {
 /* Setup */
 #setup h2 { font-size: 14px; margin: 16px 0 6px; }
 #setup select, #setup button { font-size: 13px; padding: 6px 10px; }
+.first-picker-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.first-picker-row select { flex: 1; min-width: 180px; }
+#draw-btn {
+  background: var(--primary);
+  color: white;
+  border: 1px solid var(--primary);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#draw-btn:hover { background: #1e40af; }
 #doctors-table {
   background: var(--surface);
   border-radius: 8px;

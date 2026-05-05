@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=68">
+<link rel="stylesheet" href="styles.css?v=69">
 </head>
 <body>
 
@@ -88,8 +88,11 @@
       </section>
 
       <section id="setup" class="view">
-        <h2>Premier à choisir (tirage au sort) <span class="admin-only-tag">admin</span></h2>
-        <select id="first-picker"></select>
+        <h2>Premier à choisir <span class="admin-only-tag">admin</span></h2>
+        <div class="first-picker-row">
+          <select id="first-picker"></select>
+          <button id="draw-btn" class="primary-action">🎲 Tirer au sort</button>
+        </div>
         <p class="hint">Le tour passe ensuite alphabétiquement, et rebondit en arrière à la fin de la liste.</p>
 
         <h2>Données <span class="admin-only-tag">admin</span></h2>
