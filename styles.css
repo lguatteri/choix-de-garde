@@ -42,20 +42,21 @@ header {
   position: relative;
 }
 .header-title {
-  text-align: center;
+  text-align: left;
 }
 header h1 {
   margin: 0;
-  font-size: 22px;
-  letter-spacing: -0.5px;
-  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 1px;
+  font-weight: 800;
   color: var(--ink);
   line-height: 1.1;
+  text-transform: uppercase;
 }
 .period {
   display: block;
-  margin-top: 2px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 12.5px;
   color: var(--ink-soft);
   font-weight: 500;
   letter-spacing: 0.3px;
