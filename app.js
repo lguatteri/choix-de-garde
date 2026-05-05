@@ -504,23 +504,28 @@ function renderCalendar(containerId, mode /* 'planning' | 'voeux' */) {
     const monthEl = document.createElement('div');
     monthEl.className = 'month';
     const firstDate = parseYMD(m.days[0]);
-    monthEl.innerHTML = `<h2>${MONTHS_FR[firstDate.getMonth()]} ${firstDate.getFullYear()}</h2>`;
+    const h2 = document.createElement('h2');
+    h2.textContent = MONTHS_FR[firstDate.getMonth()];
+    monthEl.appendChild(h2);
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'month-content';
+
     const wkEl = document.createElement('div');
     wkEl.className = 'weekdays';
     WEEKDAYS_HEADER.forEach(w => { const s = document.createElement('div'); s.textContent = w; wkEl.appendChild(s); });
-    monthEl.appendChild(wkEl);
+    contentEl.appendChild(wkEl);
 
     const daysEl = document.createElement('div');
     daysEl.className = 'days';
-    // padding initial (lundi=0 dans notre header) — JS getDay: 1=lundi, 0=dimanche
     const firstDow = (firstDate.getDay() + 6) % 7; // 0=lundi
     for (let i = 0; i < firstDow; i++) {
       const e = document.createElement('div'); e.className = 'day empty'; daysEl.appendChild(e);
     }
-    m.days.forEach(d => {
-      daysEl.appendChild(buildDayCell(d, mode));
-    });
-    monthEl.appendChild(daysEl);
+    m.days.forEach(d => daysEl.appendChild(buildDayCell(d, mode)));
+    contentEl.appendChild(daysEl);
+
+    monthEl.appendChild(contentEl);
     c.appendChild(monthEl);
   });
 }

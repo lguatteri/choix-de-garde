@@ -246,22 +246,37 @@ main {
   opacity: 0.9;
 }
 
-/* Calendar : 2 mois par ligne (4 mois = grille 2×2) */
-.calendar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+/* Calendar : grille 2×2 EN COLONNES → juin/juillet à gauche, août/sept à droite */
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: 1fr 1fr;
+  grid-auto-flow: column;
+  gap: 14px;
+}
 .month {
   background: var(--surface);
   border-radius: 12px;
-  padding: 14px;
+  padding: 10px;
   box-shadow: var(--shadow);
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
 }
 .month h2 {
-  margin: 0 0 10px;
+  margin: 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-align: center;
   font-size: 14px;
-  color: var(--ink);
-  text-transform: capitalize;
-  font-weight: 600;
-  letter-spacing: -0.2px;
+  color: var(--primary);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 4px 2px;
+  flex-shrink: 0;
 }
+.month-content { flex: 1; min-width: 0; }
 .weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -583,12 +598,15 @@ main {
 }
 
 @media (max-width: 700px) {
-  /* Sur petit écran on repasse à 1 mois par ligne */
-  .calendar { grid-template-columns: 1fr; }
+  /* Sur petit écran : 1 mois par ligne, total 4 lignes */
+  .calendar {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-auto-flow: row;
+  }
   .day { min-height: 56px; font-size: 10px; }
   .day .slot { font-size: 9px; }
-  header h1 { font-size: 16px; }
-  .period { display: block; margin: 2px 0 0; }
+  header h1 { font-size: 18px; }
 }
 
 /* ============================================================
