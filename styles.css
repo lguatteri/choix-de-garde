@@ -145,7 +145,7 @@ main {
     "next    calendar"
     ".       actions";
   grid-template-rows: auto auto 1fr;
-  gap: 12px 18px;
+  gap: 8px 18px;
   align-items: start;
 }
 #planning .picker-current-box { grid-area: current; }
@@ -231,23 +231,30 @@ main {
   font-size: 11px;
   position: relative;
 }
+/* Trait vertical (s'étend vers le haut, dépasse dans le gap) */
 .picker-next-box::before {
-  content: "↓";
+  content: "";
   position: absolute;
-  top: -18px;
+  top: -22px;
   left: 50%;
   transform: translateX(-50%);
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg);
-  border-radius: 50%;
-  font-size: 16px;
-  font-weight: 800;
-  color: #b91c1c;
-  line-height: 1;
+  width: 2px;
+  height: 18px;
+  background: #b91c1c;
+  border-radius: 1px;
+}
+/* Pointe de flèche en bas du trait (juste au-dessus du bord supérieur du box) */
+.picker-next-box::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #b91c1c;
 }
 .picker-next-box .next-line1 {
   font-size: 12px;
