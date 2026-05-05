@@ -20,6 +20,7 @@ function defaultState() {
     currentTurnSlots: [],     // ['date:site', ...] des picks faits dans le tour courant — local
     forcedNextPicker: null,
     allVoeux: {},             // doctorName -> { date -> voeu }, chargé depuis Supabase
+    neutralView: false,       // local : masque la coloration liée au picker courant
     doctors: deepClone(DOCTORS),
     holidays: HOLIDAYS.slice(),
   };
@@ -640,9 +641,9 @@ function buildDayCell(dateStr, mode) {
   const a = state.assignments[dateStr] || {};
   const slotEls = []; // pour brancher le clic en mode planning
 
-  // Picker courant + sites éligibles (mode planning uniquement)
+  // Picker courant + sites éligibles (mode planning, sauf mode libre)
   let curName = null, curEligible = ['HMN','ACH'];
-  if (mode === 'planning') {
+  if (mode === 'planning' && !state.neutralView) {
     const cur = currentPickerInfo();
     if (cur) {
       curName = cur.name;
@@ -1067,6 +1068,15 @@ $('clear-override').onclick = () => {
 $('advance-tour-btn').onclick = () => {
   if (!confirm(`Passer au tour ${state.currentTour + 1} ? (la dernière personne du tour ${state.currentTour} enchaîne en sens inverse)`)) return;
   advanceTour();
+};
+
+// Bascule du mode libre (pas de coloration liée au picker courant)
+$('neutral-toggle').onclick = () => {
+  state.neutralView = !state.neutralView;
+  document.body.classList.toggle('neutral', state.neutralView);
+  $('neutral-toggle').textContent = state.neutralView ? '🎯 Reprendre le mode tour' : '👁 Mode libre';
+  $('neutral-toggle').classList.toggle('primary-action', state.neutralView);
+  render();
 };
 
 // Sauter le picker courant (objectifs non choisis = restent dus, à faire au prochain tour)
