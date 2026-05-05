@@ -220,6 +220,9 @@ main {
   color: var(--ink-soft);
   margin: 4px 0 0;
 }
+.picker-current-box {
+  border: 2px solid var(--primary);
+}
 .picker-next-box {
   border-color: rgba(185,28,28,0.4);
   background: #fff7f7;
