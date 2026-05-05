@@ -145,7 +145,7 @@ main {
     "next    calendar"
     ".       actions";
   grid-template-rows: auto auto 1fr;
-  gap: 6px 18px;
+  gap: 2px 18px;
   align-items: start;
 }
 #planning .picker-current-box { grid-area: current; }
