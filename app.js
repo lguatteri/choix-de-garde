@@ -200,10 +200,10 @@ function category(d) {
 }
 
 const TOUR_RULES = {
-  ge4: { 1: { libre: 1, vendredi: 1, we: 2 }, 2: { semaine: 1, we: 1 } },
-  eq3: { 1: { libre: 1, vendredi: 1, we: 1 }, 2: { semaine: 1, we: 1 } },
-  lt3: { 1: { libre: 1, vendredi: 1 },        2: { semaine: 1, we: 1 } },
-  no:  { 1: { libre: 1, vendredi: 1 },        2: { semaine: 1 } },
+  ge4: { 1: { semaine: 1, vendredi: 1, we: 2 }, 2: { semaine: 1, we: 1 } },
+  eq3: { 1: { semaine: 1, vendredi: 1, we: 1 }, 2: { semaine: 1, we: 1 } },
+  lt3: { 1: { semaine: 1, vendredi: 1 },        2: { semaine: 1, we: 1 } },
+  no:  { 1: { semaine: 1, vendredi: 1 },        2: { semaine: 1 } },
 };
 function tourQuota(d, tour) {
   const rules = TOUR_RULES[category(d)];
