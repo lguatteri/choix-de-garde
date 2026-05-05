@@ -331,10 +331,10 @@ main {
   letter-spacing: 0.1px;
 }
 .day .slot.HMN { background: #fef08a; color: #713f12; font-weight: 600; }   /* jaune */
-.day .slot.ACH { background: #fbcfe8; color: #831843; font-weight: 600; }   /* rose */
+.day .slot.ACH { background: #fed7aa; color: #7c2d12; font-weight: 600; }   /* orange */
 .day .slot.empty-slot { background: transparent; border: 1px dashed var(--border); color: var(--ink-soft); }
 .day .slot.empty-slot.HMN { border-color: #fde047; color: #854d0e; }
-.day .slot.empty-slot.ACH { border-color: #fbcfe8; color: #9d174d; }
+.day .slot.empty-slot.ACH { border-color: #fdba74; color: #9a3412; }
 .day .slot.mine {
   font-weight: 700;
   box-shadow: 0 0 0 2px var(--ok);
