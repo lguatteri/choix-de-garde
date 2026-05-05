@@ -715,8 +715,8 @@ function renderPickerInfo() {
   const totSem = r.ACH.sem + r.HMN.sem;
   const totWE  = r.ACH.we + r.HMN.we;
   objEl.innerHTML =
-    `Objectifs restants — <strong style="font-size:14px">${totSem} sem / ${totWE} WE+f</strong>` +
-    ` <span style="color:var(--ink-soft)">(ACH ${r.ACH.sem}/${r.ACH.we} · HMN ${r.HMN.sem}/${r.HMN.we})</span>`;
+    `Objectifs : <strong>${totSem} sem / ${totWE} WE+f</strong><br>` +
+    `<span style="opacity:0.8">ACH ${r.ACH.sem}/${r.ACH.we} · HMN ${r.HMN.sem}/${r.HMN.we}</span>`;
 
   if (!next) {
     nextEl.innerHTML = '<em>— fin de la séquence —</em>';
