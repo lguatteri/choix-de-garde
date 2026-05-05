@@ -653,8 +653,11 @@ function buildDayCell(dateStr, mode) {
     }
   }
 
-  // Vœux/indispos visibles : sur l'onglet Perso, ET sur le Planning quand c'est MON tour
-  const showVoeux = (mode !== 'planning') || (curName === state.myName);
+  // Vœux/indispos visibles : sur l'onglet Perso, ET sur le Planning quand c'est MON tour.
+  // Mais sur le Planning, on masque le marqueur dès qu'au moins un slot du jour
+  // est pris (la date est "décidée" — pas la peine de polluer avec les vœux).
+  const anyTaken = !!(a.HMN || a.ACH);
+  const showVoeux = (mode !== 'planning') || (curName === state.myName && !anyTaken);
   if (showVoeux && state.voeux[dateStr]) el.dataset.voeu = state.voeux[dateStr];
 
   const longShift = is24h(dateStr);
