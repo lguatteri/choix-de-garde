@@ -447,15 +447,22 @@ function isDateSuggestedFor(name, dateStr) {
 }
 
 function advanceCursorIfNeeded() {
-  const cur = currentPickerInfo();
-  if (!cur || cur.forced) return;
-  const d = findDoctor(cur.name);
-  const q = quotaSum(d, cur.tour);
-  const objDone = objectivesRemaining(d).total <= 0;
-  if ((state.currentTurnPickCount || 0) >= q || objDone) {
-    state.pickerCursor = cur.cursor + 1; // s'arrêtera à N → tour terminé, attendra l'admin
-    state.currentTurnPickCount = 0;
-    state.currentTurnSlots = [];
+  if (state.forcedNextPicker) return;
+  const N = state.doctors.length;
+  let safety = N + 5;
+  while (state.pickerCursor < N && safety-- > 0) {
+    const d = pickerAt(state.pickerCursor);
+    if (!d) { state.pickerCursor++; continue; }
+    const objDone = objectivesRemaining(d).total <= 0;
+    const q = quotaSum(d, state.currentTour);
+    // Avance si le tour est rempli OU si tous les objectifs totaux sont atteints
+    if ((state.currentTurnPickCount || 0) >= q || objDone) {
+      state.pickerCursor++;
+      state.currentTurnPickCount = 0;
+      state.currentTurnSlots = [];
+      continue;
+    }
+    break; // ce picker doit encore choisir
   }
 }
 
