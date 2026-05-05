@@ -965,17 +965,19 @@ $('modal-save').onclick = () => {
   if (!doc) { setAssignment(modalState.dateStr, modalState.slotKey, null, null); }
   else {
     // Règle : pas de garde la veille / le jour même (autre site) / le lendemain
+    // + le médecin n'a pas marqué le jour comme indispo
     const prev = dateAdd(modalState.dateStr, -1);
     const next = dateAdd(modalState.dateStr, 1);
     const conflicts = [];
-    if (pickerOnDay(doc, prev)) conflicts.push('la veille (' + formatLong(prev) + ')');
-    if (pickerOnDay(doc, next)) conflicts.push('le lendemain (' + formatLong(next) + ')');
-    // Même jour autre site
+    if (pickerOnDay(doc, prev)) conflicts.push('déjà de garde la veille (' + formatLong(prev) + ')');
+    if (pickerOnDay(doc, next)) conflicts.push('déjà de garde le lendemain (' + formatLong(next) + ')');
     const a = state.assignments[modalState.dateStr] || {};
     const otherSite = modalState.slotKey === 'HMN' ? 'ACH' : 'HMN';
-    if (a[otherSite] && a[otherSite].doctor === doc) conflicts.push('le même jour sur ' + otherSite);
+    if (a[otherSite] && a[otherSite].doctor === doc) conflicts.push('déjà de garde le même jour sur ' + otherSite);
+    const docVoeu = (state.allVoeux[doc] || {})[modalState.dateStr];
+    if (docVoeu === 'blocked') conflicts.push('a marqué cette date comme INDISPO 🚫');
     if (conflicts.length) {
-      const msg = `${doc} est déjà de garde ${conflicts.join(' et ')}.\nForcer quand même ?`;
+      const msg = `${doc} ${conflicts.join(' ; ')}.\n\nForcer quand même ?`;
       if (!confirm(msg)) return;
     }
     setAssignment(modalState.dateStr, modalState.slotKey, doc, null);
