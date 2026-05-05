@@ -11,8 +11,8 @@
   --warn: #f59e0b;
   --danger: #b91c1c;
   --friday:  #f1f5f9;
-  --weekend: #cbd5e1;
-  --holiday: #cbd5e1;
+  --weekend: #dde3eb;  /* gris adouci, entre slate-200 et 300 */
+  --holiday: #dde3eb;
   --border: #e2e8f0;
   --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
   --shadow:    0 1px 3px rgba(15,23,42,0.06), 0 8px 20px -8px rgba(15,23,42,0.10);
