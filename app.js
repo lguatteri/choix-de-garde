@@ -653,12 +653,24 @@ function buildDayCell(dateStr, mode) {
     }
   }
 
-  // Vœux/indispos visibles : sur l'onglet Perso, ET sur le Planning quand c'est MON tour.
-  // Mais sur le Planning, on masque le marqueur dès qu'au moins un slot du jour
-  // est pris (la date est "décidée" — pas la peine de polluer avec les vœux).
-  const anyTaken = !!(a.HMN || a.ACH);
-  const showVoeux = (mode !== 'planning') || (curName === state.myName && !anyTaken);
-  if (showVoeux && state.voeux[dateStr]) el.dataset.voeu = state.voeux[dateStr];
+  // Vœux/indispos visibles : sur l'onglet Perso (toujours), ET sur le Planning
+  // quand c'est MON tour. Sur le Planning on adapte le marqueur selon les slots
+  // déjà pris : un vœu sur un site déjà pris disparaît, un vœu "les 2" se réduit
+  // au site restant, une indispo disparaît si la journée est full.
+  const showVoeux = (mode !== 'planning') || (curName === state.myName);
+  let voeu = state.voeux[dateStr];
+  if (showVoeux && voeu && mode === 'planning') {
+    const HMNt = !!a.HMN, ACHt = !!a.ACH;
+    if (voeu === 'wishedHMN' && HMNt) voeu = null;
+    else if (voeu === 'wishedACH' && ACHt) voeu = null;
+    else if (voeu === 'wishedBoth') {
+      if (HMNt && ACHt) voeu = null;
+      else if (HMNt) voeu = 'wishedACH';
+      else if (ACHt) voeu = 'wishedHMN';
+    }
+    else if (voeu === 'blocked' && HMNt && ACHt) voeu = null;
+  }
+  if (showVoeux && voeu) el.dataset.voeu = voeu;
 
   const longShift = is24h(dateStr);
   const curPicker = (mode === 'planning' && curName) ? findDoctor(curName) : null;
