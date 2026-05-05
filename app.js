@@ -834,8 +834,7 @@ function renderMeBadge() {
   const totWE = r.ACH.we + r.HMN.we;
   el.innerHTML =
     `<div class="me-name">${state.myName}</div>` +
-    `<div class="me-totals">Jours de semaine : ${totSem}</div>` +
-    `<div class="me-totals">Jours de WE (+ fériés) : ${totWE}</div>` +
+    `<div class="me-totals">Jours de semaine : ${totSem} / Jours de WE (+ fériés) : ${totWE}</div>` +
     `<div class="me-detail">ACH : ${r.ACH.sem}/${r.ACH.we} - HMN : ${r.HMN.sem}/${r.HMN.we}</div>`;
 }
 

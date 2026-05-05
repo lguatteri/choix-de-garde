@@ -68,12 +68,12 @@ header h1 {
   background: #dcfce7;
   color: #14532d;
   border: 1px solid #86efac;
-  padding: 6px 12px;
+  padding: 6px 14px;
   border-radius: 10px;
   font-size: 12px;
   line-height: 1.35;
-  text-align: right;
-  max-width: 320px;
+  text-align: left;
+  max-width: 480px;
   box-shadow: var(--shadow-sm);
   flex-shrink: 0;
 }
