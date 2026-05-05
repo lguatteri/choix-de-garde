@@ -207,8 +207,13 @@ const TOUR_RULES = {
 };
 function tourQuota(d, tour) {
   const rules = TOUR_RULES[category(d)];
-  if (rules[tour]) return Object.assign({}, rules[tour]);
-  return { libre: 1 };
+  const q = rules[tour] ? Object.assign({}, rules[tour]) : { libre: 1 };
+  // Filtrage dynamique : retirer les types d'objectifs que le médecin n'a pas
+  const totalSem = (d.ACH.sem|0) + (d.HMN.sem|0);
+  const totalWE  = (d.ACH.we|0)  + (d.HMN.we|0);
+  if (totalWE === 0) delete q.we;
+  if (totalSem === 0) { delete q.semaine; delete q.vendredi; }
+  return q;
 }
 
 // ============================================================
