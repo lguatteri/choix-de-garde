@@ -1036,6 +1036,24 @@ $('advance-tour-btn').onclick = () => {
   advanceTour();
 };
 
+// Sauter le picker courant (objectifs non choisis = restent dus, à faire au prochain tour)
+$('skip-picker-btn').onclick = () => {
+  if (!isAdmin()) return alert('Admin uniquement');
+  const cur = currentPickerInfo();
+  if (!cur) return alert('Pas de picker courant.');
+  const msg = `Passer le tour de ${cur.name} ?\n\n` +
+    `Les objectifs non choisis ce tour-ci restent dus dans son total ; ` +
+    `il/elle continuera les tours suivants normalement.`;
+  if (!confirm(msg)) return;
+  snapshotForUndo();
+  state.pickerCursor = cur.cursor + 1;
+  state.currentTurnPickCount = 0;
+  state.currentTurnSlots = [];
+  state.forcedNextPicker = null;
+  syncSession();
+  render();
+};
+
 // Tirage au sort du premier choisisseur (admin uniquement)
 $('draw-btn').onclick = () => {
   if (!isAdmin()) return alert('Admin uniquement');
