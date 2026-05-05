@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=54">
+<link rel="stylesheet" href="styles.css?v=55">
 </head>
 <body>
 
@@ -62,19 +62,17 @@
 
     <main>
       <section id="planning" class="view active">
-        <div class="picker-stack">
-          <div class="picker-box picker-current-box">
-            <div class="override-notice" id="override-notice">
-              Choix manuel forcé.
-              <button id="clear-override">Reprendre l'ordre auto</button>
-            </div>
-            <div class="box-label">Au tour de</div>
-            <select class="name-select" id="current-name-select"></select>
-            <div class="tour-info" id="tour-info"></div>
-            <div class="objectives-remaining" id="obj-remaining"></div>
+        <div class="picker-box picker-current-box">
+          <div class="override-notice" id="override-notice">
+            Choix manuel forcé.
+            <button id="clear-override">Reprendre l'ordre auto</button>
           </div>
-          <div class="picker-box picker-next-box" id="next-picker"></div>
+          <div class="box-label">Au tour de</div>
+          <select class="name-select" id="current-name-select"></select>
+          <div class="tour-info" id="tour-info"></div>
+          <div class="objectives-remaining" id="obj-remaining"></div>
         </div>
+        <div class="picker-box picker-next-box" id="next-picker"></div>
         <div class="calendar" id="planning-calendar"></div>
         <div class="actions">
           <button id="advance-tour-btn" class="primary-action">▶ Passer au tour suivant</button>

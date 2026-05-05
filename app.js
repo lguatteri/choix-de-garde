@@ -730,9 +730,9 @@ function renderPickerInfo() {
     const nTotSem = nr.ACH.sem + nr.HMN.sem;
     const nTotWE = nr.ACH.we + nr.HMN.we;
     nextEl.innerHTML =
-      `<div class="next-line1"><span class="next-label">Suivant</span> : <span class="next-name">${next.name}</span></div>` +
+      `<div class="next-line1"><span class="next-label">Suivant :</span> <span class="next-name">${next.name}</span></div>` +
       `<div class="next-line2"><span class="next-tour">Tour ${next.tour}</span> — <span class="next-quota">${quotaHtml}</span></div>` +
-      `<div class="next-line3">Objectifs restants : ${nTotSem} sem / ${nTotWE} WE+f (ACH ${nr.ACH.sem}/${nr.ACH.we} · HMN ${nr.HMN.sem}/${nr.HMN.we})</div>`;
+      `<div class="next-line3">Objectifs : <strong>${nTotSem} sem / ${nTotWE} WE+f</strong> &nbsp;(ACH ${nr.ACH.sem}/${nr.ACH.we} · HMN ${nr.HMN.sem}/${nr.HMN.we})</div>`;
   }
 }
 
