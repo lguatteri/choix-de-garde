@@ -104,7 +104,7 @@ async function syncVoeu(date, voeu) {
   return sb().from('voeux').delete().eq('user_id', window.currentUser.id).eq('date', date);
 }
 async function syncSession() {
-  return sb().from('session_state').update({
+  const { error } = await sb().from('session_state').update({
     first_picker: state.firstPicker,
     picker_cursor: state.pickerCursor,
     current_turn_pick_count: state.currentTurnPickCount || 0,
@@ -114,6 +114,10 @@ async function syncSession() {
     tour_direction: state.tourDirection,
     updated_at: new Date().toISOString(),
   }).eq('id', 1);
+  if (error) {
+    console.error('syncSession error:', error);
+    alert('Erreur sync session : ' + error.message);
+  }
 }
 async function syncDoctor(d) {
   return sb().from('doctors').update({
@@ -1346,7 +1350,17 @@ async function initApp() {
   _appInitialised = true;
   try {
     await loadAllFromSupabase();
-  } catch (e) { console.error('loadAllFromSupabase failed', e); }
+    console.log('Loaded session state:', {
+      firstPicker: state.firstPicker,
+      pickerCursor: state.pickerCursor,
+      currentTour: state.currentTour,
+      tourStartIdx: state.tourStartIdx,
+      tourDirection: state.tourDirection,
+    });
+  } catch (e) {
+    console.error('loadAllFromSupabase failed', e);
+    alert('Erreur de chargement Supabase : ' + (e.message || e));
+  }
   if (!state.firstPicker) {
     state.firstPicker = state.doctors[0].name;
     state.tourStartIdx = 0;
