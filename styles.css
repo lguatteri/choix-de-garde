@@ -454,7 +454,8 @@ main {
 }
 
 /* Modal */
-#modal-backdrop {
+#modal-backdrop,
+#modal-backdrop-picker {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.4);
@@ -464,7 +465,8 @@ main {
   z-index: 100;
   padding: 16px;
 }
-#modal-backdrop[hidden] { display: none; }
+#modal-backdrop[hidden],
+#modal-backdrop-picker[hidden] { display: none; }
 .modal {
   background: white;
   border-radius: 10px;
