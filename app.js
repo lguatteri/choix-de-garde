@@ -838,6 +838,30 @@ function renderMeBadge() {
     `<div class="me-detail">ACH : ${r.ACH.sem}/${r.ACH.we} - HMN : ${r.HMN.sem}/${r.HMN.we}</div>`;
 }
 
+function renderMyNextTurn() {
+  const el = $('my-next-turn');
+  if (!el) return;
+  const me = findDoctor(state.myName);
+  if (!me) { el.innerHTML = ''; return; }
+  const N = state.doctors.length;
+  const myIdx = state.doctors.findIndex(d => d.name === state.myName);
+  if (myIdx < 0) { el.innerHTML = ''; return; }
+  // Position dans le tour courant : 0 = premier à choisir, N-1 = dernier
+  const myPosInTour = ((myIdx - state.tourStartIdx) * state.tourDirection % N + N) % N;
+  // Si déjà passé dans ce tour → next turn = tour suivant
+  const myNextTour = myPosInTour < state.pickerCursor ? state.currentTour + 1 : state.currentTour;
+  const isUpcoming = myPosInTour >= state.pickerCursor;
+  const quota = tourQuota(me, myNextTour);
+  const labels = { libre: 'date libre', vendredi: 'vendredi', we: 'WE/férié', semaine: 'semaine' };
+  let qHtml = '';
+  Object.keys(quota).forEach(k => { qHtml += `<span class="quota-item">${quota[k]} ${labels[k]||k}</span>`; });
+  if (Object.keys(quota).length === 0) qHtml = '<span class="my-turn-empty">aucun objectif restant</span>';
+  const intro = isUpcoming
+    ? `À ton tour (tour ${myNextTour}) tu choisiras :`
+    : `À ton prochain tour (tour ${myNextTour}) tu choisiras :`;
+  el.innerHTML = `<div class="my-turn-label">${intro}</div><div class="my-turn-quota">${qHtml}</div>`;
+}
+
 function render() {
   renderMeBadge();
   const activeTab = document.querySelector('.tab.active').dataset.tab;
@@ -845,6 +869,7 @@ function render() {
     renderCalendar('planning-calendar', 'planning');
     renderPickerInfo();
   } else if (activeTab === 'voeux') {
+    renderMyNextTurn();
     renderCalendar('voeux-calendar', 'voeux');
   } else if (activeTab === 'setup') {
     renderSetup();

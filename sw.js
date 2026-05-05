@@ -1,12 +1,12 @@
-const CACHE = 'garde-multi-v43';
+const CACHE = 'garde-multi-v44';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=70',
-  './doctors.js?v=70',
-  './app.js?v=70',
-  './auth.js?v=70',
-  './supabase-config.js?v=70',
+  './styles.css?v=71',
+  './doctors.js?v=71',
+  './app.js?v=71',
+  './auth.js?v=71',
+  './supabase-config.js?v=71',
   './manifest.json',
 ];
 
