@@ -922,17 +922,19 @@ function refreshDoctorDropdown() {
   blank.value = ''; blank.textContent = '— vider ce créneau —';
   dsel.appendChild(blank);
   state.doctors.forEach(d => {
-    if (!slotEligible(d, modalState.slotKey)) return; // exclure les médecins sans objectifs sur ce site
     const opt = document.createElement('option');
     opt.value = d.name;
     const r = objectivesRemaining(d);
-    opt.textContent = d.name + (r.total <= 0 ? ' ✓ (objectifs ok)' : '');
+    let label = d.name;
+    if (r.total <= 0) label += ' ✓ (objectifs ok)';
+    else if (!slotEligible(d, modalState.slotKey)) label += ' ⚠ (pas d\'obj sur ce site)';
+    opt.textContent = label;
     if (cur && d.name === cur.name) opt.textContent = '⬅ ' + opt.textContent;
     dsel.appendChild(opt);
   });
   const existing = readSlotDoctor(modalState.dateStr, modalState.slotKey);
   if (existing) dsel.value = existing;
-  else if (cur && slotEligible(findDoctor(cur.name) || {ACH:{sem:0,we:0},HMN:{sem:0,we:0}}, modalState.slotKey)) dsel.value = cur.name;
+  else if (cur) dsel.value = cur.name;
   else dsel.value = '';
 }
 
@@ -1000,6 +1002,12 @@ $('modal-save').onclick = () => {
     if (a[otherSite] && a[otherSite].doctor === doc) conflicts.push('déjà de garde le même jour sur ' + otherSite);
     const docVoeu = (state.allVoeux[doc] || {})[modalState.dateStr];
     if (docVoeu === 'blocked') conflicts.push('a marqué cette date comme INDISPO 🚫');
+    // Cette garde n'est-elle pas dans ses objectifs (site + sem/WE) ?
+    const dr = objectivesRemaining(findDoctor(doc));
+    const bucketLabel = objectiveBucket(modalState.dateStr) === 'we' ? 'WE/férié' : 'semaine';
+    if (dr[modalState.slotKey][objectiveBucket(modalState.dateStr)] <= 0) {
+      conflicts.push(`n'a pas (ou plus) d'objectif "${bucketLabel}" sur ${modalState.slotKey}`);
+    }
     if (conflicts.length) {
       const msg = `${doc} ${conflicts.join(' ; ')}.\n\nForcer quand même ?`;
       if (!confirm(msg)) return;
