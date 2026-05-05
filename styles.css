@@ -142,15 +142,15 @@ main {
   grid-template-columns: 240px 1fr;
   grid-template-areas:
     "current calendar"
-    ".       calendar"
-    "next    actions";
+    "next    calendar"
+    "actions actions";
   grid-template-rows: auto 1fr auto;
   gap: 18px;
   align-items: start;
 }
 #planning .picker-current-box { grid-area: current; align-self: start; }
 #planning .calendar { grid-area: calendar; }
-#planning .actions { grid-area: actions; margin-top: 0; align-self: end; }
+#planning .actions { grid-area: actions; margin-top: 0; }
 #planning .picker-next-box { grid-area: next; align-self: end; }
 @media (max-width: 900px) {
   #planning {
