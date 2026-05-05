@@ -364,6 +364,65 @@ function quotaSum(d, tour) {
   return Object.values(tourQuota(d, tour)).reduce((a,b)=>a+b, 0);
 }
 
+// ============================================================
+// Helpers : adjacence + suggestion de dates pour le picker courant
+// ============================================================
+function dateAdd(dateStr, n) {
+  const d = parseYMD(dateStr);
+  d.setDate(d.getDate() + n);
+  return ymd(d);
+}
+function pickerOnDay(name, dateStr) {
+  const a = state.assignments[dateStr];
+  if (!a) return false;
+  return (a.HMN && a.HMN.doctor === name) || (a.ACH && a.ACH.doctor === name);
+}
+function hasGardeOnOrNearby(name, dateStr) {
+  return pickerOnDay(name, dateStr) ||
+         pickerOnDay(name, dateAdd(dateStr, -1)) ||
+         pickerOnDay(name, dateAdd(dateStr, 1));
+}
+
+// Reconstruit le quota déjà consommé dans le tour courant (par les picks listés
+// dans state.currentTurnSlots), pour savoir quels types restent à faire.
+function getRemainingTurnQuota(name) {
+  const d = findDoctor(name);
+  if (!d) return { quota: {}, remaining: {} };
+  const quota = tourQuota(d, state.currentTour);
+  const consumed = {};
+  for (const slot of (state.currentTurnSlots || [])) {
+    const [date] = slot.split(':');
+    const t = tourSlotType(date);
+    let key = (quota[t] && (consumed[t] || 0) < quota[t]) ? t :
+              (quota.libre && (consumed.libre || 0) < quota.libre ? 'libre' : null);
+    if (key) consumed[key] = (consumed[key] || 0) + 1;
+  }
+  const remaining = {};
+  for (const k of Object.keys(quota)) remaining[k] = quota[k] - (consumed[k] || 0);
+  return { quota, remaining };
+}
+
+// Une date est "suggérée" pour le picker courant si :
+// - au moins un site éligible et LIBRE ce jour-là où il a encore un objectif
+// - le quota du tour courant a encore une place compatible avec ce type de jour
+// - le picker n'est pas déjà de garde ce jour-là, la veille ou le lendemain
+function isDateSuggestedFor(name, dateStr) {
+  const d = findDoctor(name);
+  if (!d) return false;
+  const a = state.assignments[dateStr] || {};
+  const elig = eligibleSites(d);
+  const r = objectivesRemaining(d);
+  const bucket = objectiveBucket(dateStr);
+  const sitesOK = elig.filter(s => !a[s] && r[s][bucket] > 0);
+  if (sitesOK.length === 0) return false;
+  const { remaining } = getRemainingTurnQuota(name);
+  const t = tourSlotType(dateStr);
+  const fits = (remaining[t] || 0) > 0 || (remaining.libre || 0) > 0;
+  if (!fits) return false;
+  if (hasGardeOnOrNearby(name, dateStr)) return false;
+  return true;
+}
+
 function advanceCursorIfNeeded() {
   const cur = currentPickerInfo();
   if (!cur || cur.forced) return;
@@ -604,6 +663,13 @@ function buildDayCell(dateStr, mode) {
     } else if (hasMine) {
       el.classList.add('day-mine');
     }
+  }
+
+  // Suggestion bleue : le picker courant pourrait prendre ce jour
+  if (mode === 'planning' && curName && !el.classList.contains('day-mine')
+      && !el.classList.contains('day-unavailable')
+      && isDateSuggestedFor(curName, dateStr)) {
+    el.classList.add('day-suggested');
   }
 
   if (mode === 'planning') {
@@ -878,7 +944,23 @@ $('modal-clear').onclick = () => {
 $('modal-save').onclick = () => {
   const doc = $('modal-doctor').value;
   if (!doc) { setAssignment(modalState.dateStr, modalState.slotKey, null, null); }
-  else { setAssignment(modalState.dateStr, modalState.slotKey, doc, null); }
+  else {
+    // Règle : pas de garde la veille / le jour même (autre site) / le lendemain
+    const prev = dateAdd(modalState.dateStr, -1);
+    const next = dateAdd(modalState.dateStr, 1);
+    const conflicts = [];
+    if (pickerOnDay(doc, prev)) conflicts.push('la veille (' + formatLong(prev) + ')');
+    if (pickerOnDay(doc, next)) conflicts.push('le lendemain (' + formatLong(next) + ')');
+    // Même jour autre site
+    const a = state.assignments[modalState.dateStr] || {};
+    const otherSite = modalState.slotKey === 'HMN' ? 'ACH' : 'HMN';
+    if (a[otherSite] && a[otherSite].doctor === doc) conflicts.push('le même jour sur ' + otherSite);
+    if (conflicts.length) {
+      const msg = `${doc} est déjà de garde ${conflicts.join(' et ')}.\nForcer quand même ?`;
+      if (!confirm(msg)) return;
+    }
+    setAssignment(modalState.dateStr, modalState.slotKey, doc, null);
+  }
   $('modal-backdrop').hidden = true;
 };
 

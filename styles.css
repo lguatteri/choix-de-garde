@@ -438,6 +438,11 @@ main {
 }
 .day .slot:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
 
+/* Date suggérée pour le picker courant : cadre bleu */
+.day.day-suggested {
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
 /* Slot souhaité (côté perso) — outline vert sur la pastille concernée */
 .day[data-voeu="wishedHMN"]  .slot.HMN,
 .day[data-voeu="wishedBoth"] .slot.HMN,
