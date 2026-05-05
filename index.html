@@ -6,7 +6,10 @@
 <meta name="theme-color" content="#1e3a8a">
 <title>Choix Garde — juin–sept 2026</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css?v=42">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="styles.css?v=43">
 </head>
 <body>
 
@@ -45,8 +48,10 @@
   <!-- ============== APP PRINCIPALE (visible après connexion) ========== -->
   <div id="app-root" hidden>
     <header>
-      <h1>Choix Garde</h1>
-      <span class="period">juin – sept 2026</span>
+      <div class="header-title">
+        <h1>Choix de garde</h1>
+        <span class="period">juin – sept 2026</span>
+      </div>
       <div class="me-badge" id="me-badge" title="Mes objectifs restants"></div>
       <nav class="tabs">
         <button class="tab active" data-tab="planning">Planning</button>
