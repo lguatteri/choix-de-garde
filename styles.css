@@ -134,8 +134,8 @@ header h1 {
 
 main {
   padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }
 #planning.view.active {
   display: grid;
