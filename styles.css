@@ -356,8 +356,8 @@ main {
   white-space: nowrap;
   letter-spacing: 0.1px;
 }
-.day .slot.HMN { background: #fef08a; color: #713f12; font-weight: 600; }   /* jaune */
-.day .slot.ACH { background: #fed7aa; color: #7c2d12; font-weight: 600; }   /* orange */
+.day .slot.HMN { background: rgba(185,28,28,0.18); color: #7f1d1d; font-weight: 600; }
+.day .slot.ACH { background: rgba(185,28,28,0.18); color: #7f1d1d; font-weight: 600; }
 .day .slot.empty-slot {
   background: transparent;
   border: none;
