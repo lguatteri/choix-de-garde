@@ -1213,12 +1213,19 @@ function parseCSVLine(line) {
 // ============================================================
 $('reset-btn').onclick = async () => {
   if (!isAdmin()) { alert('Seul un admin peut réinitialiser.'); return; }
-  if (!confirm('Effacer TOUTES les assignations du planning ? (vœux et objectifs conservés)')) return;
-  // Effacer côté Supabase
+  if (!confirm('Réinitialiser tous les choix de garde ?\n\n— Le planning sera VIDÉ\n— Le tour repart à 1\n— Les vœux/indispos perso de chacun sont CONSERVÉS')) return;
   await sb().from('assignments').delete().neq('date', '1900-01-01');
   state.assignments = {};
   state.pickerCursor = 0;
+  state.currentTour = 1;
   state.currentTurnPickCount = 0;
+  state.currentTurnSlots = [];
+  state.tourDirection = 1;
+  // tourStartIdx reste sur le firstPicker actuel
+  if (state.firstPicker) {
+    const idx = state.doctors.findIndex(d => d.name === state.firstPicker);
+    if (idx >= 0) state.tourStartIdx = idx;
+  }
   state.forcedNextPicker = null;
   syncSession();
   render();
