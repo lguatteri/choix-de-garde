@@ -34,14 +34,15 @@ body {
 header {
   background: var(--surface);
   color: var(--ink);
-  padding: 14px 24px;
+  padding: 12px 20px;
   position: sticky;
   top: 0;
   z-index: 50;
   box-shadow: 0 1px 0 var(--border), 0 8px 16px -8px rgba(15,23,42,0.08);
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 .header-title {
   text-align: left;
@@ -49,8 +50,8 @@ header {
 }
 header h1 {
   margin: 0;
-  font-size: 32px;
-  letter-spacing: 1.5px;
+  font-size: clamp(20px, 2.4vw, 30px);
+  letter-spacing: 1px;
   font-weight: 800;
   color: var(--ink);
   line-height: 1;
@@ -68,15 +69,18 @@ header h1 {
   background: #dcfce7;
   color: #14532d;
   border: 1px solid #86efac;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.35;
   text-align: right;
-  max-width: 360px;
+  max-width: 320px;
   box-shadow: var(--shadow-sm);
   flex-shrink: 0;
 }
+.me-badge .me-name { font-size: 12px; }
+.me-badge .me-totals { font-size: 13px; }
+.me-badge .me-detail { font-size: 11px; }
 .me-badge .me-name {
   font-weight: 800;
   font-size: 14px;
@@ -101,7 +105,7 @@ header h1 {
 }
 .tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   margin: 0 auto;
   justify-content: center;
   background: #f1f5f9;
@@ -113,13 +117,14 @@ header h1 {
   background: transparent;
   border: none;
   color: var(--ink-soft);
-  padding: 8px 22px;
+  padding: 7px 18px;
   border-radius: 999px;
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.1px;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
 }
 .tab:hover { color: var(--ink); }
 .tab.active {
@@ -610,9 +615,8 @@ main {
   }
   .day { min-height: 56px; font-size: 10px; }
   .day .slot { font-size: 9px; }
-  header { flex-wrap: wrap; gap: 12px; }
-  header h1 { font-size: 22px; }
-  .tabs { order: 3; width: 100%; }
+  .tabs { order: 99; width: 100%; }
+  .me-badge { max-width: none; flex: 1; }
 }
 
 /* ============================================================
