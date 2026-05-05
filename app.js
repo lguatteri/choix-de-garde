@@ -623,8 +623,6 @@ function buildDayCell(dateStr, mode) {
 
   // Migration: ancien 'wished' devient 'wishedBoth'
   if (state.voeux[dateStr] === 'wished') state.voeux[dateStr] = 'wishedBoth';
-  // Vœux/indispos : visibles uniquement sur la page Perso
-  if (mode !== 'planning' && state.voeux[dateStr]) el.dataset.voeu = state.voeux[dateStr];
 
   const num = document.createElement('div');
   num.className = 'num';
@@ -646,6 +644,10 @@ function buildDayCell(dateStr, mode) {
       if (curEligible.length === 0) curEligible = ['HMN','ACH']; // fallback
     }
   }
+
+  // Vœux/indispos visibles : sur l'onglet Perso, ET sur le Planning quand c'est MON tour
+  const showVoeux = (mode !== 'planning') || (curName === state.myName);
+  if (showVoeux && state.voeux[dateStr]) el.dataset.voeu = state.voeux[dateStr];
 
   const longShift = is24h(dateStr);
   const curPicker = (mode === 'planning' && curName) ? findDoctor(curName) : null;
