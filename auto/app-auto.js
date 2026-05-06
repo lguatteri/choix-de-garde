@@ -58,6 +58,15 @@ function dateAdd(dateStr, n) {
   return ymd(d);
 }
 function bucketOf(dateStr) { return isWE(dateStr) ? 'we' : 'sem'; }
+function weekStart(dateStr) {
+  // Lundi de la semaine contenant dateStr (ISO Lun→Dim)
+  const d = parseYMD(dateStr);
+  const offset = (d.getDay() + 6) % 7;  // Lun=0..Dim=6
+  d.setDate(d.getDate() - offset);
+  return ymd(d);
+}
+
+const MAX_GARDES_PER_WEEK = 3;
 
 async function loadAllForAuto() {
   const [doctors, holidays, profiles, voeux] = await Promise.all([
@@ -293,6 +302,17 @@ function generatePlanning() {
         if (a[other] === name) return false;
       }
     }
+    // Max gardes par semaine ISO (Lun→Dim)
+    const ws = weekStart(slot.date);
+    let weekCount = 0;
+    for (let i = 0; i < 7; i++) {
+      const dd = dateAdd(ws, i);
+      const a = assignment[dd];
+      if (!a) continue;
+      if (a.HMN === name) weekCount++;
+      if (a.ACH === name) weekCount++;
+    }
+    if (weekCount >= MAX_GARDES_PER_WEEK) return false;
     return true;
   }
 
@@ -334,22 +354,41 @@ function generatePlanning() {
       .filter(d => canAssign(slot, d.name))
       .map(d => ({ name: d.name, score: score(slot, d.name) }));
     if (cands.length === 0) {
-      // Diagnostic : pourquoi ?
-      const reasons = [];
+      // Diagnostic : on filtre étape par étape pour voir où ça bloque
+      let nObj = 0, nNotBlocked = 0, nNotPrefBlocked = 0, nNotWeekFull = 0;
+      const dow = parseYMD(slot.date).getDay();
+      const ws = weekStart(slot.date);
       autoState.doctors.forEach(d => {
         const r = rem[d.name];
         const b = bucketOf(slot.date);
         if (r[slot.site][b] <= 0) return;
+        nObj++;
         if ((autoState.voeuxByDoctor[d.name] || {})[slot.date] === 'blocked') return;
-        reasons.push(d.name + ' (adjacence)');
+        nNotBlocked++;
+        const prefs = autoState.prefsByDoctor[d.name];
+        if (prefs) {
+          if (slot.site === 'HMN' && prefs.blockedHMN.includes(dow)) return;
+          if (slot.site === 'ACH' && prefs.blockedACH.includes(dow)) return;
+        }
+        nNotPrefBlocked++;
+        let wc = 0;
+        for (let i = 0; i < 7; i++) {
+          const dd = dateAdd(ws, i);
+          const a = assignment[dd];
+          if (!a) continue;
+          if (a.HMN === d.name) wc++;
+          if (a.ACH === d.name) wc++;
+        }
+        if (wc >= MAX_GARDES_PER_WEEK) return;
+        nNotWeekFull++;
       });
-      failures.push({
-        date: slot.date,
-        site: slot.site,
-        reason: reasons.length === 0
-          ? 'Aucun médecin avec objectif restant et non bloqué'
-          : 'Tous bloqués par contrainte d\'adjacence',
-      });
+      let reason;
+      if (nObj === 0) reason = 'Aucun médecin n\'a d\'objectif restant pour ce site/bucket';
+      else if (nNotBlocked === 0) reason = `Tous bloqués (indispo posée) — ${nObj} candidats avant filtrage`;
+      else if (nNotPrefBlocked === 0) reason = `Tous bloqués par préférence DOW — ${nNotBlocked} candidats avant filtrage`;
+      else if (nNotWeekFull === 0) reason = `Tous ont déjà ${MAX_GARDES_PER_WEEK} gardes cette semaine — ${nNotPrefBlocked} candidats avant`;
+      else reason = `Tous bloqués par adjacence (veille/lendemain/même jour) — ${nNotWeekFull} candidats avant`;
+      failures.push({ date: slot.date, site: slot.site, reason });
       continue;
     }
     cands.sort((a, b) => b.score - a.score);
