@@ -15,6 +15,8 @@ let autoState = {
   doctors: [],
   holidays: [],
   voeuxByDoctor: {},
+  realVoeuxByDoctor: null,   // sauvegarde quand on entre en simulation
+  simulationMode: false,
   proposed: {},      // dateStr -> { HMN: name, ACH: name }
   failures: [],      // [{ date, site, reason }]
   remainingAfter: {}, // doctorName -> { ACH:{sem,we}, HMN:{sem,we} } restants après gen
@@ -392,7 +394,251 @@ function renderAlgoStatus() {
   `;
 }
 
+// ============================================================
+// SIMULATION : remplit voeuxByDoctor avec des données fictives
+// ============================================================
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleInPlace(arr, rand) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// Vacances scolaires d'été 2026 (FR) : du sam 4 juillet au mar 1er septembre
+const SCHOOL_HOLIDAYS_START = '2026-07-04';
+const SCHOOL_HOLIDAYS_END   = '2026-09-01';
+
+function isHmnOnly(doc) {
+  return doc.ACH.sem === 0 && doc.ACH.we === 0;
+}
+
+function placeBlock(doc, size, prefersSchool, fake, hmnAbsentByDate, allDates, rand, maxHmnAbsent) {
+  const isHmn = isHmnOnly(doc);
+  // Construit la liste des indices de départ valides avec un poids
+  const candidates = [];
+  for (let i = 0; i <= allDates.length - size; i++) {
+    const startDate = allDates[i];
+    const endDate = allDates[i + size - 1];
+    const overlapsSchool = startDate <= SCHOOL_HOLIDAYS_END && endDate >= SCHOOL_HOLIDAYS_START;
+    const weight = prefersSchool
+      ? (overlapsSchool ? 5 : 1)
+      : (overlapsSchool ? 1 : 4);
+    candidates.push({ idx: i, weight });
+  }
+  // Plusieurs essais : tirage pondéré, puis on vérifie collision
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const totalW = candidates.reduce((s, c) => s + c.weight, 0);
+    if (totalW <= 0) break;
+    let r = rand() * totalW;
+    let chosen = candidates[0];
+    for (const c of candidates) {
+      r -= c.weight;
+      if (r <= 0) { chosen = c; break; }
+    }
+    let valid = true;
+    for (let k = 0; k < size; k++) {
+      const date = allDates[chosen.idx + k];
+      if (fake[doc.name][date]) { valid = false; break; }
+      if (isHmn && hmnAbsentByDate[date] >= maxHmnAbsent) { valid = false; break; }
+    }
+    if (valid) {
+      for (let k = 0; k < size; k++) {
+        const date = allDates[chosen.idx + k];
+        fake[doc.name][date] = 'blocked';
+        if (isHmn) hmnAbsentByDate[date]++;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+function generateRealisticIndispos(seed) {
+  const rand = mulberry32(seed >>> 0);
+  const allDates = [];
+  for (const d of iterDates(PERIOD_START, PERIOD_END)) allDates.push(d);
+
+  const fake = {};
+  autoState.doctors.forEach(d => fake[d.name] = {});
+
+  // Contrainte HMN-only : minimum 3 présents → max (n - 3) absents par jour
+  const hmnOnlyDocs = autoState.doctors.filter(isHmnOnly);
+  const maxHmnAbsent = Math.max(0, hmnOnlyDocs.length - 3);
+  const hmnAbsentByDate = {};
+  allDates.forEach(d => hmnAbsentByDate[d] = 0);
+
+  // Traiter d'abord les HMN-only (plus contraints)
+  const ordered = [
+    ...autoState.doctors.filter(isHmnOnly),
+    ...autoState.doctors.filter(d => !isHmnOnly(d)),
+  ];
+
+  const stats = { totalVacDays: 0, totalScattered: 0, blocksPlaced: 0, blocksFailed: 0 };
+
+  for (const doc of ordered) {
+    // Total congés : 21-28 jours (3-4 semaines)
+    const totalVac = 21 + Math.floor(rand() * 8);
+    const prefersSchool = rand() < 0.75;
+    // 1 à 3 blocs (pas forcément d'affilée)
+    const numBlocks = 1 + Math.floor(rand() * 3);
+
+    // Découpe du total en blocs (min 5j chacun)
+    const sizes = [];
+    let remaining = totalVac;
+    for (let i = 0; i < numBlocks; i++) {
+      if (i === numBlocks - 1) {
+        sizes.push(Math.max(5, remaining));
+      } else {
+        const minSize = 5;
+        const reserveForRest = 5 * (numBlocks - i - 1);
+        const maxSize = Math.max(minSize, remaining - reserveForRest);
+        const s = minSize + Math.floor(rand() * Math.max(1, maxSize - minSize + 1));
+        sizes.push(s);
+        remaining -= s;
+      }
+    }
+
+    sizes.forEach(size => {
+      const ok = placeBlock(doc, size, prefersSchool, fake, hmnAbsentByDate, allDates, rand, maxHmnAbsent);
+      if (ok) stats.blocksPlaced++; else stats.blocksFailed++;
+    });
+
+    // Indispos ponctuelles : ~3 jours/mois × 4 mois ≈ 12 jours, en blocs de 1 ou 2 jours
+    const targetScattered = 10 + Math.floor(rand() * 5); // 10-14
+    let placed = 0;
+    let attempts = 0;
+    const isHmn = isHmnOnly(doc);
+    while (placed < targetScattered && attempts < 200) {
+      attempts++;
+      const blockLen = rand() < 0.35 ? 2 : 1;
+      const startIdx = Math.floor(rand() * (allDates.length - blockLen + 1));
+      let valid = true;
+      const candidates = [];
+      for (let k = 0; k < blockLen; k++) {
+        const date = allDates[startIdx + k];
+        if (fake[doc.name][date]) { valid = false; break; }
+        if (isHmn && hmnAbsentByDate[date] >= maxHmnAbsent) { valid = false; break; }
+        candidates.push(date);
+      }
+      if (valid) {
+        candidates.forEach(date => {
+          fake[doc.name][date] = 'blocked';
+          if (isHmn) hmnAbsentByDate[date]++;
+        });
+        placed += candidates.length;
+        stats.totalScattered += candidates.length;
+      }
+    }
+
+    stats.totalVacDays += Object.keys(fake[doc.name]).length - placed;
+  }
+
+  // Stats max HMN-only absent
+  let maxHmnSimul = 0;
+  Object.values(hmnAbsentByDate).forEach(n => { if (n > maxHmnSimul) maxHmnSimul = n; });
+  stats.maxHmnSimul = maxHmnSimul;
+  stats.hmnOnlyCount = hmnOnlyDocs.length;
+  stats.maxHmnAbsentAllowed = maxHmnAbsent;
+
+  return { fake, stats };
+}
+
+function setSimulationMode(on) {
+  autoState.simulationMode = on;
+  const panel = document.querySelector('.sim-panel');
+  const badge = document.getElementById('sim-badge');
+  const banner = document.getElementById('banner');
+  const restoreBtn = document.getElementById('sim-restore-btn');
+  if (panel) panel.classList.toggle('active', on);
+  if (badge) badge.hidden = !on;
+  if (restoreBtn) restoreBtn.disabled = !on;
+  if (banner) {
+    if (on) {
+      banner.style.background = '#fef3c7';
+      banner.style.borderColor = '#f59e0b';
+      banner.innerHTML = '<strong>🧪 Mode simulation actif.</strong> Les vœux/indispos sont fictifs. Le bouton « pousser vers l\'app principale » est désactivé.';
+    } else {
+      banner.style.background = '';
+      banner.style.borderColor = '';
+      banner.innerHTML = '<strong>Mode auto-distribution.</strong> Génère un planning à partir des objectifs, indispos et vœux de chacun. À tester avant de pousser vers l\'app principale.';
+    }
+  }
+}
+
+function applySimulation() {
+  const seedRaw = parseInt(document.getElementById('sim-seed').value, 10);
+  const seed = Number.isFinite(seedRaw) ? seedRaw : Math.floor(Math.random() * 1e9);
+  if (!autoState.doctors.length) {
+    alert('Données médecins pas chargées. Recharge la page.');
+    return;
+  }
+  if (!autoState.realVoeuxByDoctor) {
+    autoState.realVoeuxByDoctor = autoState.voeuxByDoctor;
+  }
+  const { fake, stats } = generateRealisticIndispos(seed);
+  autoState.voeuxByDoctor = fake;
+  setSimulationMode(true);
+  renderCoverageTable();
+  renderAutoCalendar();
+  autoState.proposed = {};
+  autoState.failures = [];
+  autoState.remainingAfter = {};
+  const cb = document.getElementById('commit-btn');
+  if (cb) cb.remove();
+
+  // Stats détaillées
+  const totalBlocked = Object.values(fake).reduce(
+    (acc, m) => acc + Object.values(m).filter(v => v === 'blocked').length, 0);
+  const avgBlocked = (totalBlocked / autoState.doctors.length).toFixed(1);
+  const status = document.getElementById('sim-status');
+  if (status) {
+    const warn = stats.blocksFailed > 0
+      ? ` <span style="color:#b91c1c">⚠ ${stats.blocksFailed} bloc(s) de congé n'ont pas pu être placés (contrainte HMN).</span>` : '';
+    status.innerHTML = `
+      ✓ Seed <strong>${seed}</strong> — ${totalBlocked} indispos au total (≈ ${avgBlocked}/médecin).
+      Max simultané HMN-only absents : <strong>${stats.maxHmnSimul}/${stats.hmnOnlyCount}</strong>
+      (limite ${stats.maxHmnAbsentAllowed}, soit min ${stats.hmnOnlyCount - stats.maxHmnAbsentAllowed} présents).${warn}
+      <br>Clique <strong>⚡ Générer le planning</strong> pour tester l'algo.
+    `;
+  }
+  document.getElementById('algo-status').innerHTML =
+    `<p><strong>🧪 Simulation réaliste prête.</strong> Lance l'algorithme pour voir comment il s'en sort.</p>`;
+}
+
+function restoreRealData() {
+  if (!autoState.realVoeuxByDoctor) return;
+  autoState.voeuxByDoctor = autoState.realVoeuxByDoctor;
+  autoState.realVoeuxByDoctor = null;
+  setSimulationMode(false);
+  renderCoverageTable();
+  renderAutoCalendar();
+  autoState.proposed = {};
+  autoState.failures = [];
+  autoState.remainingAfter = {};
+  const cb = document.getElementById('commit-btn');
+  if (cb) cb.remove();
+  const status = document.getElementById('sim-status');
+  if (status) status.textContent = '↻ Données réelles restaurées.';
+  document.getElementById('algo-status').innerHTML =
+    `<p><strong>✓ Données réelles restaurées.</strong> ${autoState.doctors.length} médecins.</p>`;
+}
+
 async function commitToMainPlanning() {
+  if (autoState.simulationMode) {
+    alert('🧪 Mode simulation actif — impossible de pousser des données fictives en BDD. Restaure les données réelles d\'abord.');
+    return;
+  }
   if (!confirm('Pousser ce planning généré dans l\'app principale ?\n\n⚠ Ça ÉCRASE toutes les assignations existantes.')) return;
   // Effacer tout
   await sb().from('assignments').delete().neq('date', '1900-01-01');
@@ -475,6 +721,10 @@ function bindAutoButtons() {
   };
   const reloadBtn = document.getElementById('reload-btn');
   if (reloadBtn) reloadBtn.onclick = () => location.reload();
+  const simGenBtn = document.getElementById('sim-generate-btn');
+  if (simGenBtn) simGenBtn.onclick = applySimulation;
+  const simRestoreBtn = document.getElementById('sim-restore-btn');
+  if (simRestoreBtn) simRestoreBtn.onclick = restoreRealData;
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bindAutoButtons);

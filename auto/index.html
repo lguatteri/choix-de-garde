@@ -3,12 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="expires" content="0">
 <title>Auto-distribution — Choix Garde</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="../styles.css?v=84">
-<link rel="stylesheet" href="styles-auto.css?v=4">
+<link rel="stylesheet" href="styles-auto.css?v=5">
 </head>
 <body>
 
@@ -53,6 +56,22 @@
         <button id="logout-btn">Se déconnecter</button>
       </div>
 
+      <div class="sim-panel">
+        <div class="sim-head">
+          <strong>🧪 Simulation réaliste</strong>
+          <span class="sim-tag">3-4 sem. de congés/médecin (75% en vacances scolaires été) + ~3j/mois d'indispos ponctuelles. HMN-uniquement : min. 3 présents.</span>
+          <span id="sim-badge" hidden>SIMULATION ACTIVE</span>
+        </div>
+        <div class="sim-controls">
+          <label>Seed
+            <input type="number" id="sim-seed" value="42">
+          </label>
+          <button id="sim-generate-btn">🌴 Générer indispos fictives</button>
+          <button id="sim-restore-btn" disabled>↻ Restaurer données réelles</button>
+        </div>
+        <div class="sim-status" id="sim-status"></div>
+      </div>
+
       <h2>Médecins &amp; couverture vœux/indispos</h2>
       <div id="coverage-table"></div>
 
@@ -70,6 +89,6 @@
   <script src="../supabase-config.js?v=84"></script>
   <script src="../doctors.js?v=84"></script>
   <script src="auth-auto.js?v=4"></script>
-  <script src="app-auto.js?v=4"></script>
+  <script src="app-auto.js?v=6"></script>
 </body>
 </html>
