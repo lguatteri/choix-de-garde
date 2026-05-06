@@ -34,6 +34,34 @@
   cursor: not-allowed;
 }
 
+#objectives-check {
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+#objectives-check table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+#objectives-check th, #objectives-check td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+#objectives-check th {
+  background: #f8fafc;
+  font-weight: 700;
+  font-size: 12px;
+}
+#objectives-check tr.total-row td {
+  border-top: 2px solid #1e293b;
+  font-weight: 700;
+}
+
 #coverage-table {
   background: var(--surface);
   border-radius: 10px;

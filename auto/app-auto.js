@@ -72,6 +72,62 @@ async function loadAllForAuto() {
   });
 }
 
+function computeSlotCounts() {
+  let sem = 0, we = 0;
+  for (const d of iterDates(PERIOD_START, PERIOD_END)) {
+    if (isWE(d)) we++; else sem++;
+  }
+  return { sem, we };
+}
+
+function renderObjectivesCheck() {
+  const slots = computeSlotCounts();
+  const totals = { ACH: { sem: 0, we: 0 }, HMN: { sem: 0, we: 0 } };
+  autoState.doctors.forEach(d => {
+    totals.ACH.sem += d.ACH.sem;
+    totals.ACH.we += d.ACH.we;
+    totals.HMN.sem += d.HMN.sem;
+    totals.HMN.we += d.HMN.we;
+  });
+  const rows = [
+    ['ACH semaine',    totals.ACH.sem, slots.sem],
+    ['ACH WE+fériés',  totals.ACH.we,  slots.we],
+    ['HMN semaine',    totals.HMN.sem, slots.sem],
+    ['HMN WE+fériés',  totals.HMN.we,  slots.we],
+  ];
+  let totalObj = 0, totalSlot = 0;
+  function diffCell(diff) {
+    if (diff === 0)  return `<span style="color:#15803d;font-weight:700">✓ exact</span>`;
+    if (diff < 0)    return `<span style="color:#b91c1c;font-weight:700">⚠ manque ${-diff}</span>`;
+    return `<span style="color:#92400e;font-weight:700">+${diff} en trop</span>`;
+  }
+  let html = `<table>
+    <thead><tr>
+      <th>Type de garde</th>
+      <th style="text-align:right">Objectifs déclarés</th>
+      <th style="text-align:right">Slots à couvrir</th>
+      <th>Écart</th>
+    </tr></thead><tbody>`;
+  rows.forEach(([label, obj, slot]) => {
+    totalObj += obj;
+    totalSlot += slot;
+    html += `<tr>
+      <td>${label}</td>
+      <td style="text-align:right">${obj}</td>
+      <td style="text-align:right">${slot}</td>
+      <td>${diffCell(obj - slot)}</td>
+    </tr>`;
+  });
+  html += `<tr class="total-row">
+    <td>Total période (1er juin → 30 sept 2026)</td>
+    <td style="text-align:right">${totalObj}</td>
+    <td style="text-align:right">${totalSlot}</td>
+    <td>${diffCell(totalObj - totalSlot)}</td>
+  </tr>`;
+  html += '</tbody></table>';
+  document.getElementById('objectives-check').innerHTML = html;
+}
+
 function renderCoverageTable() {
   const t = document.getElementById('coverage-table');
   let html = `<table>
@@ -782,6 +838,7 @@ async function initAutoApp() {
     document.getElementById('algo-status').innerHTML = `<p style="color:#b91c1c">Erreur de chargement : ${e.message || e}</p>`;
     return;
   }
+  renderObjectivesCheck();
   renderCoverageTable();
   renderAutoCalendar();
   document.getElementById('algo-status').innerHTML = `
