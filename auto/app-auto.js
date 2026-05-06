@@ -431,36 +431,51 @@ async function initAutoApp() {
   }
   renderCoverageTable();
   renderAutoCalendar();
-  document.getElementById('reload-btn').onclick = () => location.reload();
-  const genBtn = document.getElementById('generate-btn');
-  genBtn.disabled = false;
-  genBtn.title = '';
-  genBtn.onclick = () => {
-    document.getElementById('algo-status').innerHTML = '<p>⏳ Génération en cours…</p>';
-    setTimeout(() => {
-      try {
-        generatePlanning();
-        renderProposedCalendar();
-        renderAlgoStatus();
-        // Ajout d'un bouton commit s'il n'existe pas
-        if (!document.getElementById('commit-btn')) {
-          const btn = document.createElement('button');
-          btn.id = 'commit-btn';
-          btn.className = 'primary-action';
-          btn.textContent = '💾 Pousser ce planning vers l\'app principale';
-          btn.style.background = '#15803d';
-          btn.style.borderColor = '#15803d';
-          btn.onclick = commitToMainPlanning;
-          document.querySelector('.auto-actions').appendChild(btn);
-        }
-      } catch (e) {
-        document.getElementById('algo-status').innerHTML = `<p style="color:#b91c1c">Erreur algo : ${e.message}</p>`;
-      }
-    }, 30); // léger délai pour laisser l'UI mettre à jour
-  };
   document.getElementById('algo-status').innerHTML = `
-    <p><strong>Données chargées.</strong> ${autoState.doctors.length} médecins, ${Object.keys(autoState.voeuxByDoctor).length} ont posé des vœux/indispos.</p>
+    <p><strong>✓ Données chargées.</strong> ${autoState.doctors.length} médecins, ${Object.keys(autoState.voeuxByDoctor).length} ont posé des vœux/indispos.</p>
     <p class="hint">Clique <strong>⚡ Générer le planning</strong> pour lancer l'algorithme.</p>
   `;
 }
 window.initAutoApp = initAutoApp;
+
+// Bindings robustes : se font au chargement du DOM, indépendamment du chargement des données
+function bindAutoButtons() {
+  const genBtn = document.getElementById('generate-btn');
+  if (genBtn) {
+    genBtn.onclick = () => {
+      if (!autoState.doctors || autoState.doctors.length === 0) {
+        alert('Les données ne sont pas encore chargées (ou erreur de chargement). Recharge la page.');
+        return;
+      }
+      const status = document.getElementById('algo-status');
+      status.innerHTML = '<p>⏳ Génération en cours…</p>';
+      setTimeout(() => {
+        try {
+          generatePlanning();
+          renderProposedCalendar();
+          renderAlgoStatus();
+          if (!document.getElementById('commit-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'commit-btn';
+            btn.className = 'primary-action';
+            btn.textContent = '💾 Pousser ce planning vers l\'app principale';
+            btn.style.background = '#15803d';
+            btn.style.borderColor = '#15803d';
+            btn.onclick = commitToMainPlanning;
+            document.querySelector('.auto-actions').appendChild(btn);
+          }
+        } catch (e) {
+          console.error(e);
+          status.innerHTML = `<p style="color:#b91c1c">Erreur algo : ${e.message}</p>`;
+        }
+      }, 40);
+    };
+  }
+  const reloadBtn = document.getElementById('reload-btn');
+  if (reloadBtn) reloadBtn.onclick = () => location.reload();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bindAutoButtons);
+} else {
+  bindAutoButtons();
+}
