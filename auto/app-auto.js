@@ -7,8 +7,7 @@
 
 const sb = () => window.supabaseClient;
 
-const PERIOD_START = '2026-06-01';
-const PERIOD_END   = '2026-09-30';
+// PERIOD_START / PERIOD_END / HOLIDAYS sont définis dans doctors.js (chargé avant)
 const MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 const WEEKDAYS_HEADER = ['L','M','M','J','V','S','D'];
 
@@ -440,13 +439,17 @@ window.initAutoApp = initAutoApp;
 
 // Bindings robustes : se font au chargement du DOM, indépendamment du chargement des données
 function bindAutoButtons() {
+  console.log('[auto] bindAutoButtons appelée');
   const genBtn = document.getElementById('generate-btn');
-  if (genBtn) {
-    genBtn.onclick = () => {
-      if (!autoState.doctors || autoState.doctors.length === 0) {
-        alert('Les données ne sont pas encore chargées (ou erreur de chargement). Recharge la page.');
-        return;
-      }
+  if (!genBtn) { console.error('[auto] #generate-btn introuvable'); return; }
+  genBtn.disabled = false;
+  genBtn.removeAttribute('disabled');
+  genBtn.onclick = () => {
+    console.log('[auto] click Générer — doctors=', autoState.doctors.length);
+    if (!autoState.doctors || autoState.doctors.length === 0) {
+      alert('Données pas chargées. Ouvre la console pour voir l\'erreur, puis recharge.');
+      return;
+    }
       const status = document.getElementById('algo-status');
       status.innerHTML = '<p>⏳ Génération en cours…</p>';
       setTimeout(() => {
@@ -468,9 +471,8 @@ function bindAutoButtons() {
           console.error(e);
           status.innerHTML = `<p style="color:#b91c1c">Erreur algo : ${e.message}</p>`;
         }
-      }, 40);
-    };
-  }
+    }, 40);
+  };
   const reloadBtn = document.getElementById('reload-btn');
   if (reloadBtn) reloadBtn.onclick = () => location.reload();
 }
