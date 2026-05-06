@@ -96,7 +96,7 @@ function renderCoverageTable() {
     if (nBlocked > 30 && we > 0) badge = `<span class="badge badge-warn">bcp d'indispos</span>`;
     if (total === 0) badge = `<span class="badge badge-err">0 obj</span>`;
     html += `<tr>
-      <td><strong>${d.name}</strong></td>
+      <td class="doctor-name" data-doctor="${d.name}" title="Cliquer pour voir/modifier les indispos"><strong>${d.name}</strong></td>
       <td>${d.ACH.sem}</td><td>${d.ACH.we}</td>
       <td>${d.HMN.sem}</td><td>${d.HMN.we}</td>
       <td>${nVoeux}</td><td>${nBlocked}</td>
@@ -105,6 +105,9 @@ function renderCoverageTable() {
   });
   html += '</tbody></table>';
   t.innerHTML = html;
+  t.querySelectorAll('td.doctor-name').forEach(td => {
+    td.addEventListener('click', () => openDoctorEditor(td.dataset.doctor));
+  });
 }
 
 function renderAutoCalendar() {
@@ -464,7 +467,7 @@ function placeBlock(doc, size, prefersSchool, fake, hmnAbsentByDate, allDates, r
   return false;
 }
 
-function generateRealisticIndispos(seed) {
+function generateRealisticIndispos(seed, totalTarget) {
   const rand = mulberry32(seed >>> 0);
   const allDates = [];
   for (const d of iterDates(PERIOD_START, PERIOD_END)) allDates.push(d);
@@ -487,39 +490,44 @@ function generateRealisticIndispos(seed) {
   const stats = { totalVacDays: 0, totalScattered: 0, blocksPlaced: 0, blocksFailed: 0 };
 
   for (const doc of ordered) {
-    // Total congés : 21-28 jours (3-4 semaines)
-    const totalVac = 21 + Math.floor(rand() * 8);
+    // Cible par médecin : ±15% autour du target global
+    const noise = 0.85 + rand() * 0.30;
+    const docTarget = Math.max(0, Math.round(totalTarget * noise));
+    // 60% en congés (par blocs), 40% en indispos ponctuelles
+    const totalVac = Math.round(docTarget * 0.6);
+    const targetScattered = Math.max(0, docTarget - totalVac);
     const prefersSchool = rand() < 0.75;
-    // 1 à 3 blocs (pas forcément d'affilée)
-    const numBlocks = 1 + Math.floor(rand() * 3);
 
-    // Découpe du total en blocs (min 5j chacun)
+    // 1 à 3 blocs de congés (min 5j chacun, sauf si totalVac trop petit)
+    const minBlock = totalVac >= 15 ? 5 : Math.max(1, Math.floor(totalVac / 2));
+    const maxBlocks = Math.max(1, Math.min(3, Math.floor(totalVac / minBlock)));
+    const numBlocks = 1 + Math.floor(rand() * maxBlocks);
+
     const sizes = [];
     let remaining = totalVac;
     for (let i = 0; i < numBlocks; i++) {
       if (i === numBlocks - 1) {
-        sizes.push(Math.max(5, remaining));
+        sizes.push(Math.max(minBlock, remaining));
       } else {
-        const minSize = 5;
-        const reserveForRest = 5 * (numBlocks - i - 1);
-        const maxSize = Math.max(minSize, remaining - reserveForRest);
-        const s = minSize + Math.floor(rand() * Math.max(1, maxSize - minSize + 1));
+        const reserveForRest = minBlock * (numBlocks - i - 1);
+        const maxSize = Math.max(minBlock, remaining - reserveForRest);
+        const s = minBlock + Math.floor(rand() * Math.max(1, maxSize - minBlock + 1));
         sizes.push(s);
         remaining -= s;
       }
     }
 
     sizes.forEach(size => {
+      if (size <= 0) return;
       const ok = placeBlock(doc, size, prefersSchool, fake, hmnAbsentByDate, allDates, rand, maxHmnAbsent);
       if (ok) stats.blocksPlaced++; else stats.blocksFailed++;
     });
 
-    // Indispos ponctuelles : ~3 jours/mois × 4 mois ≈ 12 jours, en blocs de 1 ou 2 jours
-    const targetScattered = 10 + Math.floor(rand() * 5); // 10-14
+    // Indispos ponctuelles : blocs de 1 ou 2 jours
     let placed = 0;
     let attempts = 0;
     const isHmn = isHmnOnly(doc);
-    while (placed < targetScattered && attempts < 200) {
+    while (placed < targetScattered && attempts < 300) {
       attempts++;
       const blockLen = rand() < 0.35 ? 2 : 1;
       const startIdx = Math.floor(rand() * (allDates.length - blockLen + 1));
@@ -579,6 +587,8 @@ function setSimulationMode(on) {
 function applySimulation() {
   const seedRaw = parseInt(document.getElementById('sim-seed').value, 10);
   const seed = Number.isFinite(seedRaw) ? seedRaw : Math.floor(Math.random() * 1e9);
+  const targetRaw = parseInt(document.getElementById('sim-target').value, 10);
+  const target = Number.isFinite(targetRaw) ? Math.max(0, targetRaw) : 50;
   if (!autoState.doctors.length) {
     alert('Données médecins pas chargées. Recharge la page.');
     return;
@@ -586,7 +596,7 @@ function applySimulation() {
   if (!autoState.realVoeuxByDoctor) {
     autoState.realVoeuxByDoctor = autoState.voeuxByDoctor;
   }
-  const { fake, stats } = generateRealisticIndispos(seed);
+  const { fake, stats } = generateRealisticIndispos(seed, target);
   autoState.voeuxByDoctor = fake;
   setSimulationMode(true);
   renderCoverageTable();
@@ -632,6 +642,104 @@ function restoreRealData() {
   if (status) status.textContent = '↻ Données réelles restaurées.';
   document.getElementById('algo-status').innerHTML =
     `<p><strong>✓ Données réelles restaurées.</strong> ${autoState.doctors.length} médecins.</p>`;
+}
+
+// ============================================================
+// ÉDITEUR D'INDISPOS PAR MÉDECIN (modale)
+// ============================================================
+let _editorDoctor = null;
+
+function openDoctorEditor(doctorName) {
+  _editorDoctor = doctorName;
+  const backdrop = document.getElementById('doctor-editor-backdrop');
+  document.getElementById('doctor-editor-title').textContent = doctorName;
+  renderDoctorEditor();
+  backdrop.hidden = false;
+}
+
+function closeDoctorEditor() {
+  _editorDoctor = null;
+  document.getElementById('doctor-editor-backdrop').hidden = true;
+  // Re-render des vues principales pour refléter les changements
+  renderCoverageTable();
+  if (Object.keys(autoState.proposed).length === 0) {
+    renderAutoCalendar();
+  }
+}
+
+function renderDoctorEditor() {
+  if (!_editorDoctor) return;
+  const name = _editorDoctor;
+  const doc = autoState.doctors.find(d => d.name === name);
+  if (!doc) return;
+  const map = autoState.voeuxByDoctor[name] || (autoState.voeuxByDoctor[name] = {});
+  const blockedCount = Object.values(map).filter(v => v === 'blocked').length;
+  document.getElementById('doctor-editor-stats').innerHTML =
+    `Objectifs : <strong>ACH</strong> ${doc.ACH.sem}sem + ${doc.ACH.we}WE — <strong>HMN</strong> ${doc.HMN.sem}sem + ${doc.HMN.we}WE
+     · <strong>${blockedCount}</strong> jour${blockedCount > 1 ? 's' : ''} d'indispo`;
+
+  const c = document.getElementById('doctor-editor-calendar');
+  c.innerHTML = '';
+  const months = [];
+  let cur = null;
+  for (const d of iterDates(PERIOD_START, PERIOD_END)) {
+    const dt = parseYMD(d);
+    const k = dt.getFullYear() + '-' + dt.getMonth();
+    if (!cur || cur.key !== k) { cur = { key: k, days: [] }; months.push(cur); }
+    cur.days.push(d);
+  }
+  months.forEach(m => {
+    const monthEl = document.createElement('div');
+    monthEl.className = 'month';
+    const fd = parseYMD(m.days[0]);
+    const h4 = document.createElement('h4');
+    h4.textContent = MONTHS_FR[fd.getMonth()] + ' ' + fd.getFullYear();
+    monthEl.appendChild(h4);
+    const wkEl = document.createElement('div');
+    wkEl.className = 'weekdays';
+    WEEKDAYS_HEADER.forEach(w => { const s = document.createElement('div'); s.textContent = w; wkEl.appendChild(s); });
+    monthEl.appendChild(wkEl);
+    const daysEl = document.createElement('div');
+    daysEl.className = 'days';
+    const firstDow = (fd.getDay() + 6) % 7;
+    for (let i = 0; i < firstDow; i++) {
+      const e = document.createElement('div'); e.className = 'day empty'; daysEl.appendChild(e);
+    }
+    m.days.forEach(d => {
+      const cell = document.createElement('div');
+      cell.className = 'day';
+      const t = dayType(d);
+      if (t === 'holiday') cell.classList.add('holiday');
+      else if (t === 'sunday' || t === 'saturday') cell.classList.add('weekend');
+      cell.textContent = parseYMD(d).getDate();
+      if (map[d] === 'blocked') cell.classList.add('blocked');
+      cell.addEventListener('click', () => toggleEditorDay(d));
+      daysEl.appendChild(cell);
+    });
+    monthEl.appendChild(daysEl);
+    c.appendChild(monthEl);
+  });
+}
+
+function toggleEditorDay(date) {
+  if (!_editorDoctor) return;
+  const map = autoState.voeuxByDoctor[_editorDoctor] || (autoState.voeuxByDoctor[_editorDoctor] = {});
+  if (map[date] === 'blocked') {
+    delete map[date];
+  } else {
+    map[date] = 'blocked';
+  }
+  renderDoctorEditor();
+}
+
+function clearEditorDoctor() {
+  if (!_editorDoctor) return;
+  if (!confirm(`Effacer toutes les indispos de ${_editorDoctor} ?`)) return;
+  const map = autoState.voeuxByDoctor[_editorDoctor] || {};
+  Object.keys(map).forEach(date => {
+    if (map[date] === 'blocked') delete map[date];
+  });
+  renderDoctorEditor();
 }
 
 async function commitToMainPlanning() {
@@ -725,6 +833,17 @@ function bindAutoButtons() {
   if (simGenBtn) simGenBtn.onclick = applySimulation;
   const simRestoreBtn = document.getElementById('sim-restore-btn');
   if (simRestoreBtn) simRestoreBtn.onclick = restoreRealData;
+  const editorClose = document.getElementById('doctor-editor-close');
+  if (editorClose) editorClose.onclick = closeDoctorEditor;
+  const editorClear = document.getElementById('doctor-editor-clear');
+  if (editorClear) editorClear.onclick = clearEditorDoctor;
+  const editorBack = document.getElementById('doctor-editor-backdrop');
+  if (editorBack) editorBack.addEventListener('click', e => {
+    if (e.target === editorBack) closeDoctorEditor();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && _editorDoctor) closeDoctorEditor();
+  });
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bindAutoButtons);

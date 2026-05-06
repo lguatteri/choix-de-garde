@@ -155,3 +155,100 @@
   color: #475569;
   min-height: 16px;
 }
+
+#coverage-table td.doctor-name {
+  cursor: pointer;
+  color: #5b21b6;
+  text-decoration: underline dotted;
+}
+#coverage-table td.doctor-name:hover {
+  background: #f5f3ff;
+}
+
+#doctor-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+#doctor-editor-backdrop[hidden] { display: none; }
+.modal.doctor-editor {
+  background: white;
+  border-radius: 12px;
+  padding: 18px 20px;
+  max-width: 820px;
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+}
+.modal.doctor-editor h3 { margin: 0 0 6px; font-size: 16px; }
+.modal.doctor-editor .hint { font-size: 12px; color: #64748b; }
+#doctor-editor-calendar {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 12px;
+}
+#doctor-editor-calendar .month {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+#doctor-editor-calendar .month h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+#doctor-editor-calendar .weekdays,
+#doctor-editor-calendar .days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+#doctor-editor-calendar .weekdays div {
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  color: #64748b;
+  padding: 2px 0;
+}
+#doctor-editor-calendar .day {
+  aspect-ratio: 1;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.05s;
+}
+#doctor-editor-calendar .day.empty {
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+#doctor-editor-calendar .day.weekend { background: #f1f5f9; }
+#doctor-editor-calendar .day.holiday { background: #fef2f2; }
+#doctor-editor-calendar .day.blocked {
+  background: #fecaca;
+  color: #7f1d1d;
+  font-weight: 800;
+  border-color: #f87171;
+}
+#doctor-editor-calendar .day:not(.empty):hover {
+  box-shadow: 0 0 0 2px #7c3aed;
+  transform: scale(1.05);
+}
+@media (max-width: 600px) {
+  #doctor-editor-calendar { grid-template-columns: 1fr; }
+}

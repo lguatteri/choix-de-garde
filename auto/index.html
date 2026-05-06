@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="../styles.css?v=84">
-<link rel="stylesheet" href="styles-auto.css?v=5">
+<link rel="stylesheet" href="styles-auto.css?v=7">
 </head>
 <body>
 
@@ -63,6 +63,9 @@
           <span id="sim-badge" hidden>SIMULATION ACTIVE</span>
         </div>
         <div class="sim-controls">
+          <label>Indispos cibles / médecin
+            <input type="number" id="sim-target" value="50" min="0" max="120">
+          </label>
           <label>Seed
             <input type="number" id="sim-seed" value="42">
           </label>
@@ -85,10 +88,23 @@
     </main>
   </div>
 
+  <div id="doctor-editor-backdrop" hidden>
+    <div class="modal doctor-editor">
+      <h3 id="doctor-editor-title"></h3>
+      <div id="doctor-editor-stats" class="hint"></div>
+      <p class="hint" style="margin:6px 0 10px">Clic sur une case pour basculer indispo (rouge) / disponible.</p>
+      <div id="doctor-editor-calendar"></div>
+      <div class="modal-actions">
+        <button id="doctor-editor-clear">Tout effacer</button>
+        <button id="doctor-editor-close" class="primary">Fermer</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../supabase-config.js?v=84"></script>
   <script src="../doctors.js?v=84"></script>
   <script src="auth-auto.js?v=4"></script>
-  <script src="app-auto.js?v=6"></script>
+  <script src="app-auto.js?v=7"></script>
 </body>
 </html>
