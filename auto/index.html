@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto-distribution — Choix Garde</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="../styles.css?v=84">
+<link rel="stylesheet" href="styles-auto.css?v=1">
+</head>
+<body>
+
+  <section id="auth-screen" hidden>
+    <div class="auth-card">
+      <h1>Auto-distribution</h1>
+      <p class="auth-tag">connecte-toi pour accéder</p>
+      <div id="auth-form">
+        <label>Email <input type="email" id="auth-email"></label>
+        <label>Mot de passe <input type="password" id="auth-password"></label>
+        <div class="auth-buttons">
+          <button id="auth-login-btn" class="primary">Se connecter</button>
+        </div>
+        <div class="auth-error" id="auth-error"></div>
+      </div>
+      <p class="hint" style="margin-top:18px">
+        Pas encore de compte ? <a href="../">Inscription via l'app principale</a>
+      </p>
+    </div>
+  </section>
+
+  <div id="app-root" hidden>
+    <header>
+      <div class="header-title">
+        <h1>Auto-distribution</h1>
+        <span class="period">juin – sept 2026 — mode algorithme</span>
+      </div>
+      <nav class="tabs">
+        <a class="tab" href="../">← App principale</a>
+        <button class="tab active">Auto</button>
+      </nav>
+    </header>
+
+    <main>
+      <div class="banner-warn" id="banner">
+        <strong>Mode développement.</strong> L'algo de génération est en construction. Pour l'instant l'app charge les données et permettra bientôt de générer un planning automatiquement à partir des vœux/indispos de chacun.
+      </div>
+
+      <div class="auto-actions">
+        <button id="generate-btn" class="primary-action" disabled title="Bientôt disponible">⚡ Générer le planning</button>
+        <button id="reload-btn">↻ Recharger les données</button>
+        <button id="logout-btn">Se déconnecter</button>
+      </div>
+
+      <h2>Médecins &amp; couverture vœux/indispos</h2>
+      <div id="coverage-table"></div>
+
+      <h2>Calendrier — vue d'ensemble des indispos</h2>
+      <div id="auto-calendar"></div>
+
+      <h2>État de l'algorithme</h2>
+      <div id="algo-status">
+        <p class="hint">Aucune génération lancée pour le moment.</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js?v=84"></script>
+  <script src="../doctors.js?v=84"></script>
+  <script src="auth-auto.js?v=1"></script>
+  <script src="app-auto.js?v=1"></script>
+</body>
+</html>
