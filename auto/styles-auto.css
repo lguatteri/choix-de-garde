@@ -280,3 +280,60 @@
 @media (max-width: 600px) {
   #doctor-editor-calendar { grid-template-columns: 1fr; }
 }
+
+.editor-prefs {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.editor-prefs h4 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pref-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.pref-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  min-width: 230px;
+}
+.dow-chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.dow-chip {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  color: #64748b;
+  transition: all 0.1s;
+}
+.dow-chip:hover { border-color: #94a3b8; }
+.dow-chip.active.block {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+.dow-chip.active.prefer {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #15803d;
+}

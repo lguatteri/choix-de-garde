@@ -17,10 +17,21 @@ let autoState = {
   voeuxByDoctor: {},
   realVoeuxByDoctor: null,   // sauvegarde quand on entre en simulation
   simulationMode: false,
+  prefsByDoctor: {},          // name -> { blockedHMN:[dow], blockedACH:[dow], preferSem:[dow], preferWe:[dow] }
   proposed: {},      // dateStr -> { HMN: name, ACH: name }
   failures: [],      // [{ date, site, reason }]
   remainingAfter: {}, // doctorName -> { ACH:{sem,we}, HMN:{sem,we} } restants après gen
 };
+
+function getPrefs(name) {
+  if (!autoState.prefsByDoctor[name]) {
+    autoState.prefsByDoctor[name] = {
+      blockedHMN: [], blockedACH: [],
+      preferSem: [], preferWe: [],
+    };
+  }
+  return autoState.prefsByDoctor[name];
+}
 
 function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 function ymd(d) { return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
@@ -259,6 +270,13 @@ function generatePlanning() {
     const b = bucketOf(slot.date);
     if (r[slot.site][b] <= 0) return false;
     if ((autoState.voeuxByDoctor[name] || {})[slot.date] === 'blocked') return false;
+    // Règles récurrentes par jour de semaine
+    const prefs = autoState.prefsByDoctor[name];
+    if (prefs) {
+      const dow = parseYMD(slot.date).getDay();
+      if (slot.site === 'HMN' && prefs.blockedHMN.includes(dow)) return false;
+      if (slot.site === 'ACH' && prefs.blockedACH.includes(dow)) return false;
+    }
     // Adjacence : pas la veille / pas le même jour autre site / pas le lendemain
     const checks = [
       { date: dateAdd(slot.date, -1), all: true },
@@ -289,6 +307,13 @@ function generatePlanning() {
     if (v === 'wished' + slot.site) s += 50;
     else if (v === 'wishedBoth') s += 30;
     else if (v && v.startsWith('wished')) s += 8;  // wished autre site mais pas celui-là
+    // Préférences récurrentes (jour de semaine préféré pour sem/WE)
+    const prefs = autoState.prefsByDoctor[name];
+    if (prefs) {
+      const dow = parseYMD(slot.date).getDay();
+      if (b === 'sem' && prefs.preferSem.includes(dow)) s += 20;
+      if (b === 'we'  && prefs.preferWe.includes(dow))  s += 20;
+    }
     // Tie-breaking aléatoire (pour avoir des plannings différents à chaque génération)
     s += Math.random() * 6;
     return s;
@@ -705,12 +730,58 @@ function restoreRealData() {
 // ============================================================
 let _editorDoctor = null;
 
+// Mapping affichage L M M J V S D ↔ Date.getDay() (0=Dim..6=Sam)
+const DOW_LABELS = ['L','M','M','J','V','S','D'];
+const DOW_GETDAY = [1, 2, 3, 4, 5, 6, 0];   // index → Date.getDay()
+const SEM_INDICES = [0,1,2,3,4];   // L,M,M,J,V
+const WE_INDICES  = [5,6];          // S,D
+
 function openDoctorEditor(doctorName) {
   _editorDoctor = doctorName;
   const backdrop = document.getElementById('doctor-editor-backdrop');
   document.getElementById('doctor-editor-title').textContent = doctorName;
   renderDoctorEditor();
+  renderEditorPrefs();
   backdrop.hidden = false;
+}
+
+function renderEditorPrefs() {
+  if (!_editorDoctor) return;
+  const prefs = getPrefs(_editorDoctor);
+  const rows = [
+    { key: 'blockedHMN', kind: 'block',  indices: [0,1,2,3,4,5,6] },
+    { key: 'blockedACH', kind: 'block',  indices: [0,1,2,3,4,5,6] },
+    { key: 'preferSem',  kind: 'prefer', indices: SEM_INDICES },
+    { key: 'preferWe',   kind: 'prefer', indices: WE_INDICES },
+  ];
+  rows.forEach(r => {
+    const container = document.querySelector(`.dow-chips[data-pref="${r.key}"]`);
+    if (!container) return;
+    container.innerHTML = '';
+    r.indices.forEach(idx => {
+      const dow = DOW_GETDAY[idx];
+      const chip = document.createElement('div');
+      chip.className = 'dow-chip ' + r.kind;
+      chip.textContent = DOW_LABELS[idx];
+      if (prefs[r.key].includes(dow)) chip.classList.add('active');
+      chip.addEventListener('click', () => {
+        const arr = prefs[r.key];
+        const i = arr.indexOf(dow);
+        if (i >= 0) arr.splice(i, 1); else arr.push(dow);
+        renderEditorPrefs();
+      });
+      container.appendChild(chip);
+    });
+  });
+}
+
+function clearEditorPrefs() {
+  if (!_editorDoctor) return;
+  if (!confirm(`Effacer toutes les préférences récurrentes de ${_editorDoctor} ?`)) return;
+  const p = getPrefs(_editorDoctor);
+  p.blockedHMN = []; p.blockedACH = [];
+  p.preferSem = []; p.preferWe = [];
+  renderEditorPrefs();
 }
 
 function closeDoctorEditor() {
@@ -894,6 +965,8 @@ function bindAutoButtons() {
   if (editorClose) editorClose.onclick = closeDoctorEditor;
   const editorClear = document.getElementById('doctor-editor-clear');
   if (editorClear) editorClear.onclick = clearEditorDoctor;
+  const editorClearPrefs = document.getElementById('doctor-editor-clear-prefs');
+  if (editorClearPrefs) editorClearPrefs.onclick = clearEditorPrefs;
   const editorBack = document.getElementById('doctor-editor-backdrop');
   if (editorBack) editorBack.addEventListener('click', e => {
     if (e.target === editorBack) closeDoctorEditor();
