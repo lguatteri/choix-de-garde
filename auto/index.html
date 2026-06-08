@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="../styles.css?v=84">
-<link rel="stylesheet" href="styles-auto.css?v=10">
+<link rel="stylesheet" href="styles-auto.css?v=16">
 </head>
 <body>
 
@@ -41,52 +41,139 @@
       </div>
       <nav class="tabs">
         <a class="tab" href="../">← App principale</a>
-        <button class="tab active">Auto</button>
+        <button class="tab active">Atelier admin</button>
+        <button class="tab" id="goto-perso-btn">👤 Ma page médecin</button>
       </nav>
     </header>
 
     <main>
-      <div class="banner-warn" id="banner">
-        <strong>Mode auto-distribution.</strong> Génère un planning à partir des objectifs, indispos et vœux de chacun. À tester avant de pousser vers l'app principale.
-      </div>
+      <nav class="subtabs">
+        <button class="subtab active" data-subtab="gen">Génération</button>
+        <button class="subtab" data-subtab="sim">🧪 Simulation</button>
+      </nav>
 
-      <div class="auto-actions">
-        <button id="generate-btn" class="primary-action">⚡ Générer le planning</button>
-        <button id="reload-btn">↻ Recharger les données</button>
-        <button id="logout-btn">Se déconnecter</button>
-      </div>
-
-      <div class="sim-panel">
-        <div class="sim-head">
-          <strong>🧪 Simulation réaliste</strong>
-          <span class="sim-tag">3-4 sem. de congés/médecin (75% en vacances scolaires été) + ~3j/mois d'indispos ponctuelles. HMN-uniquement : min. 3 présents.</span>
-          <span id="sim-badge" hidden>SIMULATION ACTIVE</span>
+      <div id="admin-tab-gen">
+        <div class="banner-warn" id="banner">
+          <strong>Mode auto-distribution.</strong> Génère un planning à partir des objectifs, indispos et vœux de chacun. À tester avant de pousser vers l'app principale.
         </div>
-        <div class="sim-controls">
-          <label>Indispos cibles / médecin
-            <input type="number" id="sim-target" value="50" min="0" max="120">
-          </label>
-          <label>Seed
-            <input type="number" id="sim-seed" value="42">
-          </label>
-          <button id="sim-generate-btn">🌴 Générer indispos fictives</button>
-          <button id="sim-restore-btn" disabled>↻ Restaurer données réelles</button>
+
+        <div class="auto-actions">
+          <button id="generate-btn" class="primary-action">⚡ Générer le planning</button>
+          <button id="reload-btn">↻ Recharger les données</button>
+          <button id="logout-btn">Se déconnecter</button>
         </div>
-        <div class="sim-status" id="sim-status"></div>
+
+        <div class="limits-panel">
+          <strong>⚙️ Limites de déclaration auto :</strong>
+          <label>vœux max <input type="number" id="limit-wished" min="0" max="50"></label>
+          <label>indispos max <input type="number" id="limit-indispo" min="0" max="200"></label>
+          <button id="limits-save">Enregistrer</button>
+          <span id="limits-status" class="hint"></span>
+        </div>
+
+        <h2>📊 Bilan objectifs vs slots à couvrir</h2>
+        <div id="objectives-check"></div>
+
+        <h2>Médecins &amp; couverture vœux/indispos</h2>
+        <div id="coverage-table"></div>
+
+        <h2>Calendrier — vue d'ensemble des indispos</h2>
+        <div id="auto-calendar"></div>
+
+        <h2>État de l'algorithme</h2>
+        <div id="algo-status">
+          <p class="hint">Aucune génération lancée pour le moment.</p>
+        </div>
       </div>
 
-      <h2>📊 Bilan objectifs vs slots à couvrir</h2>
-      <div id="objectives-check"></div>
+      <div id="admin-tab-sim" hidden>
+        <div class="sim-panel active">
+          <div class="sim-head">
+            <strong>🧪 Simulation réaliste</strong>
+            <span class="sim-tag">3-4 sem. de congés/médecin (75% en vacances scolaires été) + ~3j/mois d'indispos ponctuelles. HMN-uniquement : min. 3 présents.</span>
+            <span id="sim-badge" hidden>SIMULATION ACTIVE</span>
+          </div>
+          <div class="sim-controls">
+            <label>Indispos cibles / médecin
+              <input type="number" id="sim-target" value="50" min="0" max="120">
+            </label>
+            <label>Seed
+              <input type="number" id="sim-seed" value="42">
+            </label>
+            <button id="sim-generate-btn">🌴 Générer indispos fictives</button>
+            <button id="sim-restore-btn" disabled>↻ Restaurer données réelles</button>
+          </div>
+          <div class="sim-status" id="sim-status"></div>
+          <p class="hint">Après une simulation, lance la génération depuis l'onglet « Génération ».</p>
+        </div>
+      </div>
+    </main>
+  </div>
 
-      <h2>Médecins &amp; couverture vœux/indispos</h2>
-      <div id="coverage-table"></div>
+  <div id="perso-root" hidden>
+    <header>
+      <div class="header-title">
+        <h1>Ma page</h1>
+        <span class="period" id="perso-name"></span>
+      </div>
+      <nav class="tabs">
+        <a class="tab" href="../">← App principale</a>
+        <button class="tab active">Ma page médecin</button>
+        <button class="tab" id="goto-admin-btn" hidden>🛠 Atelier admin</button>
+        <button class="tab" id="perso-logout-btn">Se déconnecter</button>
+      </nav>
+    </header>
 
-      <h2>Calendrier — vue d'ensemble des indispos</h2>
-      <div id="auto-calendar"></div>
+    <main>
+      <div class="banner-warn" id="perso-banner">
+        <strong>Ta page perso.</strong> Indique tes indispos 🚫, tes dates voulues 💙 et tes préférences récurrentes. Tout est enregistré automatiquement et servira à générer le planning.
+      </div>
 
-      <h2>État de l'algorithme</h2>
-      <div id="algo-status">
-        <p class="hint">Aucune génération lancée pour le moment.</p>
+      <div class="perso-top">
+        <div class="perso-top-col">
+          <h2>Mes objectifs</h2>
+          <div id="perso-objectives"></div>
+        </div>
+        <div class="perso-top-col perso-top-prefs">
+          <h2>Mes préférences récurrentes</h2>
+          <div class="editor-prefs" id="perso-prefs">
+            <div id="perso-prefs-missing" class="hint" hidden></div>
+            <div class="pref-row">
+              <span class="pref-label">🚫 Pas de garde HMN le :</span>
+              <div class="dow-chips" data-pref-perso="blockedHMN"></div>
+            </div>
+            <div class="pref-row">
+              <span class="pref-label">🚫 Pas de garde ACH le :</span>
+              <div class="dow-chips" data-pref-perso="blockedACH"></div>
+            </div>
+            <div class="pref-row">
+              <span class="pref-label">⭐ Garde semaine plutôt le :</span>
+              <div class="dow-chips" data-pref-perso="preferSem"></div>
+            </div>
+            <div class="pref-row">
+              <span class="pref-label">⭐ Garde WE plutôt le :</span>
+              <div class="dow-chips" data-pref-perso="preferWe"></div>
+            </div>
+          </div>
+          <div id="perso-save-status" class="hint" style="margin-top:6px"></div>
+        </div>
+      </div>
+
+      <h2>Mon planning pour l'auto</h2>
+      <p class="hint">Indique directement tes indispos 🚫 et tes dates voulues 💙 (dans la limite). Enregistré automatiquement, puis clique « Participer ». <em>Ces données sont communes à ton Perso de l'app principale.</em></p>
+      <div class="editor-mode">
+        <span class="editor-mode-label">Au clic :</span>
+        <button class="perso-mode-btn active" data-mode="blocked">🚫 Indispo</button>
+        <button class="perso-mode-btn" data-mode="wished">💙 Date voulue</button>
+      </div>
+      <div id="perso-decl-info" class="hint"></div>
+      <div id="perso-decl-error" class="decl-error" hidden></div>
+      <div id="perso-trim-counts" class="decl-counts"></div>
+      <div id="perso-trim-calendar"></div>
+      <div class="decl-actions">
+        <button id="perso-validate-btn" class="primary-action">✓ Participer au planning auto</button>
+        <span id="perso-decl-state" class="decl-state"></span>
+        <span id="perso-decl-status" class="hint"></span>
       </div>
     </main>
   </div>
@@ -136,7 +223,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../supabase-config.js?v=84"></script>
   <script src="../doctors.js?v=84"></script>
-  <script src="auth-auto.js?v=4"></script>
-  <script src="app-auto.js?v=14"></script>
+  <script src="auth-auto.js?v=5"></script>
+  <script src="app-auto.js?v=22"></script>
 </body>
 </html>

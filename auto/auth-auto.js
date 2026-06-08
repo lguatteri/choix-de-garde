@@ -20,6 +20,22 @@ function hideAuthScreen() {
   document.getElementById('app-root').hidden = false;
 }
 
+// Route selon le rôle : admin → atelier de génération, médecin → page Perso
+function routeAfterAuth() {
+  const prof = window.currentProfile;
+  const admin = prof && (prof.is_admin || prof.is_super_admin);
+  document.getElementById('auth-screen').hidden = true;
+  // Le bouton "Atelier admin" (sur la page médecin) n'apparaît que pour les admins
+  const gotoAdmin = document.getElementById('goto-admin-btn');
+  if (gotoAdmin) gotoAdmin.hidden = !admin;
+  if (admin) {
+    if (typeof showAdminWorkbench === 'function') showAdminWorkbench();
+    if (typeof initAutoApp === 'function') initAutoApp();
+  } else {
+    if (typeof showPersoPage === 'function') showPersoPage();
+  }
+}
+
 async function loginAuto() {
   const email = document.getElementById('auth-email').value.trim();
   const pwd = document.getElementById('auth-password').value;
@@ -37,15 +53,7 @@ async function loginAuto() {
   errEl.textContent = '';
   window.currentUser = data.user;
   window.currentProfile = await getProfile(data.user.id);
-  // Auto-app : réservé aux admins
-  if (!window.currentProfile || (!window.currentProfile.is_admin && !window.currentProfile.is_super_admin)) {
-    errEl.style.color = '';
-    errEl.textContent = 'Accès admin requis pour la génération automatique.';
-    await sbClient.auth.signOut();
-    return;
-  }
-  hideAuthScreen();
-  if (typeof initAutoApp === 'function') initAutoApp();
+  routeAfterAuth();
 }
 
 async function logoutAuto() {
@@ -60,14 +68,7 @@ async function logoutAuto() {
   if (session) {
     window.currentUser = session.user;
     window.currentProfile = await getProfile(session.user.id);
-    if (window.currentProfile && (window.currentProfile.is_admin || window.currentProfile.is_super_admin)) {
-      hideAuthScreen();
-      if (typeof initAutoApp === 'function') initAutoApp();
-    } else {
-      showAuthScreen();
-      const errEl = document.getElementById('auth-error');
-      if (errEl) errEl.textContent = 'Accès admin requis.';
-    }
+    routeAfterAuth();
   } else {
     showAuthScreen();
   }

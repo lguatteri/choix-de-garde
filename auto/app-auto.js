@@ -19,6 +19,7 @@ let autoState = {
   simulationMode: false,
   prefsByDoctor: {},          // name -> { blockedHMN:[dow], blockedACH:[dow], preferSem:[dow], preferWe:[dow] }
   maxWished: 5,               // plafond global de dates voulues 💙 par médecin (admin)
+  maxIndispo: 30,             // plafond global d'indispos déclarées pour l'auto (admin)
   proposed: {},      // dateStr -> { HMN: name, ACH: name }
   failures: [],      // [{ date, site, reason }]
   remainingAfter: {}, // doctorName -> { ACH:{sem,we}, HMN:{sem,we} } restants après gen
@@ -70,11 +71,15 @@ function weekStart(dateStr) {
 const MAX_GARDES_PER_WEEK = 3;
 
 async function loadAllForAuto() {
-  const [doctors, holidays, profiles, voeux] = await Promise.all([
+  // L'algo lit la COPIE auto (auto_declarations), importée du Perso par chaque
+  // médecin, + les vraies préférences.
+  const [doctors, holidays, profiles, decls, prefs, sess] = await Promise.all([
     sb().from('doctors').select('*').order('name'),
     sb().from('holidays').select('date'),
     sb().from('profiles').select('*'),
-    sb().from('voeux').select('*'),
+    sb().from('auto_declarations').select('*'),
+    sb().from('preferences').select('*'),
+    sb().from('session_state').select('max_wished, max_indispo').eq('id', 1).maybeSingle(),
   ]);
   if (doctors.error) throw doctors.error;
   autoState.doctors = (doctors.data || []).map(d => ({
@@ -85,12 +90,27 @@ async function loadAllForAuto() {
   autoState.holidays = (holidays.data || []).map(h => h.date);
   const profByUid = Object.fromEntries((profiles.data || []).map(p => [p.user_id, p.doctor_name]));
   autoState.voeuxByDoctor = {};
-  (voeux.data || []).forEach(row => {
+  (decls.data || []).forEach(row => {
     const dn = profByUid[row.user_id];
     if (!dn) return;
     if (!autoState.voeuxByDoctor[dn]) autoState.voeuxByDoctor[dn] = {};
     autoState.voeuxByDoctor[dn][row.date] = row.voeu;
   });
+  // Préférences récurrentes réelles
+  autoState.prefsByDoctor = {};
+  (prefs.data || []).forEach(row => {
+    const dn = profByUid[row.user_id];
+    if (!dn) return;
+    autoState.prefsByDoctor[dn] = {
+      blockedHMN: row.blocked_hmn || [], blockedACH: row.blocked_ach || [],
+      preferSem:  row.prefer_sem  || [], preferWe:   row.prefer_we   || [],
+    };
+  });
+  // Limites configurables (défauts si colonnes/données absentes)
+  if (sess && sess.data) {
+    if (sess.data.max_wished != null)  autoState.maxWished  = sess.data.max_wished;
+    if (sess.data.max_indispo != null) autoState.maxIndispo = sess.data.max_indispo;
+  }
 }
 
 function computeSlotCounts() {
@@ -1095,6 +1115,19 @@ async function commitToMainPlanning() {
   alert('✓ Planning poussé. L\'app principale est mise à jour en temps réel.');
 }
 
+async function saveAutoLimits() {
+  const w = parseInt(document.getElementById('limit-wished').value, 10);
+  const i = parseInt(document.getElementById('limit-indispo').value, 10);
+  if (Number.isFinite(w) && w >= 0) autoState.maxWished = w;
+  if (Number.isFinite(i) && i >= 0) autoState.maxIndispo = i;
+  const status = document.getElementById('limits-status');
+  const { error } = await sb().from('session_state').update({
+    max_wished: autoState.maxWished, max_indispo: autoState.maxIndispo,
+    updated_at: new Date().toISOString(),
+  }).eq('id', 1);
+  if (status) status.textContent = error ? '⚠ ' + error.message : '✓ Limites enregistrées.';
+}
+
 let _initialised = false;
 async function initAutoApp() {
   if (_initialised) return;
@@ -1105,6 +1138,8 @@ async function initAutoApp() {
     document.getElementById('algo-status').innerHTML = `<p style="color:#b91c1c">Erreur de chargement : ${e.message || e}</p>`;
     return;
   }
+  const lw = document.getElementById('limit-wished'); if (lw) lw.value = autoState.maxWished;
+  const li = document.getElementById('limit-indispo'); if (li) li.value = autoState.maxIndispo;
   renderObjectivesCheck();
   renderCoverageTable();
   renderAutoCalendar();
@@ -1115,8 +1150,348 @@ async function initAutoApp() {
 }
 window.initAutoApp = initAutoApp;
 
+// ============================================================
+// PAGE PERSO (médecin) — saisie indispos / dates voulues / préférences
+// Persiste : vœux → table `voeux`, préférences → table `preferences`.
+// Réutilise les helpers globaux (iterDates, dayType, isWE, DOW_*, …).
+// ============================================================
+let persoState = {
+  myName: null, userId: null,
+  objectives: { ACH: { sem: 0, we: 0 }, HMN: { sem: 0, we: 0 } },
+  persoVoeux: {},            // COPIE auto (table auto_declarations) — éditable, séparée du Perso
+  prefs: { blockedHMN: [], blockedACH: [], preferSem: [], preferWe: [] },
+  maxWished: 5, maxIndispo: 30,
+  mode: 'blocked',           // 'blocked' 🚫 | 'wished' 💙 (édition directe)
+  prefsTableMissing: false,
+  declTableMissing: false,   // auto_declarations absente
+};
+
+function persoMissTable(err) {
+  return err && (err.code === '42P01' || /does not exist/i.test(err.message || ''));
+}
+function countBlocked(map) { return Object.values(map).filter(v => v === 'blocked').length; }
+function countWishedMap(map) { return Object.values(map).filter(v => v && v.startsWith('wished')).length; }
+
+async function initPersoApp() {
+  const prof = window.currentProfile;
+  if (!prof || !prof.doctor_name) {
+    document.querySelector('#perso-root main').innerHTML =
+      '<p class="hint" style="padding:20px">Tu dois d\'abord choisir ton nom de médecin dans <a href="../">l\'app principale</a> (à la première connexion), puis revenir ici.</p>';
+    return;
+  }
+  persoState.myName = prof.doctor_name;
+  persoState.userId = window.currentUser.id;
+  document.getElementById('perso-name').textContent = persoState.myName;
+  try {
+    const [doc, hols, decl, prefs, sess] = await Promise.all([
+      sb().from('doctors').select('*').eq('name', persoState.myName).maybeSingle(),
+      sb().from('holidays').select('date'),
+      sb().from('auto_declarations').select('*').eq('user_id', persoState.userId),
+      sb().from('preferences').select('*').eq('user_id', persoState.userId).maybeSingle(),
+      sb().from('session_state').select('max_wished, max_indispo').eq('id', 1).maybeSingle(),
+    ]);
+    if (doc.data) persoState.objectives = {
+      ACH: { sem: doc.data.ach_sem | 0, we: doc.data.ach_we | 0 },
+      HMN: { sem: doc.data.hmn_sem | 0, we: doc.data.hmn_we | 0 },
+    };
+    autoState.holidays = (hols.data || []).map(h => h.date);  // pour dayType/isWE partagés
+    persoState.persoVoeux = {};
+    if (persoMissTable(decl.error)) persoState.declTableMissing = true;
+    else (decl.data || []).forEach(r => { persoState.persoVoeux[r.date] = r.voeu; });
+    if (persoMissTable(prefs.error)) persoState.prefsTableMissing = true;
+    else if (prefs.data) {
+      persoState.prefs = {
+        blockedHMN: prefs.data.blocked_hmn || [],
+        blockedACH: prefs.data.blocked_ach || [],
+        preferSem:  prefs.data.prefer_sem  || [],
+        preferWe:   prefs.data.prefer_we   || [],
+      };
+    }
+    if (sess && sess.data) {
+      if (sess.data.max_wished != null)  persoState.maxWished  = sess.data.max_wished;
+      if (sess.data.max_indispo != null) persoState.maxIndispo = sess.data.max_indispo;
+    }
+  } catch (e) { console.error('initPersoApp', e); }
+  renderPerso();
+}
+window.initPersoApp = initPersoApp;
+
+// Bascule entre l'atelier admin et la page médecin (les admins ont les deux)
+let _persoInitDone = false;
+function showAdminWorkbench() {
+  const p = document.getElementById('perso-root'); if (p) p.hidden = true;
+  const a = document.getElementById('app-root'); if (a) a.hidden = false;
+}
+function showPersoPage() {
+  const a = document.getElementById('app-root'); if (a) a.hidden = true;
+  const p = document.getElementById('perso-root'); if (p) p.hidden = false;
+  if (!_persoInitDone) { _persoInitDone = true; initPersoApp(); }
+}
+window.showAdminWorkbench = showAdminWorkbench;
+window.showPersoPage = showPersoPage;
+
+function renderPerso() {
+  renderPersoObjectives();
+  renderPersoPrefs();
+  setPersoMode(persoState.mode);
+  renderPersoDecl();
+  renderPersoTrim();
+}
+
+function setPersoMode(mode) {
+  persoState.mode = mode;
+  document.querySelectorAll('.perso-mode-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode));
+}
+
+function renderPersoObjectives() {
+  const o = persoState.objectives;
+  const el = document.getElementById('perso-objectives');
+  if (!el) return;
+  el.innerHTML = `
+    <table style="border-collapse:collapse;font-size:13px">
+      <thead><tr><th style="text-align:left;padding:4px 14px 4px 0"></th>
+        <th style="padding:4px 14px">semaine</th><th style="padding:4px 14px">WE + fériés</th></tr></thead>
+      <tbody>
+        <tr><td style="padding:4px 14px 4px 0"><strong>ACH</strong></td>
+          <td style="text-align:center">${o.ACH.sem}</td><td style="text-align:center">${o.ACH.we}</td></tr>
+        <tr><td style="padding:4px 14px 4px 0"><strong>HMN</strong></td>
+          <td style="text-align:center">${o.HMN.sem}</td><td style="text-align:center">${o.HMN.we}</td></tr>
+        <tr style="border-top:1px solid var(--border,#e2e8f0);font-weight:700">
+          <td style="padding:4px 14px 4px 0">Total</td>
+          <td style="text-align:center">${o.ACH.sem + o.HMN.sem}</td>
+          <td style="text-align:center">${o.ACH.we + o.HMN.we}</td></tr>
+      </tbody>
+    </table>`;
+}
+
+// --- Déclaration pour le planning auto (modèle synchronisé) --
+// Ensemble auto = persoVoeux MOINS les dates exclues.
+function persoAutoCounts() {
+  let ind = 0, wish = 0;
+  Object.entries(persoState.persoVoeux).forEach(([date, v]) => {
+    if (v === 'blocked') ind++;
+    else if (v && v.startsWith('wished')) wish++;
+  });
+  return { ind, wish };
+}
+
+function renderPersoDecl() {
+  const { ind, wish } = persoAutoCounts();
+  const info = document.getElementById('perso-decl-info');
+  if (info) info.innerHTML =
+    `Comptés pour l'auto : <strong>${ind}</strong> indispo(s), <strong>${wish}</strong> vœu(x) ` +
+    `(limites : ${persoState.maxIndispo} indispos, ${persoState.maxWished} vœux).`;
+  const state = document.getElementById('perso-decl-state');
+  if (state) {
+    if (persoState.declTableMissing) {
+      state.innerHTML = '<span style="color:#b91c1c">⚠ Le planning auto n\'est pas encore activé (table à créer côté admin).</span>';
+    } else {
+      const within = ind <= persoState.maxIndispo && wish <= persoState.maxWished;
+      state.innerHTML = within
+        ? '✅ Pris en compte pour le planning auto, dans les limites.'
+        : '<span style="color:#b45309">⚠ Hors limites — retire des cases pour rentrer dans les limites.</span>';
+    }
+  }
+}
+
+function renderPersoTrim() {
+  const { ind, wish } = persoAutoCounts();
+  const indOk = ind <= persoState.maxIndispo, wishOk = wish <= persoState.maxWished;
+  const counts = document.getElementById('perso-trim-counts');
+  if (counts) counts.innerHTML =
+    `Indispos comptées : <strong style="color:${indOk ? '#15803d' : '#b91c1c'}">${ind}/${persoState.maxIndispo}</strong> &nbsp;·&nbsp; ` +
+    `Vœux comptés : <strong style="color:${wishOk ? '#15803d' : '#b91c1c'}">${wish}/${persoState.maxWished}</strong>`;
+  const validateBtn = document.getElementById('perso-validate-btn');
+  if (validateBtn) validateBtn.disabled = !(indOk && wishOk);
+  const err = document.getElementById('perso-decl-error');
+  if (err) {
+    err.hidden = (indOk && wishOk);
+    if (!(indOk && wishOk)) {
+      const parts = [];
+      if (!indOk)  parts.push(`<strong>indispos</strong> : ${ind} pour ${persoState.maxIndispo} max`);
+      if (!wishOk) parts.push(`<strong>vœux</strong> : ${wish} pour ${persoState.maxWished} max`);
+      err.innerHTML = `⚠ Tu dépasses pour ${parts.join(' et ')}. Désélectionne ${!indOk && !wishOk ? 'des cases' : (!indOk ? 'des indispos' : 'des vœux')} pour pouvoir valider.`;
+    }
+  }
+
+  const c = document.getElementById('perso-trim-calendar');
+  if (!c) return;
+  c.innerHTML = '';
+  const months = [];
+  let cur = null;
+  for (const d of iterDates(PERIOD_START, PERIOD_END)) {
+    const dt = parseYMD(d);
+    const k = dt.getFullYear() + '-' + dt.getMonth();
+    if (!cur || cur.key !== k) { cur = { key: k, days: [] }; months.push(cur); }
+    cur.days.push(d);
+  }
+  months.forEach(m => {
+    const monthEl = document.createElement('div');
+    monthEl.className = 'month';
+    const fd = parseYMD(m.days[0]);
+    const h4 = document.createElement('h4');
+    h4.textContent = MONTHS_FR[fd.getMonth()] + ' ' + fd.getFullYear();
+    monthEl.appendChild(h4);
+    const wkEl = document.createElement('div'); wkEl.className = 'weekdays';
+    WEEKDAYS_HEADER.forEach(w => { const s = document.createElement('div'); s.textContent = w; wkEl.appendChild(s); });
+    monthEl.appendChild(wkEl);
+    const daysEl = document.createElement('div'); daysEl.className = 'days';
+    const firstDow = (fd.getDay() + 6) % 7;
+    for (let i = 0; i < firstDow; i++) { const e = document.createElement('div'); e.className = 'day empty'; daysEl.appendChild(e); }
+    m.days.forEach(d => {
+      const cell = document.createElement('div');
+      cell.className = 'day';
+      const t = dayType(d);
+      if (t === 'holiday') cell.classList.add('holiday');
+      else if (t === 'sunday' || t === 'saturday') cell.classList.add('weekend');
+      cell.textContent = parseYMD(d).getDate();
+      const v = persoState.persoVoeux[d];
+      if (v === 'blocked') cell.classList.add('blocked');
+      else if (v && v.startsWith('wished')) cell.classList.add('wished');
+      cell.addEventListener('click', () => persoEditDay(d));
+      daysEl.appendChild(cell);
+    });
+    monthEl.appendChild(daysEl);
+    c.appendChild(monthEl);
+  });
+}
+
+// Édition directe d'une indispo/vœu DANS LA COPIE AUTO (table auto_declarations).
+// N'écrit jamais dans `voeux` → ne modifie pas le Perso de l'app principale.
+async function persoEditDay(date) {
+  if (persoState.declTableMissing) { alert('Planning auto non activé (table manquante côté admin).'); return; }
+  const cur = persoState.persoVoeux[date];
+  const { ind, wish } = persoAutoCounts();
+  let next;
+  if (persoState.mode === 'blocked') {
+    if (cur === 'blocked') next = null;
+    else {
+      if (ind >= persoState.maxIndispo) { alert(`Maximum ${persoState.maxIndispo} indispos pour le planning auto.`); return; }
+      next = 'blocked';
+    }
+  } else {
+    if (cur && cur.startsWith('wished')) next = null;
+    else {
+      if (wish >= persoState.maxWished) { alert(`Maximum ${persoState.maxWished} dates voulues.`); return; }
+      next = 'wishedBoth';
+    }
+  }
+  const status = document.getElementById('perso-decl-status');
+  let res;
+  if (next) {
+    persoState.persoVoeux[date] = next;
+    res = await sb().from('auto_declarations').upsert({ user_id: persoState.userId, date, voeu: next });
+  } else {
+    delete persoState.persoVoeux[date];
+    res = await sb().from('auto_declarations').delete().eq('user_id', persoState.userId).eq('date', date);
+  }
+  if (res && res.error && status) status.textContent = '⚠ ' + res.error.message;
+  renderPersoTrim();
+  renderPersoDecl();
+}
+
+function validatePersoDeclaration() {
+  if (persoState.declTableMissing) { alert('Planning auto non activé (table manquante côté admin).'); return; }
+  const { ind, wish } = persoAutoCounts();
+  const status = document.getElementById('perso-decl-status');
+  if (ind > persoState.maxIndispo || wish > persoState.maxWished) {
+    const parts = [];
+    if (ind > persoState.maxIndispo) parts.push(`indispos (max ${persoState.maxIndispo})`);
+    if (wish > persoState.maxWished) parts.push(`vœux (max ${persoState.maxWished})`);
+    alert(`Encore trop de ${parts.join(' et de ')}. Retire des cases d'abord.`);
+    return;
+  }
+  // Les données sont déjà enregistrées en direct ; ceci confirme juste.
+  if (status) status.textContent = '✓ C\'est bon — tes indispos/vœux sont pris en compte pour le planning auto.';
+}
+
+function renderPersoPrefs() {
+  const missing = document.getElementById('perso-prefs-missing');
+  if (missing) {
+    missing.hidden = !persoState.prefsTableMissing;
+    if (persoState.prefsTableMissing) {
+      missing.innerHTML = '⚠ Les préférences ne sont pas encore activées (table à créer côté admin). Tes indispos et dates voulues, elles, sont bien enregistrées.';
+    }
+  }
+  const o = persoState.objectives;
+  const hasBoth = (o.HMN.sem + o.HMN.we) > 0 && (o.ACH.sem + o.ACH.we) > 0;
+  const rows = [
+    { key: 'blockedHMN', kind: 'block',  indices: [0,1,2,3,4,5,6], onlyBoth: true },
+    { key: 'blockedACH', kind: 'block',  indices: [0,1,2,3,4,5,6], onlyBoth: true },
+    { key: 'preferSem',  kind: 'prefer', indices: SEM_INDICES },
+    { key: 'preferWe',   kind: 'prefer', indices: WE_INDICES },
+  ];
+  rows.forEach(r => {
+    const container = document.querySelector(`.dow-chips[data-pref-perso="${r.key}"]`);
+    if (!container) return;
+    const prefRow = container.closest('.pref-row');
+    if (r.onlyBoth && !hasBoth) {
+      if (prefRow) prefRow.hidden = true;
+      if (persoState.prefs[r.key].length) persoState.prefs[r.key] = [];
+      container.innerHTML = '';
+      return;
+    }
+    if (prefRow) prefRow.hidden = false;
+    container.innerHTML = '';
+    r.indices.forEach(idx => {
+      const dow = DOW_GETDAY[idx];
+      const chip = document.createElement('div');
+      chip.className = 'dow-chip ' + r.kind;
+      chip.textContent = DOW_LABELS[idx];
+      if (persoState.prefs[r.key].includes(dow)) chip.classList.add('active');
+      chip.addEventListener('click', () => {
+        const arr = persoState.prefs[r.key];
+        const i = arr.indexOf(dow);
+        if (i >= 0) arr.splice(i, 1); else arr.push(dow);
+        renderPersoPrefs();
+        persoSavePrefs();
+      });
+      container.appendChild(chip);
+    });
+  });
+}
+
+async function persoSavePrefs() {
+  if (persoState.prefsTableMissing) return;
+  const p = persoState.prefs;
+  const s = document.getElementById('perso-save-status');
+  const { error } = await sb().from('preferences').upsert({
+    user_id: persoState.userId,
+    blocked_hmn: p.blockedHMN, blocked_ach: p.blockedACH,
+    prefer_sem: p.preferSem, prefer_we: p.preferWe,
+    updated_at: new Date().toISOString(),
+  });
+  if (s) s.textContent = error ? '⚠ Préférences non enregistrées : ' + error.message : '✓ Enregistré.';
+}
+
+function bindPersoUI() {
+  document.querySelectorAll('.perso-mode-btn').forEach(btn => {
+    btn.onclick = () => setPersoMode(btn.dataset.mode);
+  });
+  const gotoAdmin = document.getElementById('goto-admin-btn');
+  if (gotoAdmin) gotoAdmin.onclick = showAdminWorkbench;
+  const validateBtn = document.getElementById('perso-validate-btn');
+  if (validateBtn) validateBtn.onclick = validatePersoDeclaration;
+  const lo = document.getElementById('perso-logout-btn');
+  if (lo) lo.onclick = () => { if (typeof logoutAuto === 'function') logoutAuto(); };
+}
+
 // Bindings robustes : se font au chargement du DOM, indépendamment du chargement des données
 function bindAutoButtons() {
+  bindPersoUI();
+  // Sous-onglets de l'atelier admin (Génération / Simulation)
+  document.querySelectorAll('.subtab').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.subtab').forEach(b => b.classList.toggle('active', b === btn));
+      const gen = document.getElementById('admin-tab-gen');
+      const sim = document.getElementById('admin-tab-sim');
+      if (gen) gen.hidden = btn.dataset.subtab !== 'gen';
+      if (sim) sim.hidden = btn.dataset.subtab !== 'sim';
+    };
+  });
+  const gotoPerso = document.getElementById('goto-perso-btn');
+  if (gotoPerso) gotoPerso.onclick = showPersoPage;
   console.log('[auto] bindAutoButtons appelée');
   const genBtn = document.getElementById('generate-btn');
   if (!genBtn) { console.error('[auto] #generate-btn introuvable'); return; }
@@ -1177,6 +1552,8 @@ function bindAutoButtons() {
     wishedMax.value = autoState.maxWished;
     if (_editorDoctor) renderDoctorEditor();   // rafraîchir le compteur x/max
   };
+  const limitsSaveBtn = document.getElementById('limits-save');
+  if (limitsSaveBtn) limitsSaveBtn.onclick = saveAutoLimits;
   const editorBack = document.getElementById('doctor-editor-backdrop');
   if (editorBack) editorBack.addEventListener('click', e => {
     if (e.target === editorBack) closeDoctorEditor();

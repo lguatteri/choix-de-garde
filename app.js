@@ -21,6 +21,8 @@ function defaultState() {
     forcedNextPicker: null,
     allVoeux: {},             // doctorName -> { date -> voeu }, chargé depuis Supabase
     neutralView: false,       // local : masque la coloration liée au picker courant
+    maxWished: 5,             // limites du planning auto (réglées par l'admin côté app auto)
+    maxIndispo: 30,
     doctors: deepClone(DOCTORS),
     holidays: HOLIDAYS.slice(),
   };
@@ -65,6 +67,8 @@ async function loadAllFromSupabase() {
     state.currentTour = sess.data.current_tour ?? 1;
     state.tourStartIdx = sess.data.tour_start_idx ?? 0;
     state.tourDirection = sess.data.tour_direction ?? 1;
+    state.maxWished = sess.data.max_wished ?? 5;
+    state.maxIndispo = sess.data.max_indispo ?? 30;
   }
 
   state.allProfiles = profile.data || [];
@@ -560,6 +564,7 @@ function setAssignment(date, slotKey, doctorName, site) {
 // UI : tabs
 // ============================================================
 document.querySelectorAll('.tab').forEach(t => {
+  if (!t.dataset.tab) return;   // liens/boutons sans onglet (Mode auto, déconnexion)
   t.onclick = () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
@@ -1184,6 +1189,45 @@ function exportCSV() {
 }
 $('export-btn').onclick = exportCSV;
 $('export-btn-2').onclick = exportCSV;
+
+// ============================================================
+// « Déclarer » = import à sens unique : copie mes voeux du Perso vers la copie
+// auto (table auto_declarations). L'édition côté app auto reste dans cette copie
+// et ne revient jamais ici. Avertit si la copie dépasse les limites.
+// ============================================================
+async function declareForAuto() {
+  const me = window.currentUser;
+  const statusEl = $('declare-auto-status');
+  if (!me) { if (statusEl) statusEl.textContent = 'Connecte-toi d\'abord.'; return; }
+  const myVoeux = state.voeux || {};
+  const nInd = Object.values(myVoeux).filter(v => v === 'blocked').length;
+  const nWish = Object.values(myVoeux).filter(v => v && v.startsWith('wished')).length;
+  const maxI = state.maxIndispo ?? 30, maxW = state.maxWished ?? 5;
+  // Import à sens unique : copie mon Perso → auto_declarations (n'altère pas l'inverse)
+  if (statusEl) statusEl.textContent = 'Import vers le planning auto…';
+  const del = await sb().from('auto_declarations').delete().eq('user_id', me.id);
+  if (del.error) { if (statusEl) statusEl.textContent = '⚠ ' + del.error.message; return; }
+  const rows = Object.entries(myVoeux).map(([date, voeu]) => ({ user_id: me.id, date, voeu }));
+  if (rows.length) {
+    const ins = await sb().from('auto_declarations').insert(rows);
+    if (ins.error) { if (statusEl) statusEl.textContent = '⚠ ' + ins.error.message; return; }
+  }
+  if (nInd > maxI || nWish > maxW) {
+    const parts = [];
+    if (nInd > maxI) parts.push(`indispos : ${nInd} (max ${maxI})`);
+    if (nWish > maxW) parts.push(`vœux : ${nWish} (max ${maxW})`);
+    alert(`Importé vers le planning auto, mais tu dépasses la limite :\n— ${parts.join('\n— ')}\n\n` +
+      `Va sur l'app auto (ta page médecin) pour retirer des dates jusqu'à rentrer dans les limites. ` +
+      `(Ça n'enlèvera rien à ton Perso ici.)`);
+    if (statusEl) statusEl.textContent = `⚠ Importé mais hors limites — ${parts.join(' ; ')}. Ajuste sur l'app auto.`;
+  } else {
+    if (statusEl) statusEl.textContent = `✓ Importé pour le planning auto : ${nInd} indispos, ${nWish} vœux.`;
+  }
+}
+const declareBtn = $('declare-auto-btn');
+if (declareBtn) declareBtn.onclick = declareForAuto;
+const logoutTop = $('logout-btn-top');
+if (logoutTop) logoutTop.onclick = () => { if (typeof logout === 'function') logout(); };
 
 $('import-btn').onclick = () => $('import-file').click();
 $('import-file').onchange = e => {

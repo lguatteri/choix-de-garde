@@ -218,3 +218,42 @@ on conflict (name) do update set
 insert into public.holidays (date) values
   ('2026-07-14'), ('2026-08-15')
 on conflict (date) do nothing;
+
+-- ----- PRÉFÉRENCES RÉCURRENTES (mode Auto) ------------------
+create table if not exists public.preferences (
+  user_id     uuid primary key references auth.users(id) on delete cascade,
+  blocked_hmn int[] not null default '{}',
+  blocked_ach int[] not null default '{}',
+  prefer_sem  int[] not null default '{}',
+  prefer_we   int[] not null default '{}',
+  updated_at  timestamptz default now()
+);
+alter table public.preferences enable row level security;
+drop policy if exists "preferences_select_own_or_admin" on public.preferences;
+create policy "preferences_select_own_or_admin" on public.preferences
+  for select using (user_id = auth.uid() or public.is_admin());
+drop policy if exists "preferences_modify_own" on public.preferences;
+create policy "preferences_modify_own" on public.preferences
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ----- PLANNING AUTO : copie séparée par médecin --------------
+-- Importée du Perso au clic sur « Déclarer » ; éditée sur l'app auto sans
+-- toucher à `voeux`. La génération lit cette copie.
+create table if not exists public.auto_declarations (
+  user_id uuid references auth.users(id) on delete cascade,
+  date    date not null,
+  voeu    text not null check (voeu in ('wishedHMN','wishedACH','wishedBoth','blocked')),
+  primary key (user_id, date)
+);
+alter table public.auto_declarations enable row level security;
+drop policy if exists "auto_decl_select_own_or_admin" on public.auto_declarations;
+create policy "auto_decl_select_own_or_admin" on public.auto_declarations
+  for select using (user_id = auth.uid() or public.is_admin());
+drop policy if exists "auto_decl_modify_own" on public.auto_declarations;
+create policy "auto_decl_modify_own" on public.auto_declarations
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Limites configurables par l'admin (dans session_state, défini plus haut)
+alter table public.session_state
+  add column if not exists max_wished  int not null default 5,
+  add column if not exists max_indispo int not null default 30;

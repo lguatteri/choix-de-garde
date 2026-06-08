@@ -56,6 +56,8 @@
         <button class="tab active" data-tab="planning">Planning</button>
         <button class="tab" data-tab="voeux">Perso</button>
         <button class="tab" data-tab="setup">Réglages</button>
+        <a class="tab" href="auto/" style="text-decoration:none">⚙ Mode auto</a>
+        <button class="tab" id="logout-btn-top">Déconnexion</button>
       </nav>
       <div class="me-badge" id="me-badge" title="Mes objectifs restants"></div>
     </header>
@@ -86,6 +88,10 @@
 
       <section id="voeux" class="view">
         <div class="my-next-turn" id="my-next-turn"></div>
+        <div class="declare-auto-box" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 12px">
+          <button id="declare-auto-btn" class="primary-action">Déclarer pour le planning auto</button>
+          <span id="declare-auto-status" class="hint"></span>
+        </div>
         <p class="hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💙 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
         <div class="calendar" id="voeux-calendar"></div>
       </section>
@@ -160,7 +166,7 @@
   <script src="supabase-config.js?v=42"></script>
   <script src="auth.js?v=42"></script>
   <script src="doctors.js?v=42"></script>
-  <script src="app.js?v=44"></script>
+  <script src="app.js?v=48"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
