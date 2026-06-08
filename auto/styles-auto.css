@@ -273,12 +273,60 @@
   font-weight: 800;
   border-color: #f87171;
 }
+#doctor-editor-calendar .day.wished {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 800;
+  border-color: #60a5fa;
+}
 #doctor-editor-calendar .day:not(.empty):hover {
   box-shadow: 0 0 0 2px #7c3aed;
   transform: scale(1.05);
 }
 @media (max-width: 600px) {
   #doctor-editor-calendar { grid-template-columns: 1fr; }
+}
+
+.editor-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+.editor-mode-label { font-size: 12px; font-weight: 600; color: #475569; }
+.editor-mode-btn {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.1s;
+}
+.editor-mode-btn:hover { border-color: #94a3b8; }
+.editor-mode-btn.active[data-mode="blocked"] {
+  background: #fee2e2; border-color: #ef4444; color: #b91c1c;
+}
+.editor-mode-btn.active[data-mode="wished"] {
+  background: #dbeafe; border-color: #3b82f6; color: #1e40af;
+}
+.editor-mode-max {
+  font-size: 12px;
+  color: #475569;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.editor-mode-max input[type="number"] {
+  width: 56px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
 }
 
 .editor-prefs {

@@ -18,6 +18,7 @@ let autoState = {
   realVoeuxByDoctor: null,   // sauvegarde quand on entre en simulation
   simulationMode: false,
   prefsByDoctor: {},          // name -> { blockedHMN:[dow], blockedACH:[dow], preferSem:[dow], preferWe:[dow] }
+  maxWished: 5,               // plafond global de dates voulues 💙 par médecin (admin)
   proposed: {},      // dateStr -> { HMN: name, ACH: name }
   failures: [],      // [{ date, site, reason }]
   remainingAfter: {}, // doctorName -> { ACH:{sem,we}, HMN:{sem,we} } restants après gen
@@ -480,6 +481,31 @@ function shortName(name) {
   return parts[0].slice(0,4) + '.' + (parts[1] ? parts[1][0] : '');
 }
 
+// Respect des dates voulues 💙 : une date voulue est "honorée" si le médecin
+// est bien de garde ce jour-là dans le planning proposé (sur le site souhaité
+// pour wishedHMN/wishedACH, n'importe quel site pour wishedBoth).
+function computeWishedRespect() {
+  let total = 0, honored = 0;
+  const perDoctor = {};
+  Object.entries(autoState.voeuxByDoctor).forEach(([name, map]) => {
+    Object.entries(map).forEach(([date, v]) => {
+      if (!v || !v.startsWith('wished')) return;
+      total++;
+      if (!perDoctor[name]) perDoctor[name] = { total: 0, honored: 0 };
+      perDoctor[name].total++;
+      const a = autoState.proposed[date];
+      let ok = false;
+      if (a) {
+        if (v === 'wishedHMN') ok = a.HMN === name;
+        else if (v === 'wishedACH') ok = a.ACH === name;
+        else ok = (a.HMN === name || a.ACH === name);   // wishedBoth
+      }
+      if (ok) { honored++; perDoctor[name].honored++; }
+    });
+  });
+  return { total, honored, perDoctor };
+}
+
 function renderAlgoStatus() {
   const el = document.getElementById('algo-status');
   const doctors = autoState.doctors;
@@ -491,7 +517,15 @@ function renderAlgoStatus() {
     const left = r.ACH.sem + r.ACH.we + r.HMN.sem + r.HMN.we;
     let status, color;
     if (left === 0) { status = '✓'; color = '#15803d'; }
-    else { status = `${left} non placés`; color = '#b91c1c'; allOk = false; }
+    else {
+      const parts = [];
+      if (r.ACH.sem) parts.push(`ACH sem ${r.ACH.sem}`);
+      if (r.ACH.we)  parts.push(`ACH WE ${r.ACH.we}`);
+      if (r.HMN.sem) parts.push(`HMN sem ${r.HMN.sem}`);
+      if (r.HMN.we)  parts.push(`HMN WE ${r.HMN.we}`);
+      status = parts.join(' · ');
+      color = '#b91c1c'; allOk = false;
+    }
     perDoctor += `<tr style="border-top:1px solid #e2e8f0">
       <td style="padding:4px"><strong>${d.name}</strong></td>
       <td style="text-align:center">${d.ACH.sem - r.ACH.sem}/${d.ACH.sem}</td>
@@ -510,8 +544,54 @@ function renderAlgoStatus() {
     });
     failHtml += '</ul>';
   }
+  // Récap global des objectifs non placés, par site + bucket
+  const manque = { ACH: { sem: 0, we: 0 }, HMN: { sem: 0, we: 0 } };
+  doctors.forEach(d => {
+    const r = rem[d.name];
+    manque.ACH.sem += r.ACH.sem; manque.ACH.we += r.ACH.we;
+    manque.HMN.sem += r.HMN.sem; manque.HMN.we += r.HMN.we;
+  });
+  const totalManque = manque.ACH.sem + manque.ACH.we + manque.HMN.sem + manque.HMN.we;
+  let manqueHtml = '';
+  if (totalManque > 0) {
+    const cell = n => n > 0
+      ? `<span style="color:#b91c1c;font-weight:700">${n}</span>`
+      : `<span style="color:#15803d">0</span>`;
+    manqueHtml = `<p style="margin-top:10px">⚠ <strong>Objectifs non placés : ${totalManque}</strong></p>
+      <table style="border-collapse:collapse;font-size:12px;margin-top:4px">
+        <thead><tr>
+          <th style="text-align:left;padding:2px 10px 2px 0"></th>
+          <th style="padding:2px 10px">semaine</th><th style="padding:2px 10px">WE+fériés</th>
+        </tr></thead><tbody>
+        <tr><td style="padding:2px 10px 2px 0"><strong>ACH</strong></td>
+          <td style="text-align:center">${cell(manque.ACH.sem)}</td>
+          <td style="text-align:center">${cell(manque.ACH.we)}</td></tr>
+        <tr><td style="padding:2px 10px 2px 0"><strong>HMN</strong></td>
+          <td style="text-align:center">${cell(manque.HMN.sem)}</td>
+          <td style="text-align:center">${cell(manque.HMN.we)}</td></tr>
+      </tbody></table>`;
+  }
+  // Respect des dates voulues
+  const wr = computeWishedRespect();
+  let wishedHtml = '';
+  if (wr.total > 0) {
+    const pct = Math.round((wr.honored / wr.total) * 100);
+    const color = pct >= 80 ? '#15803d' : pct >= 50 ? '#92400e' : '#b91c1c';
+    wishedHtml = `<p style="margin-top:10px">💙 <strong>Dates voulues respectées : <span style="color:${color}">${wr.honored}/${wr.total} (${pct}%)</span></strong></p>`;
+    const misses = Object.entries(wr.perDoctor).filter(([, s]) => s.honored < s.total);
+    if (misses.length) {
+      misses.sort((a, b) => (a[1].honored - a[1].total) - (b[1].honored - b[1].total));
+      wishedHtml += `<ul style="font-size:12px;color:#7f1d1d;margin:4px 0 0">`;
+      misses.forEach(([name, s]) => {
+        wishedHtml += `<li>${name} : ${s.honored}/${s.total} respectées</li>`;
+      });
+      wishedHtml += `</ul>`;
+    }
+  }
   el.innerHTML = `
     <p><strong>${allOk && !autoState.failures.length ? '✓ Génération réussie' : '⚠ Génération partielle'}</strong> — ${Object.keys(autoState.proposed).length} jours assignés, ${autoState.failures.length} créneau(x) en échec.</p>
+    ${manqueHtml}
+    ${wishedHtml}
     ${failHtml}
     ${perDoctor}
   `;
@@ -607,7 +687,7 @@ function generateRealisticIndispos(seed, totalTarget) {
     ...autoState.doctors.filter(d => !isHmnOnly(d)),
   ];
 
-  const stats = { totalVacDays: 0, totalScattered: 0, blocksPlaced: 0, blocksFailed: 0 };
+  const stats = { totalVacDays: 0, totalScattered: 0, blocksPlaced: 0, blocksFailed: 0, totalWished: 0 };
 
   for (const doc of ordered) {
     // Cible par médecin : ±15% autour du target global
@@ -670,6 +750,25 @@ function generateRealisticIndispos(seed, totalTarget) {
     }
 
     stats.totalVacDays += Object.keys(fake[doc.name]).length - placed;
+
+    // Dates voulues fictives (💙) : sur des jours où le médecin a un objectif,
+    // jamais sur une de ses indispos, plafonnées au max global.
+    const wishMax = autoState.maxWished;
+    if (wishMax > 0) {
+      const hasSem = (doc.ACH.sem + doc.HMN.sem) > 0;
+      const hasWe  = (doc.ACH.we  + doc.HMN.we)  > 0;
+      const wishCands = allDates.filter(date => {
+        if (fake[doc.name][date]) return false;        // déjà indispo
+        return isWE(date) ? hasWe : hasSem;            // bucket cohérent avec ses objectifs
+      });
+      shuffleInPlace(wishCands, rand);
+      const wishCount = Math.min(wishMax, wishCands.length,
+        Math.round(wishMax * (0.4 + rand() * 0.6)));   // 40–100% du max
+      for (let i = 0; i < wishCount; i++) {
+        fake[doc.name][wishCands[i]] = 'wishedBoth';
+        stats.totalWished++;
+      }
+    }
   }
 
   // Stats max HMN-only absent
@@ -737,6 +836,7 @@ function applySimulation() {
       ? ` <span style="color:#b91c1c">⚠ ${stats.blocksFailed} bloc(s) de congé n'ont pas pu être placés (contrainte HMN).</span>` : '';
     status.innerHTML = `
       ✓ Seed <strong>${seed}</strong> — ${totalBlocked} indispos au total (≈ ${avgBlocked}/médecin).
+      💙 <strong>${stats.totalWished}</strong> dates voulues générées (max ${autoState.maxWished}/médecin).
       Max simultané HMN-only absents : <strong>${stats.maxHmnSimul}/${stats.hmnOnlyCount}</strong>
       (limite ${stats.maxHmnAbsentAllowed}, soit min ${stats.hmnOnlyCount - stats.maxHmnAbsentAllowed} présents).${warn}
       <br>Clique <strong>⚡ Générer le planning</strong> pour tester l'algo.
@@ -768,6 +868,21 @@ function restoreRealData() {
 // ÉDITEUR D'INDISPOS PAR MÉDECIN (modale)
 // ============================================================
 let _editorDoctor = null;
+let _editorMode = 'blocked';   // 'blocked' (🚫 indispo) | 'wished' (💙 date voulue)
+
+function countWished(map) {
+  return Object.values(map || {}).filter(v => v && v.startsWith('wished')).length;
+}
+
+function setEditorMode(mode) {
+  _editorMode = mode;
+  document.querySelectorAll('.editor-mode-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode));
+  const hint = document.getElementById('doctor-editor-hint');
+  if (hint) hint.textContent = mode === 'blocked'
+    ? 'Clic sur une case = 🚫 indispo (re-clic = annuler).'
+    : 'Clic sur une case = 💙 date voulue : le médecin sera privilégié sur cette date si possible (re-clic = annuler).';
+}
 
 // Mapping affichage L M M J V S D ↔ Date.getDay() (0=Dim..6=Sam)
 const DOW_LABELS = ['L','M','M','J','V','S','D'];
@@ -779,6 +894,9 @@ function openDoctorEditor(doctorName) {
   _editorDoctor = doctorName;
   const backdrop = document.getElementById('doctor-editor-backdrop');
   document.getElementById('doctor-editor-title').textContent = doctorName;
+  setEditorMode('blocked');               // toujours rouvrir en mode indispo
+  const maxInput = document.getElementById('wished-max');
+  if (maxInput) maxInput.value = autoState.maxWished;
   renderDoctorEditor();
   renderEditorPrefs();
   backdrop.hidden = false;
@@ -787,15 +905,30 @@ function openDoctorEditor(doctorName) {
 function renderEditorPrefs() {
   if (!_editorDoctor) return;
   const prefs = getPrefs(_editorDoctor);
+  // « Pas de garde HMN/ACH le… » sert à orienter vers un site : n'a de sens que
+  // pour les médecins qui ont des objectifs sur les DEUX sites.
+  const doc = autoState.doctors.find(d => d.name === _editorDoctor);
+  const hasBothSites = !!doc
+    && (doc.HMN.sem + doc.HMN.we) > 0
+    && (doc.ACH.sem + doc.ACH.we) > 0;
   const rows = [
-    { key: 'blockedHMN', kind: 'block',  indices: [0,1,2,3,4,5,6] },
-    { key: 'blockedACH', kind: 'block',  indices: [0,1,2,3,4,5,6] },
+    { key: 'blockedHMN', kind: 'block',  indices: [0,1,2,3,4,5,6], onlyBothSites: true },
+    { key: 'blockedACH', kind: 'block',  indices: [0,1,2,3,4,5,6], onlyBothSites: true },
     { key: 'preferSem',  kind: 'prefer', indices: SEM_INDICES },
     { key: 'preferWe',   kind: 'prefer', indices: WE_INDICES },
   ];
   rows.forEach(r => {
     const container = document.querySelector(`.dow-chips[data-pref="${r.key}"]`);
     if (!container) return;
+    // Masquer la ligne entière si la préférence ne s'applique pas à ce médecin
+    const prefRow = container.closest('.pref-row');
+    if (r.onlyBothSites && !hasBothSites) {
+      if (prefRow) prefRow.hidden = true;
+      if (prefs[r.key].length) prefs[r.key] = [];  // purge une valeur devenue invalide
+      container.innerHTML = '';
+      return;
+    }
+    if (prefRow) prefRow.hidden = false;
     container.innerHTML = '';
     r.indices.forEach(idx => {
       const dow = DOW_GETDAY[idx];
@@ -840,9 +973,11 @@ function renderDoctorEditor() {
   if (!doc) return;
   const map = autoState.voeuxByDoctor[name] || (autoState.voeuxByDoctor[name] = {});
   const blockedCount = Object.values(map).filter(v => v === 'blocked').length;
+  const wishedCount = countWished(map);
   document.getElementById('doctor-editor-stats').innerHTML =
     `Objectifs : <strong>ACH</strong> ${doc.ACH.sem}sem + ${doc.ACH.we}WE — <strong>HMN</strong> ${doc.HMN.sem}sem + ${doc.HMN.we}WE
-     · <strong>${blockedCount}</strong> jour${blockedCount > 1 ? 's' : ''} d'indispo`;
+     · 🚫 <strong>${blockedCount}</strong> indispo${blockedCount > 1 ? 's' : ''}
+     · 💙 <strong>${wishedCount}/${autoState.maxWished}</strong> voulue${wishedCount > 1 ? 's' : ''}`;
 
   const c = document.getElementById('doctor-editor-calendar');
   c.innerHTML = '';
@@ -879,6 +1014,7 @@ function renderDoctorEditor() {
       else if (t === 'sunday' || t === 'saturday') cell.classList.add('weekend');
       cell.textContent = parseYMD(d).getDate();
       if (map[d] === 'blocked') cell.classList.add('blocked');
+      else if (map[d] && map[d].startsWith('wished')) cell.classList.add('wished');
       cell.addEventListener('click', () => toggleEditorDay(d));
       daysEl.appendChild(cell);
     });
@@ -890,10 +1026,21 @@ function renderDoctorEditor() {
 function toggleEditorDay(date) {
   if (!_editorDoctor) return;
   const map = autoState.voeuxByDoctor[_editorDoctor] || (autoState.voeuxByDoctor[_editorDoctor] = {});
-  if (map[date] === 'blocked') {
-    delete map[date];
-  } else {
-    map[date] = 'blocked';
+  const cur = map[date];
+  if (_editorMode === 'blocked') {
+    if (cur === 'blocked') delete map[date];
+    else map[date] = 'blocked';                 // écrase un éventuel vœu (exclusifs)
+  } else {                                        // mode 'wished'
+    if (cur && cur.startsWith('wished')) {
+      delete map[date];
+    } else {
+      if (countWished(map) >= autoState.maxWished) {
+        alert(`Maximum de ${autoState.maxWished} date(s) voulue(s) par médecin atteint.\n\n` +
+              `Retire-en une avant d'en ajouter une autre, ou augmente le max global.`);
+        return;
+      }
+      map[date] = 'wishedBoth';                   // écrase une éventuelle indispo (exclusifs)
+    }
   }
   renderDoctorEditor();
 }
@@ -904,6 +1051,16 @@ function clearEditorDoctor() {
   const map = autoState.voeuxByDoctor[_editorDoctor] || {};
   Object.keys(map).forEach(date => {
     if (map[date] === 'blocked') delete map[date];
+  });
+  renderDoctorEditor();
+}
+
+function clearEditorWished() {
+  if (!_editorDoctor) return;
+  if (!confirm(`Effacer toutes les dates voulues de ${_editorDoctor} ?`)) return;
+  const map = autoState.voeuxByDoctor[_editorDoctor] || {};
+  Object.keys(map).forEach(date => {
+    if (map[date] && map[date].startsWith('wished')) delete map[date];
   });
   renderDoctorEditor();
 }
@@ -1004,8 +1161,22 @@ function bindAutoButtons() {
   if (editorClose) editorClose.onclick = closeDoctorEditor;
   const editorClear = document.getElementById('doctor-editor-clear');
   if (editorClear) editorClear.onclick = clearEditorDoctor;
+  const editorClearWished = document.getElementById('doctor-editor-clear-wished');
+  if (editorClearWished) editorClearWished.onclick = clearEditorWished;
   const editorClearPrefs = document.getElementById('doctor-editor-clear-prefs');
   if (editorClearPrefs) editorClearPrefs.onclick = clearEditorPrefs;
+  // Sélecteur de mode au clic (🚫 indispo / 💙 date voulue)
+  document.querySelectorAll('.editor-mode-btn').forEach(btn => {
+    btn.onclick = () => setEditorMode(btn.dataset.mode);
+  });
+  // Plafond global de dates voulues
+  const wishedMax = document.getElementById('wished-max');
+  if (wishedMax) wishedMax.onchange = () => {
+    const n = parseInt(wishedMax.value, 10);
+    autoState.maxWished = Number.isFinite(n) && n >= 0 ? n : 0;
+    wishedMax.value = autoState.maxWished;
+    if (_editorDoctor) renderDoctorEditor();   // rafraîchir le compteur x/max
+  };
   const editorBack = document.getElementById('doctor-editor-backdrop');
   if (editorBack) editorBack.addEventListener('click', e => {
     if (e.target === editorBack) closeDoctorEditor();

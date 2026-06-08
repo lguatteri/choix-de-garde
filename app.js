@@ -1322,8 +1322,74 @@ function renderSetup() {
     };
   });
 
+  renderObjectivesCoherence();
   renderAdminsTable();
   renderAccountInfo();
+}
+
+// Contrôle de cohérence : objectifs déclarés vs nombre réel de créneaux à couvrir
+// (par site + bucket), pour repérer/ajuster les écarts AVANT de lancer les choix.
+function renderObjectivesCoherence() {
+  const el = $('remaining-objectives');
+  if (!el) return;
+  if (!isAdmin()) {
+    el.innerHTML = '<em style="font-size:12px;color:var(--ink-soft)">Réservé aux admins.</em>';
+    return;
+  }
+  // Nombre de créneaux par bucket (1 par site et par jour)
+  let semSlots = 0, weSlots = 0;
+  for (const d of iterDates(PERIOD_START, PERIOD_END)) {
+    if (isWE(d)) weSlots++; else semSlots++;
+  }
+  const obj = { ACH: { sem: 0, we: 0 }, HMN: { sem: 0, we: 0 } };
+  state.doctors.forEach(d => {
+    obj.ACH.sem += d.ACH.sem|0; obj.ACH.we += d.ACH.we|0;
+    obj.HMN.sem += d.HMN.sem|0; obj.HMN.we += d.HMN.we|0;
+  });
+  const rows = [
+    ['ACH semaine',     obj.ACH.sem, semSlots],
+    ['ACH WE + fériés', obj.ACH.we,  weSlots],
+    ['HMN semaine',     obj.HMN.sem, semSlots],
+    ['HMN WE + fériés', obj.HMN.we,  weSlots],
+  ];
+  const diffCell = diff => {
+    if (diff === 0) return `<span style="color:#15803d;font-weight:700">✓ exact</span>`;
+    if (diff < 0)   return `<span style="color:#b91c1c;font-weight:700">⚠ manque ${-diff}</span>`;
+    return `<span style="color:#92400e;font-weight:700">+${diff} en trop</span>`;
+  };
+  let totObj = 0, totSlot = 0, anyMismatch = false;
+  let body = '';
+  rows.forEach(([label, o, s]) => {
+    totObj += o; totSlot += s;
+    if (o !== s) anyMismatch = true;
+    body += `<tr style="border-top:1px solid var(--border,#e2e8f0)">
+      <td style="padding:4px 14px 4px 0">${label}</td>
+      <td style="text-align:right;padding:4px 14px">${o}</td>
+      <td style="text-align:right;padding:4px 14px">${s}</td>
+      <td style="padding:4px 0">${diffCell(o - s)}</td>
+    </tr>`;
+  });
+  const banner = anyMismatch
+    ? `<p style="margin:0 0 8px;color:#b91c1c;font-weight:600">⚠ Des écarts existent : ajuste les objectifs ci-dessous avant de lancer les choix, sinon certains créneaux ne pourront pas être couverts (ou il y aura des objectifs en trop).</p>`
+    : `<p style="margin:0 0 8px;color:#15803d;font-weight:600">✓ Objectifs et créneaux sont cohérents sur tous les sites.</p>`;
+  el.innerHTML = `
+    ${banner}
+    <table style="border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        <th style="text-align:left;padding:4px 14px 4px 0">Type de garde</th>
+        <th style="text-align:right;padding:4px 14px">Objectifs</th>
+        <th style="text-align:right;padding:4px 14px">Créneaux</th>
+        <th style="padding:4px 0">Écart</th>
+      </tr></thead><tbody>
+        ${body}
+        <tr style="border-top:2px solid var(--border,#cbd5e1);font-weight:700">
+          <td style="padding:4px 14px 4px 0">Total période</td>
+          <td style="text-align:right;padding:4px 14px">${totObj}</td>
+          <td style="text-align:right;padding:4px 14px">${totSlot}</td>
+          <td style="padding:4px 0">${diffCell(totObj - totSlot)}</td>
+        </tr>
+      </tbody>
+    </table>`;
 }
 
 function renderAccountInfo() {

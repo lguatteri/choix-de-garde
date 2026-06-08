@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="../styles.css?v=84">
-<link rel="stylesheet" href="styles-auto.css?v=9">
+<link rel="stylesheet" href="styles-auto.css?v=10">
 </head>
 <body>
 
@@ -95,7 +95,15 @@
     <div class="modal doctor-editor">
       <h3 id="doctor-editor-title"></h3>
       <div id="doctor-editor-stats" class="hint"></div>
-      <p class="hint" style="margin:6px 0 10px">Clic sur une case pour basculer indispo (rouge) / disponible.</p>
+      <div class="editor-mode">
+        <span class="editor-mode-label">Au clic :</span>
+        <button class="editor-mode-btn active" data-mode="blocked">🚫 Indispo</button>
+        <button class="editor-mode-btn" data-mode="wished">💙 Date voulue</button>
+        <span class="editor-mode-max">max voulues / médecin (global) :
+          <input type="number" id="wished-max" min="0" max="50" value="5">
+        </span>
+      </div>
+      <p class="hint" id="doctor-editor-hint" style="margin:6px 0 10px"></p>
       <div id="doctor-editor-calendar"></div>
       <div id="doctor-editor-prefs" class="editor-prefs">
         <h4>Préférences récurrentes (toute la période)</h4>
@@ -112,12 +120,13 @@
           <div class="dow-chips" data-pref="preferSem"></div>
         </div>
         <div class="pref-row">
-          <span class="pref-label">⭐ Garde WE/férié plutôt le :</span>
+          <span class="pref-label">⭐ Garde WE plutôt le :</span>
           <div class="dow-chips" data-pref="preferWe"></div>
         </div>
       </div>
       <div class="modal-actions">
         <button id="doctor-editor-clear">Effacer indispos</button>
+        <button id="doctor-editor-clear-wished">Effacer dates voulues</button>
         <button id="doctor-editor-clear-prefs">Effacer préférences</button>
         <button id="doctor-editor-close" class="primary">Fermer</button>
       </div>
@@ -128,6 +137,6 @@
   <script src="../supabase-config.js?v=84"></script>
   <script src="../doctors.js?v=84"></script>
   <script src="auth-auto.js?v=4"></script>
-  <script src="app-auto.js?v=10"></script>
+  <script src="app-auto.js?v=14"></script>
 </body>
 </html>

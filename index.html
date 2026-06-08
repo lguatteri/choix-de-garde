@@ -91,6 +91,9 @@
       </section>
 
       <section id="setup" class="view">
+        <h2>📊 Cohérence objectifs ↔ créneaux <span class="admin-only-tag">admin</span></h2>
+        <div id="remaining-objectives"></div>
+
         <h2>Premier à choisir <span class="admin-only-tag">admin</span></h2>
         <div class="first-picker-row">
           <select id="first-picker"></select>
@@ -157,7 +160,7 @@
   <script src="supabase-config.js?v=42"></script>
   <script src="auth.js?v=42"></script>
   <script src="doctors.js?v=42"></script>
-  <script src="app.js?v=42"></script>
+  <script src="app.js?v=44"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
