@@ -18,7 +18,7 @@ let autoState = {
   realVoeuxByDoctor: null,   // sauvegarde quand on entre en simulation
   simulationMode: false,
   prefsByDoctor: {},          // name -> { blockedHMN:[dow], blockedACH:[dow], preferSem:[dow], preferWe:[dow] }
-  maxWished: 5,               // plafond global de dates voulues 💙 par médecin (admin)
+  wishedPerGardes: 3,         // N : 1 vœu pour N gardes pondérées (réglable admin)
   maxIndispo: 30,             // plafond global d'indispos déclarées pour l'auto (admin)
   proposed: {},      // dateStr -> { HMN: name, ACH: name }
   failures: [],      // [{ date, site, reason }]
@@ -77,6 +77,18 @@ function periodLabel() {
   return `${MONTHS_FR[s.getMonth()]} ${sy} – ${MONTHS_FR[e.getMonth()]} ${ey}`;
 }
 
+// Vœux proportionnels : total pondéré (1 garde WE = 2) ÷ N, minimum 2
+const MIN_WISHED = 2;
+function weightedGardes(d) {
+  return (d.ACH.sem + d.HMN.sem) + 2 * (d.ACH.we + d.HMN.we);
+}
+function maxWishedFromWeighted(w, perN) {
+  return Math.max(MIN_WISHED, Math.round(w / (perN || 3)));
+}
+function autoMaxWishedFor(d) {
+  return d ? maxWishedFromWeighted(weightedGardes(d), autoState.wishedPerGardes) : MIN_WISHED;
+}
+
 async function loadAllForAuto() {
   // L'algo lit la COPIE auto (auto_declarations), importée du Perso par chaque
   // médecin, + les vraies préférences.
@@ -86,7 +98,7 @@ async function loadAllForAuto() {
     sb().from('profiles').select('*'),
     sb().from('auto_declarations').select('*'),
     sb().from('preferences').select('*'),
-    sb().from('session_state').select('max_wished, max_indispo, period_start, period_end').eq('id', 1).maybeSingle(),
+    sb().from('session_state').select('max_indispo, wished_per_gardes, period_start, period_end').eq('id', 1).maybeSingle(),
   ]);
   if (doctors.error) throw doctors.error;
   autoState.doctors = (doctors.data || []).map(d => ({
@@ -115,7 +127,7 @@ async function loadAllForAuto() {
   });
   // Limites + période (défauts si colonnes/données absentes)
   if (sess && sess.data) {
-    if (sess.data.max_wished != null)  autoState.maxWished  = sess.data.max_wished;
+    if (sess.data.wished_per_gardes != null) autoState.wishedPerGardes = sess.data.wished_per_gardes;
     if (sess.data.max_indispo != null) autoState.maxIndispo = sess.data.max_indispo;
     if (sess.data.period_start) PERIOD_START = sess.data.period_start;
     if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
@@ -782,7 +794,7 @@ function generateRealisticIndispos(seed, totalTarget) {
 
     // Dates voulues fictives (💙) : sur des jours où le médecin a un objectif,
     // jamais sur une de ses indispos, plafonnées au max global.
-    const wishMax = autoState.maxWished;
+    const wishMax = autoMaxWishedFor(doc);
     if (wishMax > 0) {
       const hasSem = (doc.ACH.sem + doc.HMN.sem) > 0;
       const hasWe  = (doc.ACH.we  + doc.HMN.we)  > 0;
@@ -865,7 +877,7 @@ function applySimulation() {
       ? ` <span style="color:#b91c1c">⚠ ${stats.blocksFailed} bloc(s) de congé n'ont pas pu être placés (contrainte HMN).</span>` : '';
     status.innerHTML = `
       ✓ Seed <strong>${seed}</strong> — ${totalBlocked} indispos au total (≈ ${avgBlocked}/médecin).
-      💙 <strong>${stats.totalWished}</strong> dates voulues générées (max ${autoState.maxWished}/médecin).
+      💙 <strong>${stats.totalWished}</strong> dates voulues générées (1 vœu pour ${autoState.wishedPerGardes} gardes, min ${MIN_WISHED}).
       Max simultané HMN-only absents : <strong>${stats.maxHmnSimul}/${stats.hmnOnlyCount}</strong>
       (limite ${stats.maxHmnAbsentAllowed}, soit min ${stats.hmnOnlyCount - stats.maxHmnAbsentAllowed} présents).${warn}
       <br>Clique <strong>⚡ Générer le planning</strong> pour tester l'algo.
@@ -924,8 +936,6 @@ function openDoctorEditor(doctorName) {
   const backdrop = document.getElementById('doctor-editor-backdrop');
   document.getElementById('doctor-editor-title').textContent = doctorName;
   setEditorMode('blocked');               // toujours rouvrir en mode indispo
-  const maxInput = document.getElementById('wished-max');
-  if (maxInput) maxInput.value = autoState.maxWished;
   renderDoctorEditor();
   renderEditorPrefs();
   backdrop.hidden = false;
@@ -1006,7 +1016,7 @@ function renderDoctorEditor() {
   document.getElementById('doctor-editor-stats').innerHTML =
     `Objectifs : <strong>ACH</strong> ${doc.ACH.sem}sem + ${doc.ACH.we}WE — <strong>HMN</strong> ${doc.HMN.sem}sem + ${doc.HMN.we}WE
      · 🚫 <strong>${blockedCount}</strong> indispo${blockedCount > 1 ? 's' : ''}
-     · 💙 <strong>${wishedCount}/${autoState.maxWished}</strong> voulue${wishedCount > 1 ? 's' : ''}`;
+     · 💙 <strong>${wishedCount}/${autoMaxWishedFor(doc)}</strong> voulue${wishedCount > 1 ? 's' : ''}`;
 
   const c = document.getElementById('doctor-editor-calendar');
   c.innerHTML = '';
@@ -1063,9 +1073,9 @@ function toggleEditorDay(date) {
     if (cur && cur.startsWith('wished')) {
       delete map[date];
     } else {
-      if (countWished(map) >= autoState.maxWished) {
-        alert(`Maximum de ${autoState.maxWished} date(s) voulue(s) par médecin atteint.\n\n` +
-              `Retire-en une avant d'en ajouter une autre, ou augmente le max global.`);
+      const capW = autoMaxWishedFor(autoState.doctors.find(x => x.name === _editorDoctor));
+      if (countWished(map) >= capW) {
+        alert(`Maximum de ${capW} date(s) voulue(s) pour ce médecin (1 vœu pour ${autoState.wishedPerGardes} gardes).`);
         return;
       }
       map[date] = 'wishedBoth';                   // écrase une éventuelle indispo (exclusifs)
@@ -1125,16 +1135,44 @@ async function commitToMainPlanning() {
 }
 
 async function saveAutoLimits() {
-  const w = parseInt(document.getElementById('limit-wished').value, 10);
+  const w = parseInt(document.getElementById('limit-wished-ratio').value, 10);
   const i = parseInt(document.getElementById('limit-indispo').value, 10);
-  if (Number.isFinite(w) && w >= 0) autoState.maxWished = w;
+  if (Number.isFinite(w) && w >= 1) autoState.wishedPerGardes = w;
   if (Number.isFinite(i) && i >= 0) autoState.maxIndispo = i;
   const status = document.getElementById('limits-status');
   const { error } = await sb().from('session_state').update({
-    max_wished: autoState.maxWished, max_indispo: autoState.maxIndispo,
+    wished_per_gardes: autoState.wishedPerGardes, max_indispo: autoState.maxIndispo,
     updated_at: new Date().toISOString(),
   }).eq('id', 1);
   if (status) status.textContent = error ? '⚠ ' + error.message : '✓ Limites enregistrées.';
+  renderWishedRatioTable();
+}
+
+// Tableau live : total pondéré présent chez les médecins → max vœux pour le N courant
+function renderWishedRatioTable() {
+  const el = document.getElementById('wished-ratio-table');
+  if (!el) return;
+  const N = autoState.wishedPerGardes || 3;
+  const groups = {};
+  (autoState.doctors || []).forEach(d => {
+    const w = weightedGardes(d);
+    (groups[w] = groups[w] || []).push(d.name);
+  });
+  const totals = Object.keys(groups).map(Number).sort((a, b) => b - a);
+  if (!totals.length) { el.innerHTML = ''; return; }
+  let html = `<p class="hint" style="margin:8px 0 4px">Aperçu (1 vœu pour <strong>${N}</strong> gardes, min ${MIN_WISHED}) :</p>
+    <table style="border-collapse:collapse;font-size:12px"><thead><tr>
+      <th style="text-align:left;padding:3px 12px 3px 0">Pondéré (sem + 2×WE)</th>
+      <th style="padding:3px 10px">Nb médecins</th>
+      <th style="padding:3px 10px">Max vœux</th></tr></thead><tbody>`;
+  totals.forEach(w => {
+    html += `<tr style="border-top:1px solid var(--border,#e2e8f0)">
+      <td style="padding:3px 12px 3px 0">${w}</td>
+      <td style="text-align:center">${groups[w].length}</td>
+      <td style="text-align:center"><strong>${maxWishedFromWeighted(w, N)}</strong></td></tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
 }
 
 let _initialised = false;
@@ -1147,9 +1185,10 @@ async function initAutoApp() {
     document.getElementById('algo-status').innerHTML = `<p style="color:#b91c1c">Erreur de chargement : ${e.message || e}</p>`;
     return;
   }
-  const lw = document.getElementById('limit-wished'); if (lw) lw.value = autoState.maxWished;
+  const lw = document.getElementById('limit-wished-ratio'); if (lw) lw.value = autoState.wishedPerGardes;
   const li = document.getElementById('limit-indispo'); if (li) li.value = autoState.maxIndispo;
   const apl = document.getElementById('auto-period-label'); if (apl) apl.textContent = periodLabel() + ' — mode algorithme';
+  renderWishedRatioTable();
   renderObjectivesCheck();
   renderCoverageTable();
   renderAutoCalendar();
@@ -1170,7 +1209,7 @@ let persoState = {
   objectives: { ACH: { sem: 0, we: 0 }, HMN: { sem: 0, we: 0 } },
   persoVoeux: {},            // COPIE auto (table auto_declarations) — éditable, séparée du Perso
   prefs: { blockedHMN: [], blockedACH: [], preferSem: [], preferWe: [] },
-  maxWished: 5, maxIndispo: 30,
+  maxWished: 2, maxIndispo: 30, wishedPerGardes: 3,
   mode: 'blocked',           // 'blocked' 🚫 | 'wished' 💙 (édition directe)
   prefsTableMissing: false,
   declTableMissing: false,   // auto_declarations absente
@@ -1198,7 +1237,7 @@ async function initPersoApp() {
       sb().from('holidays').select('date'),
       sb().from('auto_declarations').select('*').eq('user_id', persoState.userId),
       sb().from('preferences').select('*').eq('user_id', persoState.userId).maybeSingle(),
-      sb().from('session_state').select('max_wished, max_indispo, period_start, period_end').eq('id', 1).maybeSingle(),
+      sb().from('session_state').select('max_indispo, wished_per_gardes, period_start, period_end').eq('id', 1).maybeSingle(),
     ]);
     if (doc.data) persoState.objectives = {
       ACH: { sem: doc.data.ach_sem | 0, we: doc.data.ach_we | 0 },
@@ -1218,11 +1257,13 @@ async function initPersoApp() {
       };
     }
     if (sess && sess.data) {
-      if (sess.data.max_wished != null)  persoState.maxWished  = sess.data.max_wished;
+      if (sess.data.wished_per_gardes != null) persoState.wishedPerGardes = sess.data.wished_per_gardes;
       if (sess.data.max_indispo != null) persoState.maxIndispo = sess.data.max_indispo;
       if (sess.data.period_start) PERIOD_START = sess.data.period_start;
       if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
     }
+    // Max de vœux propre au médecin (proportionnel à ses gardes pondérées)
+    persoState.maxWished = maxWishedFromWeighted(weightedGardes(persoState.objectives), persoState.wishedPerGardes);
   } catch (e) { console.error('initPersoApp', e); }
   renderPerso();
 }
@@ -1572,13 +1613,15 @@ function bindAutoButtons() {
   document.querySelectorAll('.editor-mode-btn').forEach(btn => {
     btn.onclick = () => setEditorMode(btn.dataset.mode);
   });
-  // Plafond global de dates voulues
-  const wishedMax = document.getElementById('wished-max');
-  if (wishedMax) wishedMax.onchange = () => {
-    const n = parseInt(wishedMax.value, 10);
-    autoState.maxWished = Number.isFinite(n) && n >= 0 ? n : 0;
-    wishedMax.value = autoState.maxWished;
-    if (_editorDoctor) renderDoctorEditor();   // rafraîchir le compteur x/max
+  // Ratio « 1 vœu pour N gardes » : tableau live qui s'actualise à la saisie
+  const ratioInput = document.getElementById('limit-wished-ratio');
+  if (ratioInput) ratioInput.oninput = () => {
+    const n = parseInt(ratioInput.value, 10);
+    if (Number.isFinite(n) && n >= 1) {
+      autoState.wishedPerGardes = n;
+      renderWishedRatioTable();
+      if (_editorDoctor) renderDoctorEditor();
+    }
   };
   const limitsSaveBtn = document.getElementById('limits-save');
   if (limitsSaveBtn) limitsSaveBtn.onclick = saveAutoLimits;

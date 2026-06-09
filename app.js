@@ -21,7 +21,8 @@ function defaultState() {
     forcedNextPicker: null,
     allVoeux: {},             // doctorName -> { date -> voeu }, chargé depuis Supabase
     neutralView: false,       // local : masque la coloration liée au picker courant
-    maxWished: 5,             // limites du planning auto (réglées par l'admin côté app auto)
+    maxWished: 2,             // calculé selon mes gardes (proportionnel, réglé par l'admin)
+    wishedPerGardes: 3,
     maxIndispo: 30,
     doctors: deepClone(DOCTORS),
     holidays: HOLIDAYS.slice(),
@@ -67,7 +68,7 @@ async function loadAllFromSupabase() {
     state.currentTour = sess.data.current_tour ?? 1;
     state.tourStartIdx = sess.data.tour_start_idx ?? 0;
     state.tourDirection = sess.data.tour_direction ?? 1;
-    state.maxWished = sess.data.max_wished ?? 5;
+    state.wishedPerGardes = sess.data.wished_per_gardes ?? 3;
     state.maxIndispo = sess.data.max_indispo ?? 30;
     if (sess.data.period_start) PERIOD_START = sess.data.period_start;
     if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
@@ -86,6 +87,15 @@ async function loadAllFromSupabase() {
     state.allVoeux[dn][row.date] = row.voeu;
   });
   state.voeux = state.allVoeux[state.myName] || {};
+  computeMyMaxWished();
+}
+
+// Max de vœux pour MOI = round((sem + 2×WE) / N), minimum 2
+function computeMyMaxWished() {
+  const me = findDoctor(state.myName);
+  if (!me) { state.maxWished = 2; return; }
+  const w = (me.ACH.sem + me.HMN.sem) + 2 * (me.ACH.we + me.HMN.we);
+  state.maxWished = Math.max(2, Math.round(w / (state.wishedPerGardes || 3)));
 }
 
 // ============================================================
@@ -1654,7 +1664,7 @@ function setupRealtime() {
         state.tourDirection = payload.new.tour_direction ?? state.tourDirection;
         if (payload.new.period_start) PERIOD_START = payload.new.period_start;
         if (payload.new.period_end)   PERIOD_END   = payload.new.period_end;
-        if (payload.new.max_wished != null)  state.maxWished  = payload.new.max_wished;
+        if (payload.new.wished_per_gardes != null) { state.wishedPerGardes = payload.new.wished_per_gardes; computeMyMaxWished(); }
         if (payload.new.max_indispo != null) state.maxIndispo = payload.new.max_indispo;
         render();
       }

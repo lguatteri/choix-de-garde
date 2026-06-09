@@ -257,5 +257,6 @@ create policy "auto_decl_modify_own" on public.auto_declarations
 
 -- Limites configurables par l'admin (dans session_state, défini plus haut)
 alter table public.session_state
-  add column if not exists max_wished  int not null default 5,
-  add column if not exists max_indispo int not null default 30;
+  add column if not exists max_wished       int not null default 5,
+  add column if not exists max_indispo      int not null default 30,
+  add column if not exists wished_per_gardes int not null default 3;

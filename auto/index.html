@@ -65,11 +65,12 @@
 
         <div class="limits-panel">
           <strong>⚙️ Limites de déclaration auto :</strong>
-          <label>vœux max <input type="number" id="limit-wished" min="0" max="50"></label>
+          <label>1 vœu pour <input type="number" id="limit-wished-ratio" min="1" max="20" style="width:48px"> gardes</label>
           <label>indispos max <input type="number" id="limit-indispo" min="0" max="200"></label>
           <button id="limits-save">Enregistrer</button>
           <span id="limits-status" class="hint"></span>
         </div>
+        <div id="wished-ratio-table"></div>
 
         <h2>📊 Bilan objectifs vs slots à couvrir</h2>
         <div id="objectives-check"></div>
@@ -186,9 +187,6 @@
         <span class="editor-mode-label">Au clic :</span>
         <button class="editor-mode-btn active" data-mode="blocked">🚫 Indispo</button>
         <button class="editor-mode-btn" data-mode="wished">💙 Date voulue</button>
-        <span class="editor-mode-max">max voulues / médecin (global) :
-          <input type="number" id="wished-max" min="0" max="50" value="5">
-        </span>
       </div>
       <p class="hint" id="doctor-editor-hint" style="margin:6px 0 10px"></p>
       <div id="doctor-editor-calendar"></div>
@@ -224,6 +222,6 @@
   <script src="../supabase-config.js?v=84"></script>
   <script src="../doctors.js?v=85"></script>
   <script src="auth-auto.js?v=5"></script>
-  <script src="app-auto.js?v=25"></script>
+  <script src="app-auto.js?v=26"></script>
 </body>
 </html>
