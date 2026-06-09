@@ -568,3 +568,11 @@
   border-bottom: 2px solid transparent;
 }
 .subtab.active { color: #5b21b6; border-bottom-color: #5b21b6; }
+
+#perso-trim-calendar .day .wish-mark {
+  display: block;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  margin-top: 1px;
+}

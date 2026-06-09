@@ -1345,10 +1345,18 @@ function renderPersoTrim() {
       const t = dayType(d);
       if (t === 'holiday') cell.classList.add('holiday');
       else if (t === 'sunday' || t === 'saturday') cell.classList.add('weekend');
-      cell.textContent = parseYMD(d).getDate();
+      const dayNum = parseYMD(d).getDate();
       const v = persoState.persoVoeux[d];
-      if (v === 'blocked') cell.classList.add('blocked');
-      else if (v && v.startsWith('wished')) cell.classList.add('wished');
+      if (v === 'blocked') {
+        cell.classList.add('blocked');
+        cell.textContent = dayNum;
+      } else if (v && v.startsWith('wished')) {
+        cell.classList.add('wished');
+        const mark = v === 'wishedHMN' ? 'HMN' : v === 'wishedACH' ? 'ACH' : '2 sites';
+        cell.innerHTML = `${dayNum}<span class="wish-mark">${mark}</span>`;
+      } else {
+        cell.textContent = dayNum;
+      }
       cell.addEventListener('click', () => persoEditDay(d));
       daysEl.appendChild(cell);
     });
@@ -1371,10 +1379,18 @@ async function persoEditDay(date) {
       next = 'blocked';
     }
   } else {
-    if (cur && cur.startsWith('wished')) next = null;
-    else {
+    const o = persoState.objectives;
+    const hasBoth = (o.HMN.sem + o.HMN.we) > 0 && (o.ACH.sem + o.ACH.we) > 0;
+    const isWished = cur && cur.startsWith('wished');
+    if (!isWished) {
       if (wish >= persoState.maxWished) { alert(`Maximum ${persoState.maxWished} dates voulues.`); return; }
-      next = 'wishedBoth';
+      // mono-site : sur son seul site ; bi-site : démarre sur HMN, re-clic pour changer
+      next = hasBoth ? 'wishedHMN' : ((o.HMN.sem + o.HMN.we) > 0 ? 'wishedHMN' : 'wishedACH');
+    } else if (!hasBoth) {
+      next = null;                                   // mono-site : un seul état → retirer
+    } else {
+      // bi-site : HMN → ACH → les deux → retirer
+      next = cur === 'wishedHMN' ? 'wishedACH' : cur === 'wishedACH' ? 'wishedBoth' : null;
     }
   }
   const status = document.getElementById('perso-decl-status');
