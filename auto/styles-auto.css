@@ -576,3 +576,21 @@
   line-height: 1;
   margin-top: 1px;
 }
+
+/* Bloc « Participer » mis en avant en haut de la page médecin */
+.participate-box {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.participate-btn {
+  font-size: 17px;
+  font-weight: 800;
+  padding: 12px 22px;
+}

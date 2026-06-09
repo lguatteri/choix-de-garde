@@ -1356,13 +1356,14 @@ function renderSetup() {
 
   // Doctors table
   const t = $('doctors-table');
+  const admin = isAdmin();
   let html = `<table><thead><tr>
     <th>Médecin</th>
     <th colspan="2">ACH (Chenevier)</th>
     <th colspan="2">HMN (Mondor)</th>
-    <th>Catégorie</th>
+    <th>Catégorie</th><th></th>
   </tr><tr>
-    <th></th><th>sem</th><th>WE+f</th><th>sem</th><th>WE+f</th><th></th>
+    <th></th><th>sem</th><th>WE+f</th><th>sem</th><th>WE+f</th><th></th><th></th>
   </tr></thead><tbody>`;
   state.doctors.forEach((d, i) => {
     html += `<tr>
@@ -1372,11 +1373,20 @@ function renderSetup() {
       <td><input type="number" min="0" data-i="${i}" data-k="HMN-sem" value="${d.HMN.sem}"></td>
       <td><input type="number" min="0" data-i="${i}" data-k="HMN-we"  value="${d.HMN.we}"></td>
       <td>${({ge4:'≥4 WE',eq3:'3 WE',lt3:'<3 WE',no:'sans WE'})[category(d)]}</td>
+      <td>${admin ? `<button class="danger" data-del-doctor="${d.name}" title="Retirer ce médecin" style="padding:2px 8px">✕</button>` : ''}</td>
     </tr>`;
   });
   html += '</tbody></table>';
+  if (admin) {
+    html += `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:12px">
+      <input id="add-doc-name" placeholder="Nom Prénom" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px">
+      ACH <input id="add-doc-achsem" type="number" min="0" value="0" title="sem" style="width:42px">/<input id="add-doc-achwe" type="number" min="0" value="0" title="WE" style="width:42px">
+      HMN <input id="add-doc-hmnsem" type="number" min="0" value="0" title="sem" style="width:42px">/<input id="add-doc-hmnwe" type="number" min="0" value="0" title="WE" style="width:42px">
+      <button id="add-doc-btn" class="primary-action" style="padding:5px 12px">+ Ajouter médecin</button>
+    </div>`;
+  }
   t.innerHTML = html;
-  t.querySelectorAll('input').forEach(inp => {
+  t.querySelectorAll('input[data-i]').forEach(inp => {
     inp.onchange = () => {
       if (!isAdmin()) { renderSetup(); return alert('Seul un admin peut modifier les objectifs.'); }
       const i = parseInt(inp.dataset.i, 10);
@@ -1386,6 +1396,11 @@ function renderSetup() {
       renderSetup();
     };
   });
+  t.querySelectorAll('button[data-del-doctor]').forEach(b => {
+    b.onclick = () => removeDoctor(b.dataset.delDoctor);
+  });
+  const addDocBtn = $('add-doc-btn');
+  if (addDocBtn) addDocBtn.onclick = addDoctor;
 
   renderPeriodSettings();
   renderHolidaysEditor();
@@ -1444,6 +1459,34 @@ async function startNewPeriod() {
   state.currentTurnSlots = []; state.forcedNextPicker = null;
   if (st) st.textContent = '✓ Nouvelle période démarrée.';
   render();
+}
+
+async function addDoctor() {
+  if (!isAdmin()) return alert('Admin uniquement');
+  const name = $('add-doc-name').value.trim();
+  if (!name) return alert('Nom requis.');
+  if (state.doctors.some(d => d.name === name)) return alert('Ce médecin existe déjà.');
+  const row = {
+    name,
+    ach_sem: parseInt($('add-doc-achsem').value, 10) || 0,
+    ach_we:  parseInt($('add-doc-achwe').value, 10)  || 0,
+    hmn_sem: parseInt($('add-doc-hmnsem').value, 10) || 0,
+    hmn_we:  parseInt($('add-doc-hmnwe').value, 10)  || 0,
+  };
+  const { error } = await sb().from('doctors').insert(row);
+  if (error) return alert('Ajout impossible : ' + error.message);
+  state.doctors.push({ name, ACH: { sem: row.ach_sem, we: row.ach_we }, HMN: { sem: row.hmn_sem, we: row.hmn_we } });
+  state.doctors.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  renderSetup();
+}
+
+async function removeDoctor(name) {
+  if (!isAdmin()) return alert('Admin uniquement');
+  if (!confirm(`Retirer ${name} de la liste ?\n\n(Impossible s'il a des gardes déjà assignées — vide-les d'abord. Son compte/vœux éventuels ne sont pas supprimés.)`)) return;
+  const { error } = await sb().from('doctors').delete().eq('name', name);
+  if (error) { alert('Suppression impossible : ' + error.message + '\n\nLe médecin a probablement des gardes assignées sur le planning.'); return; }
+  state.doctors = state.doctors.filter(d => d.name !== name);
+  renderSetup();
 }
 
 function renderHolidaysEditor() {
