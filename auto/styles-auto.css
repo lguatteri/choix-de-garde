@@ -469,7 +469,7 @@
 }
 .perso-top-col { flex: 0 1 auto; }
 .perso-top-col h2 { margin-top: 0; }
-.perso-top-prefs { flex: 1 1 360px; }
+.perso-top-prefs { flex: 0 1 360px; }
 .perso-top-prefs .editor-prefs {
   margin-top: 0;
   border-top: none;
@@ -582,15 +582,17 @@
   background: #eef2ff;
   border: 1px solid #c7d2fe;
   border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 18px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: flex-start;
+  align-items: stretch;
+  flex: 0 0 240px;
+  margin-left: auto;
 }
 .participate-btn {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
-  padding: 12px 22px;
+  padding: 12px 16px;
+  width: 100%;
 }

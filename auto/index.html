@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="../styles.css?v=84">
-<link rel="stylesheet" href="styles-auto.css?v=18">
+<link rel="stylesheet" href="styles-auto.css?v=19">
 </head>
 <body>
 
@@ -130,13 +130,6 @@
         <strong>Ta page perso.</strong> Indique tes indispos 🚫, tes dates voulues 💙 et tes préférences récurrentes. Tout est enregistré automatiquement et servira à générer le planning.
       </div>
 
-      <div class="participate-box">
-        <button id="perso-validate-btn" class="primary-action participate-btn">✓ Participer au planning auto</button>
-        <div id="perso-decl-error" class="decl-error" hidden></div>
-        <div id="perso-decl-state" class="decl-state"></div>
-        <span id="perso-decl-status" class="hint"></span>
-      </div>
-
       <div class="perso-top">
         <div class="perso-top-col">
           <h2>Mes objectifs</h2>
@@ -164,6 +157,12 @@
             </div>
           </div>
           <div id="perso-save-status" class="hint" style="margin-top:6px"></div>
+        </div>
+        <div class="participate-box perso-top-col">
+          <button id="perso-validate-btn" class="primary-action participate-btn">✓ Participer au planning auto</button>
+          <div id="perso-decl-error" class="decl-error" hidden></div>
+          <div id="perso-decl-state" class="decl-state"></div>
+          <span id="perso-decl-status" class="hint"></span>
         </div>
       </div>
 
