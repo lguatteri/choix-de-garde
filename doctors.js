@@ -35,9 +35,9 @@ const DOCTORS = [
   { name: "ZERDAZI El-Hadi",      ACH: { sem: 0, we: 1 }, HMN: { sem: 5, we: 0 } },
 ].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
-// Période : 1er juin → 30 sept 2026
-const PERIOD_START = "2026-06-01";
-const PERIOD_END   = "2026-09-30";
+// Période (valeurs par défaut ; écrasées par session_state au chargement)
+let PERIOD_START = "2026-06-01";
+let PERIOD_END   = "2026-09-30";
 
 // Jours fériés dans la période (FR métropole)
 const HOLIDAYS = [

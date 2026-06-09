@@ -70,6 +70,13 @@ function weekStart(dateStr) {
 
 const MAX_GARDES_PER_WEEK = 3;
 
+function periodLabel() {
+  const s = parseYMD(PERIOD_START), e = parseYMD(PERIOD_END);
+  const sy = s.getFullYear(), ey = e.getFullYear();
+  if (sy === ey) return `${MONTHS_FR[s.getMonth()]} – ${MONTHS_FR[e.getMonth()]} ${ey}`;
+  return `${MONTHS_FR[s.getMonth()]} ${sy} – ${MONTHS_FR[e.getMonth()]} ${ey}`;
+}
+
 async function loadAllForAuto() {
   // L'algo lit la COPIE auto (auto_declarations), importée du Perso par chaque
   // médecin, + les vraies préférences.
@@ -79,7 +86,7 @@ async function loadAllForAuto() {
     sb().from('profiles').select('*'),
     sb().from('auto_declarations').select('*'),
     sb().from('preferences').select('*'),
-    sb().from('session_state').select('max_wished, max_indispo').eq('id', 1).maybeSingle(),
+    sb().from('session_state').select('max_wished, max_indispo, period_start, period_end').eq('id', 1).maybeSingle(),
   ]);
   if (doctors.error) throw doctors.error;
   autoState.doctors = (doctors.data || []).map(d => ({
@@ -106,10 +113,12 @@ async function loadAllForAuto() {
       preferSem:  row.prefer_sem  || [], preferWe:   row.prefer_we   || [],
     };
   });
-  // Limites configurables (défauts si colonnes/données absentes)
+  // Limites + période (défauts si colonnes/données absentes)
   if (sess && sess.data) {
     if (sess.data.max_wished != null)  autoState.maxWished  = sess.data.max_wished;
     if (sess.data.max_indispo != null) autoState.maxIndispo = sess.data.max_indispo;
+    if (sess.data.period_start) PERIOD_START = sess.data.period_start;
+    if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
   }
 }
 
@@ -1140,6 +1149,7 @@ async function initAutoApp() {
   }
   const lw = document.getElementById('limit-wished'); if (lw) lw.value = autoState.maxWished;
   const li = document.getElementById('limit-indispo'); if (li) li.value = autoState.maxIndispo;
+  const apl = document.getElementById('auto-period-label'); if (apl) apl.textContent = periodLabel() + ' — mode algorithme';
   renderObjectivesCheck();
   renderCoverageTable();
   renderAutoCalendar();
@@ -1188,7 +1198,7 @@ async function initPersoApp() {
       sb().from('holidays').select('date'),
       sb().from('auto_declarations').select('*').eq('user_id', persoState.userId),
       sb().from('preferences').select('*').eq('user_id', persoState.userId).maybeSingle(),
-      sb().from('session_state').select('max_wished, max_indispo').eq('id', 1).maybeSingle(),
+      sb().from('session_state').select('max_wished, max_indispo, period_start, period_end').eq('id', 1).maybeSingle(),
     ]);
     if (doc.data) persoState.objectives = {
       ACH: { sem: doc.data.ach_sem | 0, we: doc.data.ach_we | 0 },
@@ -1210,6 +1220,8 @@ async function initPersoApp() {
     if (sess && sess.data) {
       if (sess.data.max_wished != null)  persoState.maxWished  = sess.data.max_wished;
       if (sess.data.max_indispo != null) persoState.maxIndispo = sess.data.max_indispo;
+      if (sess.data.period_start) PERIOD_START = sess.data.period_start;
+      if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
     }
   } catch (e) { console.error('initPersoApp', e); }
   renderPerso();

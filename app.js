@@ -69,6 +69,8 @@ async function loadAllFromSupabase() {
     state.tourDirection = sess.data.tour_direction ?? 1;
     state.maxWished = sess.data.max_wished ?? 5;
     state.maxIndispo = sess.data.max_indispo ?? 30;
+    if (sess.data.period_start) PERIOD_START = sess.data.period_start;
+    if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
   }
 
   state.allProfiles = profile.data || [];
@@ -908,7 +910,16 @@ function renderMyNextTurn() {
   el.innerHTML = `<div class="my-turn-label">${intro}</div><div class="my-turn-quota">${qHtml}</div>`;
 }
 
+function periodLabel() {
+  const s = parseYMD(PERIOD_START), e = parseYMD(PERIOD_END);
+  const sy = s.getFullYear(), ey = e.getFullYear();
+  if (sy === ey) return `${MONTHS_FR[s.getMonth()]} – ${MONTHS_FR[e.getMonth()]} ${ey}`;
+  return `${MONTHS_FR[s.getMonth()]} ${sy} – ${MONTHS_FR[e.getMonth()]} ${ey}`;
+}
+
 function render() {
+  const pl = $('period-label');
+  if (pl) pl.textContent = periodLabel();
   renderMeBadge();
   const activeTab = document.querySelector('.tab.active').dataset.tab;
   if (activeTab === 'planning') {
@@ -1366,9 +1377,98 @@ function renderSetup() {
     };
   });
 
+  renderPeriodSettings();
+  renderHolidaysEditor();
   renderObjectivesCoherence();
   renderAdminsTable();
   renderAccountInfo();
+}
+
+function renderPeriodSettings() {
+  const ps = $('period-start'), pe = $('period-end');
+  if (ps) ps.value = PERIOD_START;
+  if (pe) pe.value = PERIOD_END;
+  const save = $('period-save');
+  if (save) save.onclick = savePeriodDates;
+  const np = $('new-period-btn');
+  if (np) np.onclick = startNewPeriod;
+}
+
+async function savePeriodDates() {
+  if (!isAdmin()) return alert('Admin uniquement');
+  const start = $('period-start').value, end = $('period-end').value;
+  const st = $('period-status');
+  if (!start || !end || start > end) { if (st) st.textContent = 'Dates invalides (début ≤ fin requis).'; return; }
+  const { error } = await sb().from('session_state').update({
+    period_start: start, period_end: end, updated_at: new Date().toISOString(),
+  }).eq('id', 1);
+  if (error) { if (st) st.textContent = '⚠ ' + error.message; return; }
+  PERIOD_START = start; PERIOD_END = end;
+  if (st) st.textContent = '✓ Période mise à jour.';
+  render();
+}
+
+async function startNewPeriod() {
+  if (!isAdmin()) return alert('Admin uniquement');
+  const start = $('period-start').value, end = $('period-end').value;
+  const st = $('period-status');
+  if (!start || !end || start > end) { if (st) st.textContent = 'Dates invalides (début ≤ fin requis).'; return; }
+  if (!confirm(`Démarrer une NOUVELLE période ${start} → ${end} ?\n\n` +
+    `Cela VIDE : le planning (assignations), tous les vœux/indispos, toutes les déclarations auto, et remet le tour à 1.\n` +
+    `Les objectifs des médecins et les préférences récurrentes sont CONSERVÉS.`)) return;
+  if (st) st.textContent = 'Réinitialisation…';
+  const e1 = await sb().from('assignments').delete().gte('date', '1900-01-01');
+  const e2 = await sb().from('auto_declarations').delete().gte('date', '1900-01-01');
+  const e3 = await sb().from('voeux').delete().gte('date', '1900-01-01');
+  const delErr = e1.error || e2.error || e3.error;
+  if (delErr) { if (st) st.textContent = '⚠ ' + delErr.message; return; }
+  const { error } = await sb().from('session_state').update({
+    period_start: start, period_end: end,
+    picker_cursor: 0, current_tour: 1, current_turn_pick_count: 0, forced_next_picker: null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', 1);
+  if (error) { if (st) st.textContent = '⚠ ' + error.message; return; }
+  PERIOD_START = start; PERIOD_END = end;
+  state.assignments = {}; state.voeux = {}; state.allVoeux = {};
+  state.pickerCursor = 0; state.currentTour = 1; state.currentTurnPickCount = 0;
+  state.currentTurnSlots = []; state.forcedNextPicker = null;
+  if (st) st.textContent = '✓ Nouvelle période démarrée.';
+  render();
+}
+
+function renderHolidaysEditor() {
+  const el = $('holidays-editor');
+  if (!el) return;
+  if (!isAdmin()) { el.innerHTML = '<em style="font-size:12px;color:var(--ink-soft)">Réservé aux admins.</em>'; return; }
+  const list = (state.holidays || []).slice().sort();
+  let html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
+  if (!list.length) html += '<span class="hint">Aucun jour férié pour l\'instant.</span>';
+  list.forEach(h => {
+    html += `<span style="display:inline-flex;align-items:center;gap:5px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:2px 4px 2px 8px;font-size:12px">${formatLong(h)} <button data-del="${h}" title="Retirer" style="border:none;background:none;cursor:pointer;color:#b91c1c;font-weight:700;font-size:14px">×</button></span>`;
+  });
+  html += '</div><label>Ajouter <input type="date" id="holiday-add-date"></label> <button id="holiday-add-btn">+ Ajouter</button>';
+  el.innerHTML = html;
+  el.querySelectorAll('button[data-del]').forEach(b => { b.onclick = () => removeHoliday(b.dataset.del); });
+  const addBtn = $('holiday-add-btn');
+  if (addBtn) addBtn.onclick = addHoliday;
+}
+
+async function addHoliday() {
+  if (!isAdmin()) return alert('Admin uniquement');
+  const d = $('holiday-add-date').value;
+  if (!d) return;
+  const { error } = await sb().from('holidays').upsert({ date: d });
+  if (error) { alert(error.message); return; }
+  if (!state.holidays.includes(d)) state.holidays.push(d);
+  render();
+}
+
+async function removeHoliday(d) {
+  if (!isAdmin()) return alert('Admin uniquement');
+  const { error } = await sb().from('holidays').delete().eq('date', d);
+  if (error) { alert(error.message); return; }
+  state.holidays = state.holidays.filter(x => x !== d);
+  render();
 }
 
 // Contrôle de cohérence : objectifs déclarés vs nombre réel de créneaux à couvrir
@@ -1552,6 +1652,10 @@ function setupRealtime() {
         state.currentTour = payload.new.current_tour ?? state.currentTour;
         state.tourStartIdx = payload.new.tour_start_idx ?? state.tourStartIdx;
         state.tourDirection = payload.new.tour_direction ?? state.tourDirection;
+        if (payload.new.period_start) PERIOD_START = payload.new.period_start;
+        if (payload.new.period_end)   PERIOD_END   = payload.new.period_end;
+        if (payload.new.max_wished != null)  state.maxWished  = payload.new.max_wished;
+        if (payload.new.max_indispo != null) state.maxIndispo = payload.new.max_indispo;
         render();
       }
     })

@@ -155,7 +155,8 @@ drop policy if exists "voeux_select_own" on public.voeux;
 create policy "voeux_select_own" on public.voeux for select using (user_id = auth.uid());
 drop policy if exists "voeux_modify_own" on public.voeux;
 create policy "voeux_modify_own" on public.voeux
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+  for all using (user_id = auth.uid() or public.is_admin())
+  with check (user_id = auth.uid() or public.is_admin());
 
 -- Session_state : lecture libre, écriture admin
 drop policy if exists "session_select_all" on public.session_state;
@@ -251,7 +252,8 @@ create policy "auto_decl_select_own_or_admin" on public.auto_declarations
   for select using (user_id = auth.uid() or public.is_admin());
 drop policy if exists "auto_decl_modify_own" on public.auto_declarations;
 create policy "auto_decl_modify_own" on public.auto_declarations
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+  for all using (user_id = auth.uid() or public.is_admin())
+  with check (user_id = auth.uid() or public.is_admin());
 
 -- Limites configurables par l'admin (dans session_state, défini plus haut)
 alter table public.session_state

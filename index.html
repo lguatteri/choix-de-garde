@@ -50,7 +50,7 @@
     <header>
       <div class="header-title">
         <h1>Choix de garde</h1>
-        <span class="period">juin – sept 2026</span>
+        <span class="period" id="period-label">juin – sept 2026</span>
       </div>
       <nav class="tabs">
         <button class="tab active" data-tab="planning">Planning</button>
@@ -97,6 +97,19 @@
       </section>
 
       <section id="setup" class="view">
+        <h2>📅 Période <span class="admin-only-tag">admin</span></h2>
+        <div class="first-picker-row">
+          <label>Début <input type="date" id="period-start"></label>
+          <label>Fin <input type="date" id="period-end"></label>
+          <button id="period-save">Enregistrer les dates</button>
+        </div>
+        <p class="hint">Change les dates pour ajuster la période courante. « Nouvelle période » remet tout à zéro pour repartir sur un nouveau quadrimestre/trimestre.</p>
+        <button id="new-period-btn" class="danger">⚠ Nouvelle période (vide planning, vœux &amp; déclarations)</button>
+        <span id="period-status" class="hint"></span>
+
+        <h2>🎉 Jours fériés <span class="admin-only-tag">admin</span></h2>
+        <div id="holidays-editor"></div>
+
         <h2>📊 Cohérence objectifs ↔ créneaux <span class="admin-only-tag">admin</span></h2>
         <div id="remaining-objectives"></div>
 
@@ -165,8 +178,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=42"></script>
   <script src="auth.js?v=42"></script>
-  <script src="doctors.js?v=42"></script>
-  <script src="app.js?v=48"></script>
+  <script src="doctors.js?v=43"></script>
+  <script src="app.js?v=50"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
