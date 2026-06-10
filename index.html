@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=84">
+<link rel="stylesheet" href="styles.css?v=85">
 </head>
 <body>
 
@@ -58,7 +58,6 @@
         <button class="tab" data-tab="setup">Réglages</button>
         <button class="tab" id="logout-btn-top">Déconnexion</button>
       </nav>
-      <div class="me-badge" id="me-badge" title="Mes objectifs restants"></div>
       <a href="auto/" class="mode-switch" title="Basculer vers le planning automatique"
          style="flex-shrink:0;text-decoration:none;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:999px;padding:8px 16px;font-weight:700;font-size:13px;white-space:nowrap;line-height:1.15;text-align:center">⚙ Planning<br>auto</a>
     </header>
@@ -88,6 +87,7 @@
       </section>
 
       <section id="voeux" class="view">
+        <div class="me-badge" id="me-badge"></div>
         <div class="my-next-turn" id="my-next-turn"></div>
         <div class="declare-auto-box" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin:8px 0 12px">
           <span id="declare-auto-status" class="hint"></span>
@@ -180,7 +180,7 @@
   <script src="supabase-config.js?v=42"></script>
   <script src="auth.js?v=42"></script>
   <script src="doctors.js?v=43"></script>
-  <script src="app.js?v=56"></script>
+  <script src="app.js?v=57"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

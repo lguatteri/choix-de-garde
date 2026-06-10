@@ -1002,19 +1002,17 @@ function renderPickerInfo() {
 
 function renderMeBadge() {
   const el = $('me-badge');
-  const activeTab = document.querySelector('.tab.active').dataset.tab;
-  // Badge visible uniquement sur la page Perso
-  if (activeTab !== 'voeux') { el.style.display = 'none'; return; }
-  el.style.display = '';
+  if (!el) return;
   const me = findDoctor(state.myName);
   if (!me) { el.innerHTML = ''; return; }
   const r = objectivesRemaining(me);
   const totSem = r.ACH.sem + r.HMN.sem;
   const totWE = r.ACH.we + r.HMN.we;
   el.innerHTML =
+    `<div class="me-label">Mes objectifs restants</div>` +
     `<div class="me-name">${state.myName}</div>` +
-    `<div class="me-totals">Jours de semaine : ${fmtHalf(totSem)} / Jours de WE (+ fériés) : ${fmtHalf(totWE)}</div>` +
-    `<div class="me-detail">ACH : ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)} - HMN : ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</div>`;
+    `<div class="me-totals">Semaine : ${fmtHalf(totSem)} &nbsp;·&nbsp; WE + fériés : ${fmtHalf(totWE)}</div>` +
+    `<div class="me-detail">ACH ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)} &nbsp;·&nbsp; HMN ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</div>`;
 }
 
 function renderMyNextTurn() {
