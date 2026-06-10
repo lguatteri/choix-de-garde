@@ -1460,6 +1460,19 @@ async function persoEditDay(date) {
   renderPersoDecl();
 }
 
+async function persoClearAll() {
+  if (persoState.declTableMissing) { alert('Planning auto non activé (table manquante côté admin).'); return; }
+  if (!Object.keys(persoState.persoVoeux).length) return;
+  if (!confirm('Vider TOUTES tes indispos et dates voulues du planning auto ?')) return;
+  const status = document.getElementById('perso-decl-status');
+  const res = await sb().from('auto_declarations').delete().eq('user_id', persoState.userId);
+  if (res.error) { if (status) status.textContent = '⚠ ' + res.error.message; return; }
+  persoState.persoVoeux = {};
+  if (status) status.textContent = '✓ Tout vidé.';
+  renderPersoTrim();
+  renderPersoDecl();
+}
+
 function validatePersoDeclaration() {
   if (persoState.declTableMissing) { alert('Planning auto non activé (table manquante côté admin).'); return; }
   const { ind, wish } = persoAutoCounts();
@@ -1542,6 +1555,8 @@ function bindPersoUI() {
   if (gotoAdmin) gotoAdmin.onclick = showAdminWorkbench;
   const validateBtn = document.getElementById('perso-validate-btn');
   if (validateBtn) validateBtn.onclick = validatePersoDeclaration;
+  const clearAllBtn = document.getElementById('perso-clear-all');
+  if (clearAllBtn) clearAllBtn.onclick = persoClearAll;
   const lo = document.getElementById('perso-logout-btn');
   if (lo) lo.onclick = () => { if (typeof logoutAuto === 'function') logoutAuto(); };
 }
