@@ -25,7 +25,9 @@ create table if not exists public.doctors (
 create table if not exists public.assignments (
   date date not null,
   site text not null check (site in ('HMN','ACH')),
-  doctor_name text not null references public.doctors(name) on update cascade,
+  doctor_name text references public.doctors(name) on update cascade,        -- garde entière ou demi « jour »
+  doctor_name_2 text references public.doctors(name) on update cascade,       -- demi « nuit » (si is_split)
+  is_split boolean not null default false,                                    -- créneau 24h divisé en 2×12h
   updated_at timestamptz default now(),
   updated_by uuid references auth.users(id),
   primary key (date, site)

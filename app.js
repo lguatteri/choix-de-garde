@@ -57,7 +57,7 @@ async function loadAllFromSupabase() {
   state.assignments = {};
   (assignments.data || []).forEach(row => {
     if (!state.assignments[row.date]) state.assignments[row.date] = {};
-    state.assignments[row.date][row.site] = { doctor: row.doctor_name };
+    state.assignments[row.date][row.site] = rowToSite(row);
   });
 
   if (sess.data) {
@@ -101,15 +101,32 @@ function computeMyMaxWished() {
 // ============================================================
 // Sync vers Supabase (par table) — idempotent
 // ============================================================
-async function syncAssignment(date, site, doctorName) {
-  if (doctorName) {
-    return sb().from('assignments').upsert({
-      date, site, doctor_name: doctorName,
-      updated_at: new Date().toISOString(),
-      updated_by: window.currentUser ? window.currentUser.id : null,
-    });
+// Reconstruit l'objet site (plein ou divisé jour/nuit) depuis une ligne DB
+function rowToSite(row) {
+  if (row.is_split) return { split: true, jour: row.doctor_name || null, nuit: row.doctor_name_2 || null };
+  return { doctor: row.doctor_name };
+}
+function siteIsEmpty(s) {
+  return !s || (s.split ? (!s.jour && !s.nuit) : !s.doctor);
+}
+function siteFull(s) {            // plus de place dispo sur ce site
+  if (!s) return false;
+  return s.split ? (!!s.jour && !!s.nuit) : !!s.doctor;
+}
+// Pousse l'état complet d'un site (date,site) vers Supabase, ou le supprime si vide
+async function syncSite(date, site) {
+  const s = (state.assignments[date] || {})[site];
+  if (siteIsEmpty(s)) {
+    return sb().from('assignments').delete().eq('date', date).eq('site', site);
   }
-  return sb().from('assignments').delete().eq('date', date).eq('site', site);
+  return sb().from('assignments').upsert({
+    date, site,
+    is_split: !!s.split,
+    doctor_name: s.split ? (s.jour || null) : s.doctor,
+    doctor_name_2: s.split ? (s.nuit || null) : null,
+    updated_at: new Date().toISOString(),
+    updated_by: window.currentUser ? window.currentUser.id : null,
+  });
 }
 async function syncVoeu(date, voeu) {
   if (voeu) {
@@ -243,10 +260,24 @@ function tourQuota(d, tour) {
 function picksByDoctor(name) {
   const out = [];
   Object.entries(state.assignments).forEach(([date, slots]) => {
-    if (slots.HMN && slots.HMN.doctor === name) out.push({ date, slot: 'HMN', site: 'HMN' });
-    if (slots.ACH && slots.ACH.doctor === name) out.push({ date, slot: 'ACH', site: 'ACH' });
+    ['HMN', 'ACH'].forEach(site => {
+      const s = slots[site];
+      if (!s) return;
+      if (s.split) {
+        // demi-gardes : chacune vaut 0,5 mais est un choix (1 tour) distinct
+        if (s.jour === name) out.push({ date, site, slot: site, half: 'jour', weight: 0.5 });
+        if (s.nuit === name) out.push({ date, site, slot: site, half: 'nuit', weight: 0.5 });
+      } else if (s.doctor === name) {
+        out.push({ date, site, slot: site, weight: 1 });
+      }
+    });
   });
   return out;
+}
+
+// Formatage des demis : 2 → "2", 2.5 → "2,5"
+function fmtHalf(n) {
+  return (Math.round(n * 2) / 2).toString().replace('.', ',');
 }
 
 // Migration : convertir les anciens slots full24 en HMN/ACH directs
@@ -274,14 +305,16 @@ migrateFull24();
 function objectivesRemaining(d) {
   const picks = picksByDoctor(d.name);
   const c = { ACH: { sem:0, we:0 }, HMN: { sem:0, we:0 } };
+  let totalW = 0;
   picks.forEach(p => {
     const b = objectiveBucket(p.date);
-    if (c[p.site]) c[p.site][b]++;
+    if (c[p.site]) c[p.site][b] += p.weight;
+    totalW += p.weight;
   });
   return {
     ACH: { sem: d.ACH.sem - c.ACH.sem, we: d.ACH.we - c.ACH.we },
     HMN: { sem: d.HMN.sem - c.HMN.sem, we: d.HMN.we - c.HMN.we },
-    total: totalObjective(d) - picks.length,
+    total: totalObjective(d) - totalW,
   };
 }
 
@@ -407,10 +440,14 @@ function dateAdd(dateStr, n) {
   d.setDate(d.getDate() + n);
   return ymd(d);
 }
+function siteHasDoctor(s, name) {
+  if (!s) return false;
+  return s.split ? (s.jour === name || s.nuit === name) : (s.doctor === name);
+}
 function pickerOnDay(name, dateStr) {
   const a = state.assignments[dateStr];
   if (!a) return false;
-  return (a.HMN && a.HMN.doctor === name) || (a.ACH && a.ACH.doctor === name);
+  return siteHasDoctor(a.HMN, name) || siteHasDoctor(a.ACH, name);
 }
 function hasGardeOnOrNearby(name, dateStr) {
   return pickerOnDay(name, dateStr) ||
@@ -519,55 +556,90 @@ function snapshotForUndo() {
   if (UNDO_STACK.length > UNDO_MAX) UNDO_STACK.shift();
 }
 
-function setAssignment(date, slotKey, doctorName, site) {
+// half : undefined/'full' = garde entière ; 'jour' / 'nuit' = demi-garde (24h divisé)
+function setAssignment(date, site, doctorName, half) {
   snapshotForUndo();
-
-  // Capturer le picker courant AVANT la modification (sinon currentPickerInfo
-  // peut sauter au suivant si le pick complète le quota)
   const curBefore = currentPickerInfo();
 
   if (!state.assignments[date]) state.assignments[date] = {};
   const a = state.assignments[date];
+  const isHalf = (half === 'jour' || half === 'nuit');
 
-  let prev = null;
-  if (slotKey === 'HMN') { prev = a.HMN || null; if (doctorName) a.HMN = { doctor: doctorName }; else delete a.HMN; }
-  else if (slotKey === 'ACH') { prev = a.ACH || null; if (doctorName) a.ACH = { doctor: doctorName }; else delete a.ACH; }
+  let prevDoctor = null;
+  if (isHalf) {
+    if (!a[site] || !a[site].split) a[site] = { split: true, jour: null, nuit: null };
+    prevDoctor = a[site][half] || null;
+    a[site][half] = doctorName || null;
+    if (!a[site].jour && !a[site].nuit) delete a[site];
+  } else {
+    const prev = a[site] || null;
+    prevDoctor = (prev && !prev.split) ? prev.doctor : null;
+    if (doctorName) a[site] = { doctor: doctorName };
+    else delete a[site];
+  }
 
   if (Object.keys(a).length === 0) delete state.assignments[date];
 
   state.history.push({
     ts: Date.now(),
     action: doctorName ? 'assign' : 'clear',
-    date, slot: slotKey,
-    doctor: doctorName || (prev && prev.doctor) || null,
-    prevDoctor: prev ? prev.doctor : null,
-    site: site || (prev && prev.site) || null,
+    date, slot: site, half: half || null,
+    doctor: doctorName || prevDoctor || null,
+    prevDoctor,
   });
 
-  // Tracker les picks du tour en cours (pour pouvoir décrémenter au "vider")
+  // Tracker les picks du tour en cours (chaque demi-garde = un pick distinct)
   if (curBefore && !curBefore.forced) {
     state.currentTurnSlots = state.currentTurnSlots || [];
-    const slotKey2 = `${date}:${slotKey}`;
+    const slotKey2 = isHalf ? `${date}:${site}:${half}` : `${date}:${site}`;
     if (doctorName && doctorName === curBefore.name) {
-      // ASSIGN par le picker courant : on ajoute si pas déjà compté
       if (!state.currentTurnSlots.includes(slotKey2)) state.currentTurnSlots.push(slotKey2);
-    } else if (!doctorName && prev && prev.doctor === curBefore.name) {
-      // CLEAR d'une garde du picker courant : décrémente uniquement si elle a été
-      // prise pendant ce tour (sinon c'est une garde d'un tour précédent → on la
-      // libère sans modifier le compteur du tour actuel)
+    } else if (!doctorName && prevDoctor === curBefore.name) {
       const i = state.currentTurnSlots.indexOf(slotKey2);
       if (i >= 0) state.currentTurnSlots.splice(i, 1);
     }
     state.currentTurnPickCount = state.currentTurnSlots.length;
   }
 
-  // Le forcedNextPicker n'est valable que pour UN choix
   if (state.forcedNextPicker && doctorName === state.forcedNextPicker) {
     state.forcedNextPicker = null;
   }
   advanceCursorIfNeeded();
-  // Sync vers Supabase
-  syncAssignment(date, slotKey, doctorName);
+  syncSite(date, site);
+  syncSession();
+  render();
+}
+
+// Diviser un site 24h en 2 demi-gardes (jour/nuit)
+function divideSite(date, site) {
+  if (!isAdmin()) return alert('Admin uniquement');
+  if (!is24h(date)) return;
+  if (!state.assignments[date]) state.assignments[date] = {};
+  const a = state.assignments[date];
+  const prev = a[site];
+  // si une garde entière existait, on la repositionne sur la demi "jour"
+  const jour = (prev && !prev.split) ? prev.doctor : (prev && prev.split ? prev.jour : null);
+  const nuit = (prev && prev.split) ? prev.nuit : null;
+  a[site] = { split: true, jour: jour || null, nuit: nuit || null };
+  if (!a[site].jour && !a[site].nuit) {
+    // rien à persister encore : on garde l'état divisé localement
+  } else {
+    syncSite(date, site);
+  }
+  render();
+}
+
+// Re-fusionner un site divisé en garde entière (vide les demi-gardes)
+function mergeSite(date, site) {
+  if (!isAdmin()) return alert('Admin uniquement');
+  const a = state.assignments[date];
+  if (!a || !a[site] || !a[site].split) return;
+  const had = a[site].jour || a[site].nuit;
+  if (had && !confirm('Re-fusionner en une seule garde 24h ? Les deux demi-gardes seront vidées.')) return;
+  snapshotForUndo();
+  delete a[site];
+  if (Object.keys(a).length === 0) delete state.assignments[date];
+  syncSite(date, site);
   syncSession();
   render();
 }
@@ -677,7 +749,7 @@ function buildDayCell(dateStr, mode) {
   const showVoeux = (mode !== 'planning') || (curName === state.myName);
   let voeu = state.voeux[dateStr];
   if (showVoeux && voeu && mode === 'planning') {
-    const HMNt = !!a.HMN, ACHt = !!a.ACH;
+    const HMNt = siteFull(a.HMN), ACHt = siteFull(a.ACH);
     if (voeu === 'wishedHMN' && HMNt) voeu = null;
     else if (voeu === 'wishedACH' && ACHt) voeu = null;
     else if (voeu === 'wishedBoth') {
@@ -693,34 +765,67 @@ function buildDayCell(dateStr, mode) {
   const curPicker = (mode === 'planning' && curName) ? findDoctor(curName) : null;
   const curRem = curPicker ? objectivesRemaining(curPicker) : null;
   const bucket = objectiveBucket(dateStr);
+  const canSplit = (mode === 'planning') && isAdmin();
   ['HMN','ACH'].forEach(site => {
     // Si le picker est mono-site, masquer l'autre site (mode planning seulement)
     if (mode === 'planning' && curName && !curEligible.includes(site)) return;
-    const s = document.createElement('div');
     const occ = a[site];
-    if (occ) {
+    const greyed = !!(curRem && curRem[site][bucket] <= 0);
+
+    // Jour 24h divisé (mode planning) → 2 demi-gardes Jour / Nuit
+    if (mode === 'planning' && longShift && occ && occ.split) {
+      ['jour','nuit'].forEach(half => {
+        const who = occ[half];
+        const s = document.createElement('div');
+        s.className = 'slot ' + site + (who ? '' : ' empty-slot');
+        if (who && who === curName) s.classList.add('mine-current');
+        if (greyed) s.classList.add('slot-greyed');
+        s.textContent = `${site} ${half === 'jour' ? 'Jour' : 'Nuit'}${who ? ' ' + shortName(who) : ''}`;
+        s.dataset.slotKey = site; s.dataset.half = half;
+        el.appendChild(s); slotEls.push(s);
+      });
+      if (canSplit) {
+        const mb = document.createElement('button');
+        mb.textContent = '↩ fusionner';
+        mb.style.cssText = 'font-size:9px;padding:1px 4px;margin:2px 0;cursor:pointer;border:1px solid #cbd5e1;border-radius:4px;background:#f1f5f9;color:#475569;width:100%';
+        mb.onclick = (e) => { e.stopPropagation(); mergeSite(dateStr, site); };
+        el.appendChild(mb);
+      }
+      return;
+    }
+
+    // Rendu plein (12h, ou 24h non divisé)
+    const s = document.createElement('div');
+    if (!siteIsEmpty(occ)) {
+      const who = occ.split ? (occ.jour || occ.nuit) : occ.doctor;
       s.className = 'slot ' + site;
-      if (mode !== 'planning' && occ.doctor === state.myName) s.classList.add('mine');
-      if (occ.doctor === curName) s.classList.add('mine-current');
-      s.textContent = `${site}${longShift?' 24h':''} ${shortName(occ.doctor)}`;
+      if (mode !== 'planning' && siteHasDoctor(occ, state.myName)) s.classList.add('mine');
+      if (siteHasDoctor(occ, curName)) s.classList.add('mine-current');
+      s.textContent = `${site}${longShift?' 24h':''} ${shortName(who)}`;
     } else {
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
     }
-    // Site où l'objectif (sur ce bucket) du picker courant est déjà rempli → grise
-    if (curRem && curRem[site][bucket] <= 0) {
-      s.classList.add('slot-greyed');
-    }
+    if (greyed) s.classList.add('slot-greyed');
     s.dataset.slotKey = site;
     el.appendChild(s); slotEls.push(s);
+
+    // Bouton « diviser en 2 » sous le site (planning, 24h, admin, non divisé)
+    if (canSplit && longShift) {
+      const db = document.createElement('button');
+      db.textContent = '✂ diviser en 2';
+      db.style.cssText = 'font-size:9px;padding:1px 4px;margin:2px 0;cursor:pointer;border:1px solid #cbd5e1;border-radius:4px;background:#f1f5f9;color:#475569;width:100%';
+      db.onclick = (e) => { e.stopPropagation(); divideSite(dateStr, site); };
+      el.appendChild(db);
+    }
   });
-  // "Mine" : au moins un slot pris par le picker courant (planning) ou par moi (perso)
+
+  // "Mine" : au moins un créneau pris par le picker courant (planning) ou par moi (perso)
   const refDoctor = (mode === 'planning') ? curName : state.myName;
-  const hasMine = refDoctor && ['HMN','ACH'].some(s => a[s] && a[s].doctor === refDoctor);
+  const hasMine = refDoctor && ['HMN','ACH'].some(site => siteHasDoctor(a[site], refDoctor));
 
   if (curName) {
-    // Planning : indispo si tous les sites éligibles du picker sont pris
-    const allTaken = curEligible.every(site => !!a[site]);
+    const allTaken = curEligible.every(site => siteFull(a[site]));
     if (allTaken) {
       el.classList.add('day-unavailable');
       if (hasMine) el.classList.add('day-unavailable-mine');
@@ -728,8 +833,7 @@ function buildDayCell(dateStr, mode) {
       el.classList.add('day-mine');
     }
   } else {
-    // Perso : indispo si HMN ET ACH sont pris (peu importe par qui)
-    if (a.HMN && a.ACH) {
+    if (siteFull(a.HMN) && siteFull(a.ACH)) {
       el.classList.add('day-unavailable');
       if (hasMine) el.classList.add('day-unavailable-mine');
     } else if (hasMine) {
@@ -747,9 +851,9 @@ function buildDayCell(dateStr, mode) {
   if (mode === 'planning') {
     slotEls.forEach(s => {
       s.style.cursor = 'pointer';
-      s.onclick = (e) => { e.stopPropagation(); openAssignModal(dateStr, s.dataset.slotKey); };
+      s.onclick = (e) => { e.stopPropagation(); openAssignModal(dateStr, s.dataset.slotKey, s.dataset.half || null); };
     });
-    el.onclick = () => openAssignModal(dateStr, slotEls[0]?.dataset.slotKey);
+    el.onclick = () => openAssignModal(dateStr, slotEls[0]?.dataset.slotKey, slotEls[0]?.dataset.half || null);
   } else {
     // Onglet perso :
     //  - clic sur la date / fond = toggle indispo
@@ -858,8 +962,8 @@ function renderPickerInfo() {
   const totSem = r.ACH.sem + r.HMN.sem;
   const totWE  = r.ACH.we + r.HMN.we;
   objEl.innerHTML =
-    `Objectifs : <strong>${totSem} sem / ${totWE} WE+f</strong><br>` +
-    `<span style="opacity:0.8">ACH ${r.ACH.sem}/${r.ACH.we} · HMN ${r.HMN.sem}/${r.HMN.we}</span>`;
+    `Objectifs : <strong>${fmtHalf(totSem)} sem / ${fmtHalf(totWE)} WE+f</strong><br>` +
+    `<span style="opacity:0.8">ACH ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)} · HMN ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</span>`;
 
   if (!next) {
     nextEl.innerHTML = '<em>— fin de la séquence —</em>';
@@ -875,7 +979,7 @@ function renderPickerInfo() {
     nextEl.innerHTML =
       `<div class="next-line1"><span class="next-label">Suivant :</span> <span class="next-name">${next.name}</span></div>` +
       `<div class="next-line2"><span class="next-tour">Tour ${next.tour}</span> — <span class="next-quota">${quotaHtml}</span></div>` +
-      `<div class="next-line3">Objectifs : <strong>${nTotSem} sem / ${nTotWE} WE+f</strong> &nbsp;(ACH ${nr.ACH.sem}/${nr.ACH.we} · HMN ${nr.HMN.sem}/${nr.HMN.we})</div>`;
+      `<div class="next-line3">Objectifs : <strong>${fmtHalf(nTotSem)} sem / ${fmtHalf(nTotWE)} WE+f</strong> &nbsp;(ACH ${fmtHalf(nr.ACH.sem)}/${fmtHalf(nr.ACH.we)} · HMN ${fmtHalf(nr.HMN.sem)}/${fmtHalf(nr.HMN.we)})</div>`;
   }
 }
 
@@ -892,8 +996,8 @@ function renderMeBadge() {
   const totWE = r.ACH.we + r.HMN.we;
   el.innerHTML =
     `<div class="me-name">${state.myName}</div>` +
-    `<div class="me-totals">Jours de semaine : ${totSem} / Jours de WE (+ fériés) : ${totWE}</div>` +
-    `<div class="me-detail">ACH : ${r.ACH.sem}/${r.ACH.we} - HMN : ${r.HMN.sem}/${r.HMN.we}</div>`;
+    `<div class="me-totals">Jours de semaine : ${fmtHalf(totSem)} / Jours de WE (+ fériés) : ${fmtHalf(totWE)}</div>` +
+    `<div class="me-detail">ACH : ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)} - HMN : ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</div>`;
 }
 
 function renderMyNextTurn() {
@@ -946,36 +1050,44 @@ function render() {
 // ============================================================
 // Modale d'assignation
 // ============================================================
-const modalState = { dateStr: null, slotKey: null };
+const modalState = { dateStr: null, slotKey: null, half: null };
 const $ = id => document.getElementById(id);
 
-function openAssignModal(dateStr, slotKey = null) {
+function openAssignModal(dateStr, slotKey = null, half = null) {
   modalState.dateStr = dateStr;
-  $('modal-day').textContent = formatLong(dateStr);
+  modalState.half = half || null;
+  const halfLabel = half ? ` — ${slotKey} ${half === 'jour' ? 'Jour' : 'Nuit'} (½ 12h)` : '';
+  $('modal-day').textContent = formatLong(dateStr) + halfLabel;
   const t = dayType(dateStr);
   const labelMap = { holiday:'Jour férié — garde 24h combinée HMN+ACH',
                      sunday:'Dimanche — garde 24h combinée HMN+ACH',
                      saturday:'Samedi — 1 garde par site (compte WE)',
                      friday:'Vendredi — 1 garde par site (compte semaine pour les objectifs)',
                      weekday:'Semaine — 1 garde par site' };
-  $('modal-day-info').textContent = labelMap[t] || '';
+  $('modal-day-info').textContent = half ? 'Demi-garde de 12h (compte 0,5 dans les objectifs).' : (labelMap[t] || '');
 
   const a = state.assignments[dateStr] || {};
   const slotsEl = $('modal-slots');
   slotsEl.innerHTML = '';
-  $('modal-split-wrapper').hidden = true; // plus de split
+  $('modal-split-wrapper').hidden = true;
   const longShift = is24h(dateStr);
-  ['HMN','ACH'].forEach(s => {
-    const b = document.createElement('button');
-    const occ = a[s];
-    b.innerHTML = `${s}${longShift?' 24h':''}${occ?'<span class="assignee">'+occ.doctor+'</span>':'<span class="assignee">libre</span>'}`;
-    b.onclick = () => selectSlot(b, s);
-    slotsEl.appendChild(b);
-  });
-
-  // sélection initiale : slot demandé, ou premier libre, ou premier
-  modalState.slotKey = slotKey || pickDefaultSlot(dateStr);
-  highlightSlot();
+  if (half) {
+    // Édition d'une demi-garde précise → pas de bascule de site
+    modalState.slotKey = slotKey;
+    slotsEl.style.display = 'none';
+  } else {
+    slotsEl.style.display = '';
+    ['HMN','ACH'].forEach(s => {
+      const b = document.createElement('button');
+      const occ = a[s];
+      const disp = occ ? (occ.split ? 'divisé (J/N)' : occ.doctor) : 'libre';
+      b.innerHTML = `${s}${longShift?' 24h':''}<span class="assignee">${disp}</span>`;
+      b.onclick = () => selectSlot(b, s);
+      slotsEl.appendChild(b);
+    });
+    modalState.slotKey = slotKey || pickDefaultSlot(dateStr);
+    highlightSlot();
+  }
 
   refreshDoctorDropdown();
   $('modal-backdrop').hidden = false;
@@ -999,7 +1111,7 @@ function refreshDoctorDropdown() {
     if (cur && d.name === cur.name) opt.textContent = '⬅ ' + opt.textContent;
     dsel.appendChild(opt);
   });
-  const existing = readSlotDoctor(modalState.dateStr, modalState.slotKey);
+  const existing = readSlotDoctor(modalState.dateStr, modalState.slotKey, modalState.half);
   if (existing) dsel.value = existing;
   else if (cur) dsel.value = cur.name;
   else dsel.value = '';
@@ -1011,14 +1123,16 @@ function pickDefaultSlot(dateStr) {
   if (!a.ACH) return 'ACH';
   return 'HMN';
 }
-function readSlotDoctor(dateStr, slotKey) {
+function readSlotDoctor(dateStr, slotKey, half) {
   const a = state.assignments[dateStr] || {};
-  if (slotKey === 'HMN') return a.HMN ? a.HMN.doctor : null;
-  if (slotKey === 'ACH') return a.ACH ? a.ACH.doctor : null;
-  return null;
+  const s = a[slotKey];
+  if (!s) return null;
+  if (half) return s.split ? (s[half] || null) : null;
+  return s.split ? null : (s.doctor || null);
 }
 function selectSlot(buttonEl, slotKey) {
   modalState.slotKey = slotKey;
+  modalState.half = null;
   highlightSlot();
   refreshDoctorDropdown();
 }
@@ -1050,12 +1164,12 @@ document.addEventListener('keydown', (e) => {
 
 $('modal-cancel').onclick = () => { $('modal-backdrop').hidden = true; };
 $('modal-clear').onclick = () => {
-  setAssignment(modalState.dateStr, modalState.slotKey, null, null);
+  setAssignment(modalState.dateStr, modalState.slotKey, null, modalState.half);
   $('modal-backdrop').hidden = true;
 };
 $('modal-save').onclick = () => {
   const doc = $('modal-doctor').value;
-  if (!doc) { setAssignment(modalState.dateStr, modalState.slotKey, null, null); }
+  if (!doc) { setAssignment(modalState.dateStr, modalState.slotKey, null, modalState.half); }
   else {
     // Règle : pas de garde la veille / le jour même (autre site) / le lendemain
     // + le médecin n'a pas marqué le jour comme indispo
@@ -1066,7 +1180,7 @@ $('modal-save').onclick = () => {
     if (pickerOnDay(doc, next)) conflicts.push('déjà de garde le lendemain (' + formatLong(next) + ')');
     const a = state.assignments[modalState.dateStr] || {};
     const otherSite = modalState.slotKey === 'HMN' ? 'ACH' : 'HMN';
-    if (a[otherSite] && a[otherSite].doctor === doc) conflicts.push('déjà de garde le même jour sur ' + otherSite);
+    if (siteHasDoctor(a[otherSite], doc)) conflicts.push('déjà de garde le même jour sur ' + otherSite);
     const docVoeu = (state.allVoeux[doc] || {})[modalState.dateStr];
     if (docVoeu === 'blocked') conflicts.push('a marqué cette date comme INDISPO 🚫');
     // Cette garde n'est-elle pas dans ses objectifs (site + sem/WE) ?
@@ -1079,7 +1193,7 @@ $('modal-save').onclick = () => {
       const msg = `${doc} ${conflicts.join(' ; ')}.\n\nForcer quand même ?`;
       if (!confirm(msg)) return;
     }
-    setAssignment(modalState.dateStr, modalState.slotKey, doc, null);
+    setAssignment(modalState.dateStr, modalState.slotKey, doc, modalState.half);
   }
   $('modal-backdrop').hidden = true;
 };
@@ -1183,22 +1297,27 @@ function diffAndSyncAssignments(oldA, newA) {
   Object.keys(newA).forEach(d => Object.keys(newA[d]).forEach(s => keys.add(d+':'+s)));
   for (const k of keys) {
     const [date, site] = k.split(':');
-    const oldDoc = oldA[date] && oldA[date][site] && oldA[date][site].doctor;
-    const newDoc = newA[date] && newA[date][site] && newA[date][site].doctor;
-    if (oldDoc !== newDoc) syncAssignment(date, site, newDoc || null);
+    const oldS = oldA[date] && oldA[date][site];
+    const newS = newA[date] && newA[date][site];
+    if (JSON.stringify(oldS || null) !== JSON.stringify(newS || null)) syncSite(date, site);
   }
 }
 
 // ============================================================
 // Export / Import CSV
 // ============================================================
+function siteCsv(s) {
+  if (!s) return '';
+  if (s.split) return `Jour: ${s.jour || '—'} / Nuit: ${s.nuit || '—'}`;
+  return s.doctor || '';
+}
 function exportCSV() {
   const rows = [['date','jour','duree','HMN','ACH']];
   for (const d of iterDates(PERIOD_START, PERIOD_END)) {
     const a = state.assignments[d] || {};
     const wk = WEEKDAYS_FR[parseYMD(d).getDay()];
     const dur = is24h(d) ? '24h' : '12h';
-    rows.push([d, wk, dur, a.HMN ? a.HMN.doctor : '', a.ACH ? a.ACH.doctor : '']);
+    rows.push([d, wk, dur, siteCsv(a.HMN), siteCsv(a.ACH)]);
   }
   const csv = rows.map(r => r.map(c => `"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
@@ -1280,8 +1399,8 @@ $('import-file').onchange = e => {
       });
       // Sync chaque assignation importée vers Supabase
       Object.entries(state.assignments).forEach(([d, slots]) => {
-        if (slots.HMN) syncAssignment(d, 'HMN', slots.HMN.doctor);
-        if (slots.ACH) syncAssignment(d, 'ACH', slots.ACH.doctor);
+        if (slots.HMN) syncSite(d, 'HMN');
+        if (slots.ACH) syncSite(d, 'ACH');
       });
       render();
       alert('Import terminé.');
@@ -1692,7 +1811,7 @@ function setupRealtime() {
       } else {
         const r = payload.new;
         if (!state.assignments[r.date]) state.assignments[r.date] = {};
-        state.assignments[r.date][r.site] = { doctor: r.doctor_name };
+        state.assignments[r.date][r.site] = rowToSite(r);
       }
       render();
     })
