@@ -1778,7 +1778,21 @@ function isAdmin() {
   return !!(window.currentProfile && (window.currentProfile.is_admin || window.currentProfile.is_super_admin));
 }
 function applyPermissions() {
-  document.body.classList.toggle('read-only', !isAdmin());
+  const admin = isAdmin();
+  document.body.classList.toggle('read-only', !admin);
+  // Onglet Réglages réservé aux admins
+  const setupTab = document.querySelector('.tab[data-tab="setup"]');
+  if (setupTab) {
+    setupTab.style.display = admin ? '' : 'none';
+    if (!admin && setupTab.classList.contains('active')) {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+      const pt = document.querySelector('.tab[data-tab="planning"]');
+      const pv = document.getElementById('planning');
+      if (pt) pt.classList.add('active');
+      if (pv) pv.classList.add('active');
+    }
+  }
 }
 
 // ============================================================
