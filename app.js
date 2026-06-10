@@ -766,11 +766,16 @@ function buildDayCell(dateStr, mode) {
   const curRem = curPicker ? objectivesRemaining(curPicker) : null;
   const bucket = objectiveBucket(dateStr);
   const canSplit = (mode === 'planning') && isAdmin();
+  // Quota de tour restant : si le type de jour (we/vendredi/semaine) est déjà
+  // fait pour ce tour, on grise (une demi-garde WE suffit à "faire" le WE du tour).
+  const turnRem = (mode === 'planning' && curName && !state.forcedNextPicker) ? getRemainingTurnQuota(curName).remaining : null;
+  const slotType = tourSlotType(dateStr);
+  const tourTypeDone = !!(turnRem && (turnRem[slotType] || 0) <= 0 && (turnRem.libre || 0) <= 0);
   ['HMN','ACH'].forEach(site => {
     // Si le picker est mono-site, masquer l'autre site (mode planning seulement)
     if (mode === 'planning' && curName && !curEligible.includes(site)) return;
     const occ = a[site];
-    const greyed = !!(curRem && curRem[site][bucket] <= 0);
+    const greyed = !!((curRem && curRem[site][bucket] <= 0) || tourTypeDone);
 
     // Jour 24h divisé (mode planning) → 2 demi-gardes Jour / Nuit
     if (mode === 'planning' && longShift && occ && occ.split) {
@@ -960,9 +965,12 @@ function renderPickerInfo() {
     const done = state.currentTurnPickCount || 0;
     const progress = `${cur.cursor + 1}/${state.doctors.length}`;
     let html = `<strong>Tour ${cur.tour}</strong> <span style="color:var(--ink-soft);font-size:11px">(${progress} ont joué)</span> — <span class="quota-item ${done>=totalNeeded?'done':'todo'}">${done}/${totalNeeded} choisies</span> `;
+    const { remaining: turnRem } = getRemainingTurnQuota(cur.name);
     Object.keys(quota).forEach(k => {
       const label = ({libre:'libre', vendredi:'vendredi', we:'WE/f', semaine:'semaine'})[k] || k;
-      html += `<span class="quota-item">${quota[k]} ${label}</span>`;
+      const rem = (turnRem[k] != null) ? turnRem[k] : quota[k];
+      const isDone = rem <= 0;
+      html += `<span class="quota-item ${isDone ? 'done' : 'todo'}">${quota[k]} ${label}${isDone ? ' ✓' : ''}</span>`;
     });
     tourEl.innerHTML = html;
   }
