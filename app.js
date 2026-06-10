@@ -787,7 +787,8 @@ function buildDayCell(dateStr, mode) {
       if (canSplit) {
         const mb = document.createElement('button');
         mb.textContent = '↩ fusionner';
-        mb.style.cssText = 'font-size:9px;padding:1px 4px;margin:2px 0;cursor:pointer;border:1px solid #cbd5e1;border-radius:4px;background:#f1f5f9;color:#475569;width:100%';
+        mb.title = 'Re-fusionner en garde 24h';
+        mb.style.cssText = 'font-size:9px;padding:1px 6px;margin:2px 0;cursor:pointer;border:1px solid #cbd5e1;border-radius:4px;background:#f1f5f9;color:#475569;align-self:flex-start';
         mb.onclick = (e) => { e.stopPropagation(); mergeSite(dateStr, site); };
         el.appendChild(mb);
       }
@@ -808,15 +809,23 @@ function buildDayCell(dateStr, mode) {
     }
     if (greyed) s.classList.add('slot-greyed');
     s.dataset.slotKey = site;
-    el.appendChild(s); slotEls.push(s);
+    slotEls.push(s);
 
-    // Bouton « diviser en 2 » sous le site (planning, 24h, admin, non divisé)
+    // Bouton « diviser en 2 » compact, sur la même ligne que le site (planning, 24h, admin)
     if (canSplit && longShift) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:5px';
+      s.style.flex = '1';
+      row.appendChild(s);
       const db = document.createElement('button');
-      db.textContent = '✂ diviser en 2';
-      db.style.cssText = 'font-size:9px;padding:1px 4px;margin:2px 0;cursor:pointer;border:1px solid #cbd5e1;border-radius:4px;background:#f1f5f9;color:#475569;width:100%';
+      db.textContent = '✂ 2';
+      db.title = 'Diviser en 2 (Jour / Nuit)';
+      db.style.cssText = 'font-size:10px;padding:2px 6px;cursor:pointer;border:1px solid #cbd5e1;border-radius:4px;background:#f1f5f9;color:#475569;white-space:nowrap';
       db.onclick = (e) => { e.stopPropagation(); divideSite(dateStr, site); };
-      el.appendChild(db);
+      row.appendChild(db);
+      el.appendChild(row);
+    } else {
+      el.appendChild(s);
     }
   });
 
