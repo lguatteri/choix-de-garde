@@ -1009,10 +1009,13 @@ function renderMeBadge() {
   const totSem = r.ACH.sem + r.HMN.sem;
   const totWE = r.ACH.we + r.HMN.we;
   el.innerHTML =
-    `<div class="me-label">Mes objectifs restants</div>` +
-    `<div class="me-name">${state.myName}</div>` +
-    `<div class="me-totals">Semaine : ${fmtHalf(totSem)} &nbsp;·&nbsp; WE + fériés : ${fmtHalf(totWE)}</div>` +
-    `<div class="me-detail">ACH ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)} &nbsp;·&nbsp; HMN ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</div>`;
+    `<div class="me-head"><span class="me-label">Mes objectifs restants</span><span class="me-name">${state.myName}</span></div>` +
+    `<div class="me-metrics">` +
+      `<span><strong>Semaine</strong> : ${fmtHalf(totSem)}</span>` +
+      `<span><strong>WE + fériés</strong> : ${fmtHalf(totWE)}</span>` +
+      `<span><strong>ACH</strong> ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)}</span>` +
+      `<span><strong>HMN</strong> ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</span>` +
+    `</div>`;
 }
 
 function renderMyNextTurn() {
