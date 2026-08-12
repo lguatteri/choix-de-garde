@@ -108,10 +108,17 @@ async function loadAllForAuto() {
   })).sort((a,b) => a.name.localeCompare(b.name, 'fr'));
   autoState.holidays = (holidays.data || []).map(h => h.date);
   const profByUid = Object.fromEntries((profiles.data || []).map(p => [p.user_id, p.doctor_name]));
+  // Établir d'abord la période (les défauts servent si session_state absente),
+  // pour ne compter que les déclarations du quadrimestre courant.
+  if (sess && sess.data) {
+    if (sess.data.period_start) PERIOD_START = sess.data.period_start;
+    if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
+  }
   autoState.voeuxByDoctor = {};
   (decls.data || []).forEach(row => {
     const dn = profByUid[row.user_id];
     if (!dn) return;
+    if (!inPeriod(row.date)) return;   // déclarations hors quadrimestre courant ignorées
     if (!autoState.voeuxByDoctor[dn]) autoState.voeuxByDoctor[dn] = {};
     autoState.voeuxByDoctor[dn][row.date] = row.voeu;
   });
@@ -1104,6 +1111,22 @@ function clearEditorWished() {
   renderDoctorEditor();
 }
 
+// Export Excel (.xlsx) du planning généré, au format du document de référence
+// (feuille « Gardes »). L'app auto n'a qu'une garde entière par site → seules
+// les colonnes Garde Mondor/Chenevier sont remplies. Générateur dans xlsx.js.
+function exportAutoPlanningXlsx() {
+  if (!autoState.proposed || !Object.keys(autoState.proposed).length) {
+    alert('Génère d\'abord un planning.');
+    return;
+  }
+  const dates = [...iterDates(PERIOD_START, PERIOD_END)];
+  const tag = autoState.simulationMode ? 'SIMULATION-' : '';
+  downloadGardesXlsx(dates, d => {
+    const a = autoState.proposed[d] || {};
+    return { gardeMondor: a.HMN || '', gardeChenevier: a.ACH || '', journeeMondor: '', journeeChenevier: '' };
+  }, `planning-auto-${tag}${PERIOD_START}-${PERIOD_END}.xlsx`);
+}
+
 async function commitToMainPlanning() {
   if (autoState.simulationMode) {
     alert('🧪 Mode simulation actif — impossible de pousser des données fictives en BDD. Restaure les données réelles d\'abord.');
@@ -1244,9 +1267,14 @@ async function initPersoApp() {
       HMN: { sem: doc.data.hmn_sem | 0, we: doc.data.hmn_we | 0 },
     };
     autoState.holidays = (hols.data || []).map(h => h.date);  // pour dayType/isWE partagés
+    // Période d'abord, pour ne charger que les déclarations du quadrimestre courant.
+    if (sess && sess.data) {
+      if (sess.data.period_start) PERIOD_START = sess.data.period_start;
+      if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
+    }
     persoState.persoVoeux = {};
     if (persoMissTable(decl.error)) persoState.declTableMissing = true;
-    else (decl.data || []).forEach(r => { persoState.persoVoeux[r.date] = r.voeu; });
+    else (decl.data || []).forEach(r => { if (inPeriod(r.date)) persoState.persoVoeux[r.date] = r.voeu; });
     if (persoMissTable(prefs.error)) persoState.prefsTableMissing = true;
     else if (prefs.data) {
       persoState.prefs = {
@@ -1603,6 +1631,13 @@ function bindAutoButtons() {
             btn.style.borderColor = '#15803d';
             btn.onclick = commitToMainPlanning;
             document.querySelector('.auto-actions').appendChild(btn);
+          }
+          if (!document.getElementById('export-xlsx-auto-btn')) {
+            const xb = document.createElement('button');
+            xb.id = 'export-xlsx-auto-btn';
+            xb.textContent = '⇣ Exporter planning Excel (.xlsx)';
+            xb.onclick = exportAutoPlanningXlsx;
+            document.querySelector('.auto-actions').appendChild(xb);
           }
         } catch (e) {
           console.error(e);

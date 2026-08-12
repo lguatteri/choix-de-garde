@@ -125,6 +125,7 @@
         <button id="import-btn">⇡ Importer planning depuis CSV</button>
         <input type="file" id="import-file" accept=".csv,.txt" hidden>
         <button id="export-btn-2">⇣ Exporter planning CSV</button>
+        <button id="export-xlsx-btn">⇣ Exporter planning Excel (.xlsx)</button>
         <button id="reset-btn" class="danger">⚠ Réinitialiser les choix (planning vide, vœux conservés)</button>
 
         <h2>Médecins &amp; objectifs (modifiable) <span class="admin-only-tag">admin</span></h2>
@@ -179,8 +180,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=42"></script>
   <script src="auth.js?v=42"></script>
-  <script src="doctors.js?v=43"></script>
-  <script src="app.js?v=58"></script>
+  <script src="doctors.js?v=44"></script>
+  <script src="xlsx.js?v=1"></script>
+  <script src="app.js?v=61"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

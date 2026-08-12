@@ -39,6 +39,11 @@ const DOCTORS = [
 let PERIOD_START = "2026-06-01";
 let PERIOD_END   = "2026-09-30";
 
+// Vrai si la date (YYYY-MM-DD) appartient au quadrimestre courant. Les
+// enregistrements (assignations/vœux/indispos) hors de cette fenêtre ne sont
+// pas comptés : changer de quadrimestre remet objectifs/vœux/indispos à zéro.
+function inPeriod(dateStr) { return dateStr >= PERIOD_START && dateStr <= PERIOD_END; }
+
 // Jours fériés dans la période (FR métropole)
 const HOLIDAYS = [
   "2026-07-14", // Fête nationale (mardi)

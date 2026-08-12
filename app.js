@@ -54,12 +54,7 @@ async function loadAllFromSupabase() {
   }
   if (holidays.data) state.holidays = holidays.data.map(h => h.date);
 
-  state.assignments = {};
-  (assignments.data || []).forEach(row => {
-    if (!state.assignments[row.date]) state.assignments[row.date] = {};
-    state.assignments[row.date][row.site] = rowToSite(row);
-  });
-
+  // Établir d'abord la période courante (sert à filtrer ci-dessous).
   if (sess.data) {
     state.firstPicker = sess.data.first_picker;
     state.pickerCursor = sess.data.picker_cursor;
@@ -74,6 +69,15 @@ async function loadAllFromSupabase() {
     if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
   }
 
+  // Ne charger que les assignations du quadrimestre courant : celles d'un
+  // quadrimestre précédent ne doivent pas compter dans les nouveaux objectifs.
+  state.assignments = {};
+  (assignments.data || []).forEach(row => {
+    if (!inPeriod(row.date)) return;
+    if (!state.assignments[row.date]) state.assignments[row.date] = {};
+    state.assignments[row.date][row.site] = rowToSite(row);
+  });
+
   state.allProfiles = profile.data || [];
   if (window.currentProfile) state.myName = window.currentProfile.doctor_name;
 
@@ -83,6 +87,7 @@ async function loadAllFromSupabase() {
   (voeux.data || []).forEach(row => {
     const dn = profByUid[row.user_id];
     if (!dn) return;
+    if (!inPeriod(row.date)) return;   // vœux/indispos hors quadrimestre courant ignorés
     if (!state.allVoeux[dn]) state.allVoeux[dn] = {};
     state.allVoeux[dn][row.date] = row.voeu;
   });
@@ -208,6 +213,7 @@ function tourSlotType(dateStr) {
   return 'semaine';
 }
 function objectiveBucket(dateStr) { return isWE(dateStr) ? 'we' : 'sem'; }
+// inPeriod(dateStr) est défini dans doctors.js (partagé avec l'app auto).
 
 // ============================================================
 // Médecins
@@ -1349,6 +1355,28 @@ $('export-btn').onclick = exportCSV;
 $('export-btn-2').onclick = exportCSV;
 
 // ============================================================
+// Export Excel (.xlsx) — feuille « Gardes » au format du document de
+// référence. Le générateur générique vit dans xlsx.js (partagé avec l'app
+// auto) ; ici on ne fournit que la correspondance données → colonnes.
+// Garde = garde entière ou demi-garde « nuit » ; Journée = demi-garde « jour ».
+// ============================================================
+function exportPlanningXlsx() {
+  const dates = [...iterDates(PERIOD_START, PERIOD_END)];
+  downloadGardesXlsx(dates, d => {
+    const a = state.assignments[d] || {};
+    const hmn = a.HMN, ach = a.ACH;
+    return {
+      gardeMondor:      hmn ? (hmn.split ? (hmn.nuit || '') : (hmn.doctor || '')) : '',
+      journeeMondor:    (hmn && hmn.split) ? (hmn.jour || '') : '',
+      gardeChenevier:   ach ? (ach.split ? (ach.nuit || '') : (ach.doctor || '')) : '',
+      journeeChenevier: (ach && ach.split) ? (ach.jour || '') : '',
+    };
+  }, `planning-${PERIOD_START}-${PERIOD_END}.xlsx`);
+}
+const _xlsxBtn = $('export-xlsx-btn');
+if (_xlsxBtn) _xlsxBtn.onclick = exportPlanningXlsx;
+
+// ============================================================
 // « Déclarer » = import à sens unique : copie mes voeux du Perso vers la copie
 // auto (table auto_declarations). L'édition côté app auto reste dans cette copie
 // et ne revient jamais ici. Avertit si la copie dépasse les limites.
@@ -1566,6 +1594,9 @@ async function savePeriodDates() {
   }).eq('id', 1);
   if (error) { if (st) st.textContent = '⚠ ' + error.message; return; }
   PERIOD_START = start; PERIOD_END = end;
+  // Recharger pour ne garder que les données du nouveau quadrimestre en mémoire
+  // (les assignations/vœux/indispos hors fenêtre ne doivent plus être comptés).
+  await loadAllFromSupabase();
   if (st) st.textContent = '✓ Période mise à jour.';
   render();
 }
@@ -1842,8 +1873,10 @@ function setupRealtime() {
         }
       } else {
         const r = payload.new;
-        if (!state.assignments[r.date]) state.assignments[r.date] = {};
-        state.assignments[r.date][r.site] = rowToSite(r);
+        if (inPeriod(r.date)) {
+          if (!state.assignments[r.date]) state.assignments[r.date] = {};
+          state.assignments[r.date][r.site] = rowToSite(r);
+        }
       }
       render();
     })
@@ -1880,7 +1913,7 @@ function setupRealtime() {
       if (!dn) return;
       if (!state.allVoeux[dn]) state.allVoeux[dn] = {};
       if (payload.eventType === 'DELETE') delete state.allVoeux[dn][row.date];
-      else state.allVoeux[dn][row.date] = row.voeu;
+      else if (inPeriod(row.date)) state.allVoeux[dn][row.date] = row.voeu;
       if (dn === state.myName) state.voeux = state.allVoeux[dn];
       render();
     })
