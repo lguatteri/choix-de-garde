@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=86">
+<link rel="stylesheet" href="styles.css?v=87">
 </head>
 <body>
 
@@ -64,6 +64,7 @@
 
     <main>
       <section id="planning" class="view active">
+        <div class="readonly-banner" id="planning-readonly-banner">👁 Lecture seule — seul l'admin modifie le planning. Tu vois les changements en temps réel ; tu peux toujours ajuster tes indispos &amp; vœux dans l'onglet <strong>Perso</strong>.</div>
         <div class="picker-box picker-current-box">
           <div class="box-label">Au tour de</div>
           <select class="name-select" id="current-name-select"></select>
@@ -164,7 +165,7 @@
   <script src="auth.js?v=42"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=65"></script>
+  <script src="app.js?v=68"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

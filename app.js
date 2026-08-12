@@ -616,6 +616,7 @@ function snapshotForUndo() {
 
 // half : undefined/'full' = garde entière ; 'jour' / 'nuit' = demi-garde (24h divisé)
 function setAssignment(date, site, doctorName, half) {
+  if (!isAdmin()) return;   // le planning n'est modifiable que par l'admin
   snapshotForUndo();
   const curBefore = currentPickerInfo();
 
@@ -925,11 +926,16 @@ function buildDayCell(dateStr, mode) {
   }
 
   if (mode === 'planning') {
-    slotEls.forEach(s => {
-      s.style.cursor = 'pointer';
-      s.onclick = (e) => { e.stopPropagation(); openAssignModal(dateStr, s.dataset.slotKey, s.dataset.half || null); };
-    });
-    el.onclick = () => openAssignModal(dateStr, slotEls[0]?.dataset.slotKey, slotEls[0]?.dataset.half || null);
+    // Le planning n'est modifiable QUE par l'admin. Les non-admins le voient en
+    // lecture seule (+ mises à jour temps réel) mais aucun clic n'ouvre la modale
+    // d'assignation. Ils gardent l'édition de leurs indispos/vœux dans l'onglet Perso.
+    if (isAdmin()) {
+      slotEls.forEach(s => {
+        s.style.cursor = 'pointer';
+        s.onclick = (e) => { e.stopPropagation(); openAssignModal(dateStr, s.dataset.slotKey, s.dataset.half || null); };
+      });
+      el.onclick = () => openAssignModal(dateStr, slotEls[0]?.dataset.slotKey, slotEls[0]?.dataset.half || null);
+    }
   } else {
     // Onglet perso :
     //  - clic sur la date / fond = toggle indispo
@@ -1135,6 +1141,7 @@ const modalState = { dateStr: null, slotKey: null, half: null };
 const $ = id => document.getElementById(id);
 
 function openAssignModal(dateStr, slotKey = null, half = null) {
+  if (!isAdmin()) return;   // modale d'assignation réservée à l'admin
   modalState.dateStr = dateStr;
   modalState.half = half || null;
   const halfLabel = half ? ` — ${slotKey} ${half === 'jour' ? 'Jour' : 'Nuit'} (½ 12h)` : '';
@@ -1914,6 +1921,7 @@ window.initApp = initApp;
 function setupRealtime() {
   const ch = sb().channel('garde-room')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, payload => {
+      console.log('[realtime] assignments', payload.eventType, (payload.new||payload.old||{}).date, (payload.new||payload.old||{}).site);
       if (payload.eventType === 'DELETE') {
         const r = payload.old;
         if (state.assignments[r.date]) {
@@ -1921,15 +1929,18 @@ function setupRealtime() {
           if (Object.keys(state.assignments[r.date]).length === 0) delete state.assignments[r.date];
         }
       } else {
+        // Écriture live = toujours dans la période courante (le calendrier ne
+        // propose que des dates in-période) → pas de filtre inPeriod ici, sinon
+        // un lecteur dont la période n'est pas parfaitement à jour ne verrait
+        // jamais les gardes se remplir en temps réel.
         const r = payload.new;
-        if (inPeriod(r.date)) {
-          if (!state.assignments[r.date]) state.assignments[r.date] = {};
-          state.assignments[r.date][r.site] = rowToSite(r);
-        }
+        if (!state.assignments[r.date]) state.assignments[r.date] = {};
+        state.assignments[r.date][r.site] = rowToSite(r);
       }
       render();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'session_state' }, payload => {
+      console.log('[realtime] session_state', payload.eventType);
       if (payload.new) {
         state.firstPicker = payload.new.first_picker;
         state.pickerCursor = payload.new.picker_cursor;
@@ -1962,7 +1973,7 @@ function setupRealtime() {
       if (!dn) return;
       if (!state.allVoeux[dn]) state.allVoeux[dn] = {};
       if (payload.eventType === 'DELETE') delete state.allVoeux[dn][row.date];
-      else if (inPeriod(row.date)) state.allVoeux[dn][row.date] = row.voeu;
+      else state.allVoeux[dn][row.date] = row.voeu;   // écriture live = période courante
       if (dn === state.myName) state.voeux = state.allVoeux[dn];
       render();
     })
@@ -1977,5 +1988,5 @@ function setupRealtime() {
       applyPermissions();
       render();
     });
-  ch.subscribe();
+  ch.subscribe((status) => console.log('[realtime] channel status:', status));
 }

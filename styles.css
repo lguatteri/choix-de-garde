@@ -808,6 +808,19 @@ body.neutral .picker-current-box::after {
 .read-only #planning .day,
 .read-only #planning .day .slot { pointer-events: none; opacity: 0.95; }
 .read-only #setup input { background: #f9fafb; }
+/* Bannière « lecture seule » du planning : masquée par défaut, visible pour les non-admins */
+.readonly-banner { display: none; }
+.read-only .readonly-banner {
+  display: block;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  border-radius: 10px;
+  padding: 9px 14px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.35;
+}
 
 #account-info {
   background: var(--surface);
