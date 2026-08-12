@@ -18,6 +18,7 @@ function defaultState() {
     tourDirection: 1,         // 1 = alphabétique avant, -1 = arrière
     currentTurnPickCount: 0,
     currentTurnSlots: [],     // ['date:site', ...] des picks faits dans le tour courant — local
+    returnCursor: null,       // local : front à retrouver après un retour manuel en arrière (correction)
     forcedNextPicker: null,
     allVoeux: {},             // doctorName -> { date -> voeu }, chargé depuis Supabase
     neutralView: false,       // local : masque la coloration liée au picker courant
@@ -445,6 +446,13 @@ function setCurrentPickerManually(name) {
   if (docIdx < 0) return;
   // Position dans le tour : (docIdx - tourStartIdx) * direction mod N
   const cursor = ((docIdx - state.tourStartIdx) * state.tourDirection % N + N) % N;
+  // Retour EN ARRIÈRE (quelqu'un veut corriger son choix) → on mémorise le front
+  // du groupe pour y revenir automatiquement une fois la correction faite.
+  if (cursor < state.pickerCursor) {
+    state.returnCursor = Math.max(state.pickerCursor, state.returnCursor || 0);
+  } else if (state.returnCursor != null && cursor >= state.returnCursor) {
+    state.returnCursor = null; // on a rejoint/dépassé le front → plus rien à retrouver
+  }
   state.pickerCursor = cursor;
   // Restaure la progression de tour DÉJÀ faite par ce médecin dans le tour
   // courant (au lieu de la remettre à zéro).
@@ -538,12 +546,22 @@ function advanceCursorIfNeeded() {
     const q = quotaSum(d, state.currentTour);
     // Avance si le tour est rempli OU si tous les objectifs totaux sont atteints
     if ((state.currentTurnPickCount || 0) >= q || objDone) {
-      state.pickerCursor++;
+      let nextCursor = state.pickerCursor + 1;
+      // Après une correction en arrière, sauter directement au front mémorisé
+      // (les personnes intermédiaires ont déjà fait leur tour).
+      if (state.returnCursor != null && nextCursor < state.returnCursor) nextCursor = state.returnCursor;
+      if (state.returnCursor != null && nextCursor >= state.returnCursor) state.returnCursor = null;
+      state.pickerCursor = nextCursor;
       state.currentTurnPickCount = 0;
       state.currentTurnSlots = [];
       continue;
     }
-    break; // ce picker doit encore choisir
+    // Ce picker doit encore choisir → caler le suivi sur SA progression réelle
+    // du tour (utile en revenant sur le front après une correction). Si
+    // l'historique est vide (ex. après un reload), on garde le compteur courant.
+    const slots = currentTurnSlotsFor(d.name);
+    if (slots.length) { state.currentTurnSlots = slots; state.currentTurnPickCount = slots.length; }
+    break;
   }
 }
 
@@ -561,6 +579,7 @@ function advanceTour() {
   state.pickerCursor = 0;
   state.currentTurnPickCount = 0;
   state.currentTurnSlots = [];
+  state.returnCursor = null;
   state.forcedNextPicker = null;
   syncSession();
   render();
@@ -578,6 +597,8 @@ function snapshotForUndo() {
     history: state.history,
     pickerCursor: state.pickerCursor,
     currentTurnPickCount: state.currentTurnPickCount || 0,
+    currentTurnSlots: state.currentTurnSlots || [],
+    returnCursor: state.returnCursor,
     forcedNextPicker: state.forcedNextPicker,
   }));
   if (UNDO_STACK.length > UNDO_MAX) UNDO_STACK.shift();
@@ -1265,7 +1286,12 @@ $('skip-picker-btn').onclick = () => {
     `il/elle continuera les tours suivants normalement.`;
   if (!confirm(msg)) return;
   snapshotForUndo();
-  state.pickerCursor = cur.cursor + 1;
+  let nextCursor = cur.cursor + 1;
+  // Même logique de retour au front que l'avancement auto (si on skip pendant
+  // une correction en arrière).
+  if (state.returnCursor != null && nextCursor < state.returnCursor) nextCursor = state.returnCursor;
+  if (state.returnCursor != null && nextCursor >= state.returnCursor) state.returnCursor = null;
+  state.pickerCursor = nextCursor;
   state.currentTurnPickCount = 0;
   state.currentTurnSlots = [];
   state.forcedNextPicker = null;
@@ -1305,6 +1331,8 @@ $('undo-btn').onclick = () => {
   state.history = snap.history;
   state.pickerCursor = snap.pickerCursor;
   state.currentTurnPickCount = snap.currentTurnPickCount || 0;
+  state.currentTurnSlots = snap.currentTurnSlots || [];
+  state.returnCursor = snap.returnCursor ?? null;
   state.forcedNextPicker = snap.forcedNextPicker;
   // Diff & sync les assignments qui ont changé
   diffAndSyncAssignments(oldAssign, state.assignments);
@@ -1481,6 +1509,7 @@ $('reset-btn').onclick = async () => {
   state.currentTour = 1;
   state.currentTurnPickCount = 0;
   state.currentTurnSlots = [];
+  state.returnCursor = null;
   state.tourDirection = 1;
   // tourStartIdx reste sur le firstPicker actuel
   if (state.firstPicker) {
@@ -1621,7 +1650,7 @@ async function startNewPeriod() {
   PERIOD_START = start; PERIOD_END = end;
   state.assignments = {}; state.voeux = {}; state.allVoeux = {};
   state.pickerCursor = 0; state.currentTour = 1; state.currentTurnPickCount = 0;
-  state.currentTurnSlots = []; state.forcedNextPicker = null;
+  state.currentTurnSlots = []; state.returnCursor = null; state.forcedNextPicker = null;
   if (st) st.textContent = '✓ Nouvelle période démarrée.';
   render();
 }
