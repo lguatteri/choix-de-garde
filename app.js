@@ -59,7 +59,7 @@ async function loadAllFromSupabase() {
     state.firstPicker = sess.data.first_picker;
     state.pickerCursor = sess.data.picker_cursor;
     state.currentTurnPickCount = sess.data.current_turn_pick_count;
-    state.forcedNextPicker = sess.data.forced_next_picker;
+    state.forcedNextPicker = null;   // fonctionnalité « forcer un choix » retirée (on ignore toute valeur résiduelle en base)
     state.currentTour = sess.data.current_tour ?? 1;
     state.tourStartIdx = sess.data.tour_start_idx ?? 0;
     state.tourDirection = sess.data.tour_direction ?? 1;
@@ -418,6 +418,25 @@ function nextPickerInfo() {
 
 // Recale le curseur sur la position de `name` dans le tour de groupe courant.
 // Garde le tour inchangé (pas de saut au prochain tour automatique).
+// Reconstitue les slots NETS choisis par `name` pendant le tour de GROUPE
+// courant, en rejouant l'historique tagué par tour (assign = ajoute,
+// clear/réattribution = retire). Sert à repositionner le suivi de tour quand
+// l'admin re-sélectionne un choisisseur, SANS jamais remettre sa progression
+// à zéro (et donc sans lui laisser re-choisir au-delà de son quota).
+function currentTurnSlotsFor(name) {
+  const held = new Set();
+  const evs = state.history
+    .filter(h => h.tour === state.currentTour && h.date && h.slot)
+    .sort((a, b) => a.ts - b.ts);
+  for (const e of evs) {
+    const key = e.half ? `${e.date}:${e.slot}:${e.half}` : `${e.date}:${e.slot}`;
+    if (e.action === 'assign' && e.doctor === name) held.add(key);
+    else if (e.action === 'assign') held.delete(key);              // réattribué à un autre
+    else if (e.action === 'clear' && e.prevDoctor === name) held.delete(key);
+  }
+  return [...held];
+}
+
 function setCurrentPickerManually(name) {
   if (!name) return;
   snapshotForUndo();
@@ -427,8 +446,10 @@ function setCurrentPickerManually(name) {
   // Position dans le tour : (docIdx - tourStartIdx) * direction mod N
   const cursor = ((docIdx - state.tourStartIdx) * state.tourDirection % N + N) % N;
   state.pickerCursor = cursor;
-  state.currentTurnPickCount = 0;
-  state.currentTurnSlots = [];
+  // Restaure la progression de tour DÉJÀ faite par ce médecin dans le tour
+  // courant (au lieu de la remettre à zéro).
+  state.currentTurnSlots = currentTurnSlotsFor(name);
+  state.currentTurnPickCount = state.currentTurnSlots.length;
   state.forcedNextPicker = null;
   syncSession();
   render();
@@ -592,6 +613,7 @@ function setAssignment(date, site, doctorName, half) {
     date, slot: site, half: half || null,
     doctor: doctorName || prevDoctor || null,
     prevDoctor,
+    tour: state.currentTour,   // tour de groupe où ce choix a été fait
   });
 
   // Tracker les picks du tour en cours (chaque demi-garde = un pick distinct)
@@ -935,9 +957,6 @@ function renderPickerInfo() {
   const tourEl = document.getElementById('tour-info');
   const objEl = document.getElementById('obj-remaining');
   const nextEl = document.getElementById('next-picker');
-  const overrideEl = document.getElementById('override-notice');
-
-  overrideEl.classList.toggle('active', !!state.forcedNextPicker);
 
   // (re)remplir la liste déroulante
   nameSel.innerHTML = '';
@@ -1222,28 +1241,6 @@ $('modal-save').onclick = () => {
   $('modal-backdrop').hidden = true;
 };
 
-// ============================================================
-// Forcer un autre choisisseur
-// ============================================================
-$('force-picker-btn').onclick = () => {
-  const sel = $('force-picker-select');
-  sel.innerHTML = '';
-  state.doctors.forEach(d => {
-    const o = document.createElement('option');
-    o.value = d.name; o.textContent = d.name;
-    sel.appendChild(o);
-  });
-  $('modal-backdrop-picker').hidden = false;
-};
-$('force-cancel').onclick = () => { $('modal-backdrop-picker').hidden = true; };
-$('force-save').onclick = () => {
-  state.forcedNextPicker = $('force-picker-select').value;
-  syncSession(); render();
-  $('modal-backdrop-picker').hidden = true;
-};
-$('clear-override').onclick = () => {
-  state.forcedNextPicker = null; syncSession(); render();
-};
 $('advance-tour-btn').onclick = () => {
   if (!confirm(`Passer au tour ${state.currentTour + 1} ? (la dernière personne du tour ${state.currentTour} enchaîne en sens inverse)`)) return;
   advanceTour();
@@ -1885,7 +1882,7 @@ function setupRealtime() {
         state.firstPicker = payload.new.first_picker;
         state.pickerCursor = payload.new.picker_cursor;
         state.currentTurnPickCount = payload.new.current_turn_pick_count;
-        state.forcedNextPicker = payload.new.forced_next_picker;
+        // « forcer un choix » retiré : on n'applique plus forced_next_picker.
         state.currentTour = payload.new.current_tour ?? state.currentTour;
         state.tourStartIdx = payload.new.tour_start_idx ?? state.tourStartIdx;
         state.tourDirection = payload.new.tour_direction ?? state.tourDirection;

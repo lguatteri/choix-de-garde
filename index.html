@@ -65,10 +65,6 @@
     <main>
       <section id="planning" class="view active">
         <div class="picker-box picker-current-box">
-          <div class="override-notice" id="override-notice">
-            Choix manuel forcé.
-            <button id="clear-override">Reprendre l'ordre auto</button>
-          </div>
           <div class="box-label">Au tour de</div>
           <select class="name-select" id="current-name-select"></select>
           <div class="tour-info" id="tour-info"></div>
@@ -82,7 +78,6 @@
           <button id="skip-picker-btn">⏭ Passer au choisisseur suivant</button>
           <button id="undo-btn">↶ Annuler dernier choix</button>
           <button id="export-btn">⇣ Exporter CSV</button>
-          <button id="force-picker-btn">⇄ Forcer un autre choisisseur</button>
         </div>
       </section>
 
@@ -162,19 +157,6 @@
       </div>
     </div>
 
-    <div id="modal-backdrop-picker" hidden>
-      <div class="modal">
-        <h3>Forcer un autre choisisseur</h3>
-        <p class="hint">Sera utilisé pour le prochain choix uniquement (l'ordre reprendra ensuite).</p>
-        <label>Choisisseur :
-          <select id="force-picker-select"></select>
-        </label>
-        <div class="modal-actions">
-          <button id="force-cancel">Annuler</button>
-          <button id="force-save" class="primary">Forcer</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -182,7 +164,7 @@
   <script src="auth.js?v=42"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=61"></script>
+  <script src="app.js?v=63"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
