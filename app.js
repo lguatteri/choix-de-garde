@@ -19,6 +19,7 @@ function defaultState() {
     currentTurnPickCount: 0,
     currentTurnSlots: [],     // ['date:site', ...] des picks faits dans le tour courant — local
     returnCursor: null,       // local : front à retrouver après un retour manuel en arrière (correction)
+    manualPick: null,         // local : personne épinglée manuellement (autorisée à choisir même objectifs finis)
     forcedNextPicker: null,
     allVoeux: {},             // doctorName -> { date -> voeu }, chargé depuis Supabase
     neutralView: false,       // local : masque la coloration liée au picker courant
@@ -391,7 +392,9 @@ function currentPickerInfo() {
   while (c < N) {
     const d = pickerAt(c);
     if (!d) { c++; continue; }
-    if (objectivesRemaining(d).total <= 0) { c++; continue; } // doctor a fini ses objectifs
+    // Sauté si objectifs finis — SAUF si épinglé manuellement par l'admin
+    // (pour lui laisser choisir une garde en plus).
+    if (objectivesRemaining(d).total <= 0 && d.name !== state.manualPick) { c++; continue; }
     return { name: d.name, tour: state.currentTour, cursor: c, forced: false };
   }
   return null; // tout le monde a joué dans ce tour → admin doit cliquer "Tour suivant"
@@ -454,6 +457,10 @@ function setCurrentPickerManually(name) {
     state.returnCursor = null; // on a rejoint/dépassé le front → plus rien à retrouver
   }
   state.pickerCursor = cursor;
+  // Épingle la personne : reste le choisisseur courant même si ses objectifs
+  // sont finis (choix d'une garde en plus). L'épingle est levée dès qu'on
+  // avance (elle a choisi, ou l'admin passe).
+  state.manualPick = name;
   // Restaure la progression de tour DÉJÀ faite par ce médecin dans le tour
   // courant (au lieu de la remettre à zéro).
   state.currentTurnSlots = currentTurnSlotsFor(name);
@@ -554,6 +561,7 @@ function advanceCursorIfNeeded() {
       state.pickerCursor = nextCursor;
       state.currentTurnPickCount = 0;
       state.currentTurnSlots = [];
+      state.manualPick = null;   // l'épingle ne vaut que tant qu'on reste sur la personne
       continue;
     }
     // Ce picker doit encore choisir → caler le suivi sur SA progression réelle
@@ -580,6 +588,7 @@ function advanceTour() {
   state.currentTurnPickCount = 0;
   state.currentTurnSlots = [];
   state.returnCursor = null;
+  state.manualPick = null;
   state.forcedNextPicker = null;
   syncSession();
   render();
@@ -599,6 +608,7 @@ function snapshotForUndo() {
     currentTurnPickCount: state.currentTurnPickCount || 0,
     currentTurnSlots: state.currentTurnSlots || [],
     returnCursor: state.returnCursor,
+    manualPick: state.manualPick,
     forcedNextPicker: state.forcedNextPicker,
   }));
   if (UNDO_STACK.length > UNDO_MAX) UNDO_STACK.shift();
@@ -813,6 +823,9 @@ function buildDayCell(dateStr, mode) {
   const longShift = is24h(dateStr);
   const curPicker = (mode === 'planning' && curName) ? findDoctor(curName) : null;
   const curRem = curPicker ? objectivesRemaining(curPicker) : null;
+  // « Choix en plus » : picker épinglé alors que ses objectifs sont finis → on
+  // ne grise pas (tous les créneaux libres restent choisissables).
+  const extraPick = !!(curPicker && curRem && curRem.total <= 0);
   const bucket = objectiveBucket(dateStr);
   const canSplit = (mode === 'planning') && isAdmin();
   // Quota de tour restant : si le type de jour (we/vendredi/semaine) est déjà
@@ -824,7 +837,7 @@ function buildDayCell(dateStr, mode) {
     // Si le picker est mono-site, masquer l'autre site (mode planning seulement)
     if (mode === 'planning' && curName && !curEligible.includes(site)) return;
     const occ = a[site];
-    const greyed = !!((curRem && curRem[site][bucket] <= 0) || tourTypeDone);
+    const greyed = !extraPick && !!((curRem && curRem[site][bucket] <= 0) || tourTypeDone);
 
     // Jour 24h divisé (mode planning) → 2 demi-gardes Jour / Nuit
     if (mode === 'planning' && longShift && occ && occ.split) {
@@ -1003,7 +1016,11 @@ function renderPickerInfo() {
 
   const d = findDoctor(cur.name);
 
-  if (cur.forced) {
+  if (objectivesRemaining(d).total <= 0) {
+    // Personne épinglée manuellement alors que ses objectifs sont déjà atteints.
+    tourEl.innerHTML = `<strong>🎁 Choix en plus</strong> — ${cur.name} a déjà atteint tous ses objectifs. ` +
+      `La garde choisie ici sera <em>au-delà</em> de sa cible. (Le tour reprend au front ensuite.)`;
+  } else if (cur.forced) {
     tourEl.innerHTML = '<em>Choix manuel — règles de tour ignorées</em>';
   } else {
     const quota = tourQuota(d, cur.tour);
@@ -1248,9 +1265,12 @@ $('modal-save').onclick = () => {
     const docVoeu = (state.allVoeux[doc] || {})[modalState.dateStr];
     if (docVoeu === 'blocked') conflicts.push('a marqué cette date comme INDISPO 🚫');
     // Cette garde n'est-elle pas dans ses objectifs (site + sem/WE) ?
+    // On saute cet avertissement pour un « choix en plus » assumé (personne
+    // épinglée dont les objectifs sont déjà tous atteints).
     const dr = objectivesRemaining(findDoctor(doc));
     const bucketLabel = objectiveBucket(modalState.dateStr) === 'we' ? 'WE/férié' : 'semaine';
-    if (dr[modalState.slotKey][objectiveBucket(modalState.dateStr)] <= 0) {
+    const isExtraPick = doc === state.manualPick && dr.total <= 0;
+    if (!isExtraPick && dr[modalState.slotKey][objectiveBucket(modalState.dateStr)] <= 0) {
       conflicts.push(`n'a pas (ou plus) d'objectif "${bucketLabel}" sur ${modalState.slotKey}`);
     }
     if (conflicts.length) {
@@ -1294,6 +1314,7 @@ $('skip-picker-btn').onclick = () => {
   state.pickerCursor = nextCursor;
   state.currentTurnPickCount = 0;
   state.currentTurnSlots = [];
+  state.manualPick = null;
   state.forcedNextPicker = null;
   syncSession();
   render();
@@ -1333,6 +1354,7 @@ $('undo-btn').onclick = () => {
   state.currentTurnPickCount = snap.currentTurnPickCount || 0;
   state.currentTurnSlots = snap.currentTurnSlots || [];
   state.returnCursor = snap.returnCursor ?? null;
+  state.manualPick = snap.manualPick ?? null;
   state.forcedNextPicker = snap.forcedNextPicker;
   // Diff & sync les assignments qui ont changé
   diffAndSyncAssignments(oldAssign, state.assignments);
@@ -1510,6 +1532,7 @@ $('reset-btn').onclick = async () => {
   state.currentTurnPickCount = 0;
   state.currentTurnSlots = [];
   state.returnCursor = null;
+  state.manualPick = null;
   state.tourDirection = 1;
   // tourStartIdx reste sur le firstPicker actuel
   if (state.firstPicker) {
@@ -1650,7 +1673,7 @@ async function startNewPeriod() {
   PERIOD_START = start; PERIOD_END = end;
   state.assignments = {}; state.voeux = {}; state.allVoeux = {};
   state.pickerCursor = 0; state.currentTour = 1; state.currentTurnPickCount = 0;
-  state.currentTurnSlots = []; state.returnCursor = null; state.forcedNextPicker = null;
+  state.currentTurnSlots = []; state.returnCursor = null; state.manualPick = null; state.forcedNextPicker = null;
   if (st) st.textContent = '✓ Nouvelle période démarrée.';
   render();
 }
