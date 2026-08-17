@@ -1149,6 +1149,19 @@ function periodLabel() {
   return `${MONTHS_FR[s.getMonth()]} ${sy} – ${MONTHS_FR[e.getMonth()]} ${ey}`;
 }
 
+// Consigne de l'onglet Perso, adaptée aux sites du médecin connecté (mono-site
+// → un seul site cité au lieu de « HMN ou ACH »).
+function renderVoeuxHint() {
+  const el = document.getElementById('voeux-hint');
+  if (!el) return;
+  const me = findDoctor(state.myName);
+  const es = me ? eligibleSites(me) : ['HMN', 'ACH'];
+  const sitesLabel = (es.length === 1) ? es[0] : 'HMN ou ACH';
+  el.innerHTML = `Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). ` +
+    `Clic sur <strong>${sitesLabel}</strong> = 💙 vœu sur ce site (re-clic = annuler). ` +
+    `Indispo et vœux sont exclusifs.`;
+}
+
 function render() {
   const pl = $('period-label');
   if (pl) pl.textContent = periodLabel();
@@ -1158,6 +1171,7 @@ function render() {
     renderCalendar('planning-calendar', 'planning');
     renderPickerInfo();
   } else if (activeTab === 'voeux') {
+    renderVoeuxHint();
     renderMyNextTurn();
     renderCalendar('voeux-calendar', 'voeux');
   } else if (activeTab === 'setup') {

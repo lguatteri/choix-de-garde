@@ -89,7 +89,7 @@
           <span id="declare-auto-status" class="hint"></span>
           <button id="declare-auto-btn" style="font-family:inherit;background:#7c3aed;color:#fff;border:1px solid #6d28d9;border-radius:999px;padding:9px 20px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(124,58,237,0.3)">Déclarer pour le planning auto</button>
         </div>
-        <p class="hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💙 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
+        <p class="hint" id="voeux-hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💙 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
         <div class="calendar" id="voeux-calendar"></div>
       </section>
 
@@ -177,7 +177,7 @@
   <script src="auth.js?v=42"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=78"></script>
+  <script src="app.js?v=79"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
