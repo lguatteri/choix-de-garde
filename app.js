@@ -822,6 +822,19 @@ function buildDayCell(dateStr, mode) {
     }
   }
 
+  // Sites à AFFICHER (un médecin mono-site ne voit que sa ligne de garde) :
+  // - planning → ceux du picker courant ; - Perso (voeux) → ceux du médecin connecté.
+  let refEligible = null; // null = afficher les 2 sites
+  if (mode === 'planning' && curName) {
+    refEligible = curEligible;
+  } else if (mode === 'voeux' && state.myName) {
+    const me = findDoctor(state.myName);
+    if (me) {
+      const es = eligibleSites(me);
+      if (es.length > 0) refEligible = es;
+    }
+  }
+
   // Vœux/indispos visibles : sur l'onglet Perso (toujours), ET sur le Planning
   // quand c'est MON tour. Sur le Planning on adapte le marqueur selon les slots
   // déjà pris : un vœu sur un site déjà pris disparaît, un vœu "les 2" se réduit
@@ -855,8 +868,8 @@ function buildDayCell(dateStr, mode) {
   const slotType = tourSlotType(dateStr);
   const tourTypeDone = !!(turnRem && (turnRem[slotType] || 0) <= 0 && (turnRem.libre || 0) <= 0);
   ['HMN','ACH'].forEach(site => {
-    // Si le picker est mono-site, masquer l'autre site (mode planning seulement)
-    if (mode === 'planning' && curName && !curEligible.includes(site)) return;
+    // Médecin mono-site : masquer l'autre site (planning = picker ; Perso = moi)
+    if (refEligible && !refEligible.includes(site)) return;
     const occ = a[site];
     const greyed = !extraPick && !!((curRem && curRem[site][bucket] <= 0) || tourTypeDone);
 
