@@ -1180,11 +1180,14 @@ function showMyTurnPopup(cur) {
   }
   el.hidden = false;
 }
-function hideMyTurnPopup() { const el = $('my-turn-popup'); if (el) el.hidden = true; }
+function hideMyTurnPopup() { const el = document.getElementById('my-turn-popup'); if (el) el.hidden = true; }
+// Câblage des boutons de la pop-up. NB : ce bloc s'exécute au chargement du
+// module, AVANT la définition de `$` (const, plus bas) → on utilise
+// document.getElementById directement pour éviter une erreur « zone morte ».
 {
-  const _tpClose = $('turn-popup-close');
+  const _tpClose = document.getElementById('turn-popup-close');
   if (_tpClose) _tpClose.onclick = hideMyTurnPopup;
-  const _tpGoto = $('turn-popup-goto');
+  const _tpGoto = document.getElementById('turn-popup-goto');
   if (_tpGoto) _tpGoto.onclick = () => {
     hideMyTurnPopup();
     const pt = document.querySelector('.tab[data-tab="planning"]');
