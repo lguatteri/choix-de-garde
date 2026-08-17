@@ -1094,15 +1094,13 @@ function renderMeBadge() {
   const me = findDoctor(state.myName);
   if (!me) { el.innerHTML = ''; return; }
   const r = objectivesRemaining(me);
-  const totSem = r.ACH.sem + r.HMN.sem;
-  const totWE = r.ACH.we + r.HMN.we;
   el.innerHTML =
     `<div class="me-head"><span class="me-label">Mes objectifs restants</span><span class="me-name">${state.myName}</span></div>` +
     `<div class="me-metrics">` +
-      `<span><strong>Semaine</strong> : ${fmtHalf(totSem)}</span>` +
-      `<span><strong>WE + fériés</strong> : ${fmtHalf(totWE)}</span>` +
-      `<span><strong>ACH</strong> ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)}</span>` +
-      `<span><strong>HMN</strong> ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</span>` +
+      `<span><strong>ACH semaine</strong> : ${fmtHalf(r.ACH.sem)} / ${fmtHalf(me.ACH.sem)}</span>` +
+      `<span><strong>ACH we/fériés</strong> : ${fmtHalf(r.ACH.we)} / ${fmtHalf(me.ACH.we)}</span>` +
+      `<span><strong>HMN semaine</strong> : ${fmtHalf(r.HMN.sem)} / ${fmtHalf(me.HMN.sem)}</span>` +
+      `<span><strong>HMN we/fériés</strong> : ${fmtHalf(r.HMN.we)} / ${fmtHalf(me.HMN.we)}</span>` +
     `</div>`;
 }
 

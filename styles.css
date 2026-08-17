@@ -96,8 +96,8 @@ header h1 {
   color: #ffffff;
 }
 .me-badge .me-metrics {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px 26px;
   font-size: 14px;
   font-weight: 600;
