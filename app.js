@@ -61,6 +61,7 @@ async function loadAllFromSupabase() {
     state.firstPicker = sess.data.first_picker;
     state.pickerCursor = sess.data.picker_cursor;
     state.currentTurnPickCount = sess.data.current_turn_pick_count;
+    if (Array.isArray(sess.data.current_turn_slots)) state.currentTurnSlots = sess.data.current_turn_slots;  // lecteurs (mirroir)
     state.forcedNextPicker = null;   // fonctionnalité « forcer un choix » retirée (on ignore toute valeur résiduelle en base)
     state.currentTour = sess.data.current_tour ?? 1;
     state.tourStartIdx = sess.data.tour_start_idx ?? 0;
@@ -95,12 +96,14 @@ async function loadAllFromSupabase() {
   });
   state.voeux = state.allVoeux[state.myName] || {};
   computeMyMaxWished();
-  // Recaler le suivi de tour du picker courant sur sa progression RÉELLE au
-  // chargement : le compteur persisté en base peut être obsolète (ex. resté à 4
-  // après un changement de période) et faussait le « X/N choisies » + le saut.
-  const _cur = currentPickerInfo();
-  state.currentTurnSlots = _cur ? currentTurnSlotsFor(_cur.name) : [];
-  state.currentTurnPickCount = state.currentTurnSlots.length;
+  // L'admin est la source de vérité du suivi de tour : il le recalcule sur la
+  // progression RÉELLE (corrige un compteur obsolète). Le lecteur, lui, garde la
+  // valeur lue depuis session_state (il n'a pas l'historique pour recalculer).
+  if (isAdmin()) {
+    const _cur = currentPickerInfo();
+    state.currentTurnSlots = _cur ? currentTurnSlotsFor(_cur.name) : [];
+    state.currentTurnPickCount = state.currentTurnSlots.length;
+  }
 }
 
 // Max de vœux pour MOI = round((sem + 2×WE) / N), minimum 2
@@ -155,6 +158,7 @@ async function syncSession() {
     first_picker: state.firstPicker,
     picker_cursor: state.pickerCursor,
     current_turn_pick_count: state.currentTurnPickCount || 0,
+    current_turn_slots: state.currentTurnSlots || [],   // partagé aux lecteurs (liseré « suggérées » correct)
     forced_next_picker: state.forcedNextPicker,
     current_tour: state.currentTour,
     tour_start_idx: state.tourStartIdx,
@@ -1959,7 +1963,13 @@ function setupRealtime() {
       if (payload.new) {
         state.firstPicker = payload.new.first_picker;
         state.pickerCursor = payload.new.picker_cursor;
-        state.currentTurnPickCount = payload.new.current_turn_pick_count;
+        // Suivi de tour : piloté localement par l'admin (source de vérité) ;
+        // seul le lecteur le mirroir depuis la base (sinon un écho obsolète
+        // parasiterait la progression de l'admin en plein choix).
+        if (!isAdmin()) {
+          state.currentTurnPickCount = payload.new.current_turn_pick_count;
+          if (Array.isArray(payload.new.current_turn_slots)) state.currentTurnSlots = payload.new.current_turn_slots;
+        }
         // « forcer un choix » retiré : on n'applique plus forced_next_picker.
         state.currentTour = payload.new.current_tour ?? state.currentTour;
         state.tourStartIdx = payload.new.tour_start_idx ?? state.tourStartIdx;

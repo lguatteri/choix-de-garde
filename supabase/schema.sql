@@ -45,6 +45,7 @@ create table if not exists public.session_state (
   first_picker text references public.doctors(name),
   picker_cursor int not null default 0,
   current_turn_pick_count int not null default 0,
+  current_turn_slots jsonb not null default '[]'::jsonb,   -- créneaux déjà choisis ce tour (partagé aux lecteurs)
   forced_next_picker text references public.doctors(name),
   period_start date not null default '2026-06-01',
   period_end   date not null default '2026-09-30',
