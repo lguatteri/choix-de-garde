@@ -1150,6 +1150,46 @@ function render() {
   } else if (activeTab === 'setup') {
     renderSetup();
   }
+  checkMyTurnNotification();
+}
+
+// ============================================================
+// Pop-up « c'est à toi de choisir » — apparaît (au centre, quel que soit
+// l'onglet) au moment où le tour arrive sur le médecin connecté.
+// ============================================================
+let _lastMyTurn = false;
+function checkMyTurnNotification() {
+  const cur = currentPickerInfo();
+  const isMyTurn = !!(cur && state.myName && cur.name === state.myName);
+  if (isMyTurn && !_lastMyTurn) showMyTurnPopup(cur);   // seulement à la BASCULE (pas à chaque render)
+  _lastMyTurn = isMyTurn;
+}
+function showMyTurnPopup(cur) {
+  const el = $('my-turn-popup');
+  if (!el) return;
+  const detail = $('turn-popup-detail');
+  if (detail) {
+    const me = findDoctor(state.myName);
+    let quotaStr = '';
+    if (me) {
+      const quota = tourQuota(me, cur.tour);
+      const labels = { libre: 'date libre', vendredi: 'vendredi', we: 'WE/férié', semaine: 'semaine' };
+      quotaStr = Object.keys(quota).map(k => `${quota[k]} ${labels[k] || k}`).join(', ');
+    }
+    detail.innerHTML = `<strong>Tour ${cur.tour}</strong>` + (quotaStr ? ` — à choisir : ${quotaStr}.` : '.');
+  }
+  el.hidden = false;
+}
+function hideMyTurnPopup() { const el = $('my-turn-popup'); if (el) el.hidden = true; }
+{
+  const _tpClose = $('turn-popup-close');
+  if (_tpClose) _tpClose.onclick = hideMyTurnPopup;
+  const _tpGoto = $('turn-popup-goto');
+  if (_tpGoto) _tpGoto.onclick = () => {
+    hideMyTurnPopup();
+    const pt = document.querySelector('.tab[data-tab="planning"]');
+    if (pt) pt.click();
+  };
 }
 
 // ============================================================

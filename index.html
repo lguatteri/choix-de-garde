@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=88">
+<link rel="stylesheet" href="styles.css?v=89">
 </head>
 <body>
 
@@ -158,6 +158,18 @@
       </div>
     </div>
 
+    <div id="my-turn-popup" class="turn-popup-backdrop" hidden>
+      <div class="turn-popup">
+        <div class="turn-popup-icon">🔔</div>
+        <h3>C'est à toi de choisir !</h3>
+        <p id="turn-popup-detail"></p>
+        <div class="turn-popup-actions">
+          <button id="turn-popup-goto" class="primary">Voir le planning</button>
+          <button id="turn-popup-close">OK</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -165,7 +177,7 @@
   <script src="auth.js?v=42"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=75"></script>
+  <script src="app.js?v=76"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

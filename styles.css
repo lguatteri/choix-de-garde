@@ -852,3 +852,62 @@ body.neutral .picker-current-box::after {
   background: white;
   cursor: pointer;
 }
+
+/* ===== Pop-up « c'est à toi de choisir » ===== */
+.turn-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;   /* au-dessus de tout (modales = 100) */
+  padding: 16px;
+}
+.turn-popup-backdrop[hidden] { display: none; }
+.turn-popup {
+  background: #fff;
+  border-radius: 16px;
+  padding: 26px 24px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  border-top: 6px solid #15803d;
+  animation: turnPopIn 0.3s cubic-bezier(0.2,0.8,0.3,1.2);
+}
+@keyframes turnPopIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.turn-popup-icon {
+  font-size: 46px;
+  line-height: 1;
+  margin-bottom: 8px;
+  animation: turnBell 0.8s ease 0.2s 2;
+  transform-origin: 50% 10%;
+}
+@keyframes turnBell {
+  0%,100% { transform: rotate(0); }
+  25% { transform: rotate(16deg); }
+  75% { transform: rotate(-16deg); }
+}
+.turn-popup h3 { margin: 0 0 8px; font-size: 20px; color: #15803d; }
+.turn-popup p { margin: 0 0 18px; font-size: 14px; color: #334155; line-height: 1.5; }
+.turn-popup-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.turn-popup-actions button {
+  font-family: inherit;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #334155;
+}
+.turn-popup-actions button.primary {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff;
+}
