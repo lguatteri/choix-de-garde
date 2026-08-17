@@ -61,7 +61,7 @@ async function loadAllFromSupabase() {
     state.firstPicker = sess.data.first_picker;
     state.pickerCursor = sess.data.picker_cursor;
     state.currentTurnPickCount = sess.data.current_turn_pick_count;
-    if (Array.isArray(sess.data.current_turn_slots)) state.currentTurnSlots = sess.data.current_turn_slots;  // lecteurs (mirroir)
+    // (current_turn_slots est appliqué plus bas, filtré par les gardes réelles)
     state.forcedNextPicker = null;   // fonctionnalité « forcer un choix » retirée (on ignore toute valeur résiduelle en base)
     state.currentTour = sess.data.current_tour ?? 1;
     state.tourStartIdx = sess.data.tour_start_idx ?? 0;
@@ -96,14 +96,14 @@ async function loadAllFromSupabase() {
   });
   state.voeux = state.allVoeux[state.myName] || {};
   computeMyMaxWished();
-  // L'admin est la source de vérité du suivi de tour : il le recalcule sur la
-  // progression RÉELLE (corrige un compteur obsolète). Le lecteur, lui, garde la
-  // valeur lue depuis session_state (il n'a pas l'historique pour recalculer).
-  if (isAdmin()) {
-    const _cur = currentPickerInfo();
-    state.currentTurnSlots = _cur ? currentTurnSlotsFor(_cur.name) : [];
-    state.currentTurnPickCount = state.currentTurnSlots.length;
-  }
+  // Suivi de tour : on repart de la progression PERSISTÉE dans session_state
+  // (current_turn_slots), filtrée par les gardes réellement présentes. Ainsi la
+  // progression du tour survit à un rechargement (admin ET lecteur), sans
+  // dépendre de state.history (vide après un reload) et sans compter de fantômes.
+  const _cur = currentPickerInfo();
+  const _persisted = Array.isArray(sess.data.current_turn_slots) ? sess.data.current_turn_slots : [];
+  state.currentTurnSlots = _cur ? _persisted.filter(k => slotAssignedTo(k, _cur.name)) : [];
+  state.currentTurnPickCount = state.currentTurnSlots.length;
 }
 
 // Max de vœux pour MOI = round((sem + 2×WE) / N), minimum 2
@@ -430,8 +430,16 @@ function nextPickerInfo() {
   return null;
 }
 
-// Recale le curseur sur la position de `name` dans le tour de groupe courant.
-// Garde le tour inchangé (pas de saut au prochain tour automatique).
+// Vrai si le créneau `key` (format "date:site" ou "date:site:half") est
+// RÉELLEMENT attribué à `name` dans l'état courant (state.assignments).
+function slotAssignedTo(key, name) {
+  const [date, site, half] = key.split(':');
+  const s = (state.assignments[date] || {})[site];
+  if (!s) return false;
+  if (half) return !!s.split && s[half] === name;
+  return !s.split && s.doctor === name;
+}
+
 // Reconstitue les slots NETS choisis par `name` pendant le tour de GROUPE
 // courant, en rejouant l'historique tagué par tour (assign = ajoute,
 // clear/réattribution = retire). Sert à repositionner le suivi de tour quand
@@ -448,16 +456,9 @@ function currentTurnSlotsFor(name) {
     else if (e.action === 'assign') held.delete(key);              // réattribué à un autre
     else if (e.action === 'clear' && e.prevDoctor === name) held.delete(key);
   }
-  // Filet de sécurité : ne garder que les créneaux RÉELLEMENT attribués à `name`
-  // dans l'état courant. L'historique en mémoire peut diverger des assignments
-  // (changement de période, suppression via temps réel…) → évite les tours fantômes.
-  return [...held].filter(key => {
-    const [date, site, half] = key.split(':');
-    const s = (state.assignments[date] || {})[site];
-    if (!s) return false;
-    if (half) return !!s.split && s[half] === name;
-    return !s.split && s.doctor === name;
-  });
+  // Filet de sécurité : ne garder que les créneaux réellement attribués à `name`
+  // (l'historique en mémoire peut diverger des assignments) → évite les fantômes.
+  return [...held].filter(key => slotAssignedTo(key, name));
 }
 
 function setCurrentPickerManually(name) {
