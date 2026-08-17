@@ -1111,14 +1111,19 @@ function renderMeBadge() {
   // Ne montrer que la (les) ligne(s) des sites du médecin (mono-site → 1 site).
   const sites = eligibleSites(me);
   const shown = sites.length ? sites : ['ACH', 'HMN'];
-  let metrics = '';
+  let objLines = '';   // objectifs TOTAUX par site
+  let remLines = '';   // gardes RESTANTES par site (bandeau vert foncé)
   shown.forEach(site => {
-    metrics += `<span><strong>${site} semaine</strong> : ${fmtHalf(r[site].sem)} / ${fmtHalf(me[site].sem)}</span>`;
-    metrics += `<span><strong>${site} we/fériés</strong> : ${fmtHalf(r[site].we)} / ${fmtHalf(me[site].we)}</span>`;
+    objLines += `<div class="me-obj-line">Objectif <strong>${site}</strong> : we = ${fmtHalf(me[site].we)}&nbsp;&nbsp;sem = ${fmtHalf(me[site].sem)}</div>`;
+    remLines += `<span><strong>${site}</strong> : we = ${fmtHalf(r[site].we)}&nbsp;&nbsp;sem = ${fmtHalf(r[site].sem)}</span>`;
   });
   el.innerHTML =
-    `<div class="me-head"><span class="me-label">Mes objectifs restants</span><span class="me-name">${state.myName}</span></div>` +
-    `<div class="me-metrics">${metrics}</div>`;
+    `<div class="me-name-band">${state.myName}</div>` +
+    `<div class="me-objectives">${objLines}</div>` +
+    `<div class="me-remaining">` +
+      `<span class="me-remaining-label">Gardes restantes</span>` +
+      `<div class="me-metrics">${remLines}</div>` +
+    `</div>`;
 }
 
 function renderMyNextTurn() {

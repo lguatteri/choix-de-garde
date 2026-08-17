@@ -1058,9 +1058,18 @@ function renderDoctorEditor() {
       const t = dayType(d);
       if (t === 'holiday') cell.classList.add('holiday');
       else if (t === 'sunday' || t === 'saturday') cell.classList.add('weekend');
-      cell.textContent = parseYMD(d).getDate();
-      if (map[d] === 'blocked') cell.classList.add('blocked');
-      else if (map[d] && map[d].startsWith('wished')) cell.classList.add('wished');
+      const dayNum = parseYMD(d).getDate();
+      const v = map[d];
+      if (v === 'blocked') {
+        cell.classList.add('blocked');
+        cell.textContent = dayNum;
+      } else if (v && v.startsWith('wished')) {
+        cell.classList.add('wished');
+        const mark = v === 'wishedHMN' ? 'HMN' : v === 'wishedACH' ? 'ACH' : '2 sites';
+        cell.innerHTML = `${dayNum}<span class="wish-mark">${mark}</span>`;
+      } else {
+        cell.textContent = dayNum;
+      }
       cell.addEventListener('click', () => toggleEditorDay(d));
       daysEl.appendChild(cell);
     });
@@ -1077,15 +1086,23 @@ function toggleEditorDay(date) {
     if (cur === 'blocked') delete map[date];
     else map[date] = 'blocked';                 // écrase un éventuel vœu (exclusifs)
   } else {                                        // mode 'wished'
-    if (cur && cur.startsWith('wished')) {
-      delete map[date];
-    } else {
-      const capW = autoMaxWishedFor(autoState.doctors.find(x => x.name === _editorDoctor));
+    const doc = autoState.doctors.find(x => x.name === _editorDoctor);
+    const hasBoth = (doc.HMN.sem + doc.HMN.we) > 0 && (doc.ACH.sem + doc.ACH.we) > 0;
+    const isWished = cur && cur.startsWith('wished');
+    if (!isWished) {
+      const capW = autoMaxWishedFor(doc);
       if (countWished(map) >= capW) {
         alert(`Maximum de ${capW} date(s) voulue(s) pour ce médecin (1 vœu pour ${autoState.wishedPerGardes} gardes).`);
         return;
       }
-      map[date] = 'wishedBoth';                   // écrase une éventuelle indispo (exclusifs)
+      // mono-site : sur son seul site ; bi-site : démarre sur HMN, re-clic pour cycler
+      map[date] = hasBoth ? 'wishedHMN' : ((doc.HMN.sem + doc.HMN.we) > 0 ? 'wishedHMN' : 'wishedACH');
+    } else if (!hasBoth) {
+      delete map[date];                            // mono-site : un seul état → retirer
+    } else {
+      // bi-site : HMN → ACH → les deux → retirer (les deux = 1 seul vœu)
+      const next = cur === 'wishedHMN' ? 'wishedACH' : cur === 'wishedACH' ? 'wishedBoth' : null;
+      if (next) map[date] = next; else delete map[date];
     }
   }
   renderDoctorEditor();
