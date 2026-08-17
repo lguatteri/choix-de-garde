@@ -87,38 +87,37 @@ header h1 {
   margin-bottom: 8px;
   box-shadow: 0 1px 3px rgba(21,128,61,0.15);
 }
-.me-badge .me-objectives {
-  font-size: 13px;
-  font-weight: 600;
+.me-badge .me-section {           /* section « Objectifs » (fond clair) */
   color: #166534;
-  margin-bottom: 10px;
   padding: 0 4px;
+  margin-bottom: 9px;
 }
-.me-badge .me-obj-line { padding: 1px 0; }
+.me-badge .me-section-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
 .me-badge .me-remaining {          /* bandeau vert foncé : gardes restantes */
   background: linear-gradient(135deg, #166534, #15803d);
   color: #ecfdf5;
   border-radius: 10px;
   padding: 9px 14px;
 }
-.me-badge .me-remaining-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
-  color: #86efac;
-  margin-bottom: 5px;
-}
-.me-badge .me-metrics {
+.me-badge .me-remaining .me-section-label { color: #86efac; }
+.me-badge .me-line {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 22px;
-  font-size: 14px;
+  grid-template-columns: 3.4em 1fr 1fr;
+  gap: 2px 14px;
+  align-items: baseline;
+  font-size: 13.5px;
   font-weight: 600;
-  color: #dcfce7;
+  padding: 1px 0;
 }
-.me-badge .me-metrics strong { color: #fff; font-weight: 700; }
+.me-badge .me-line .me-site { font-weight: 800; }
+.me-badge .me-line strong { font-weight: 800; }
+.me-badge .me-remaining .me-line strong { color: #fff; }
 .tabs {
   display: flex;
   gap: 4px;
