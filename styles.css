@@ -69,7 +69,7 @@ header h1 {
   background: #f0fdf4;               /* conteneur vert très clair */
   border: 1px solid #bbf7d0;
   padding: 10px;
-  border-radius: 14px;
+  border-radius: 16px;
   line-height: 1.4;
   text-align: left;
   box-shadow: 0 4px 12px -6px rgba(21,128,61,0.4);
@@ -77,48 +77,73 @@ header h1 {
 }
 .me-badge .me-name-band {
   background: #ffffff;
-  color: #15803d;
-  font-weight: 800;
-  font-size: 19px;
-  letter-spacing: 0.3px;
-  text-align: left;
-  padding: 7px 14px;
-  border-radius: 10px;
-  margin-bottom: 8px;
+  text-align: center;
+  padding: 8px 14px;
+  border-radius: 12px;
+  margin-bottom: 10px;
   box-shadow: 0 1px 3px rgba(21,128,61,0.15);
 }
-.me-badge .me-section {           /* section « Objectifs » (fond clair) */
+.me-badge .me-name-band span {
+  color: #15803d;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: 0.3px;
+  border-bottom: 3px solid #86efac;   /* petit soulignement */
+  padding-bottom: 3px;
+}
+.me-badge .me-cols {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.me-badge .me-obj {
+  flex: 1 1 230px;
   color: #166534;
-  padding: 0 4px;
-  margin-bottom: 9px;
+  padding: 2px 4px;
+}
+.me-badge .me-remaining {          /* colonne droite : bandeau vert (adouci) */
+  flex: 1 1 230px;
+  background: linear-gradient(135deg, #22a34e, #16a34a);
+  color: #f0fdf4;
+  border-radius: 12px;
+  padding: 9px 12px;
 }
 .me-badge .me-section-label {
   font-size: 11.5px;
   font-weight: 800;
   letter-spacing: 0.7px;
   text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.me-badge .me-remaining {          /* bandeau vert (adouci) : gardes restantes */
-  background: linear-gradient(135deg, #22a34e, #16a34a);
-  color: #f0fdf4;
-  border-radius: 10px;
-  padding: 10px 14px;
+  margin-bottom: 6px;
 }
 .me-badge .me-remaining .me-section-label { color: #dcfce7; }
 .me-badge .me-line {
   display: grid;
   grid-template-columns: 3.6em auto auto;
-  gap: 3px 20px;
+  gap: 3px 18px;
   justify-content: start;
   align-items: baseline;
   font-size: 15px;
   font-weight: 600;
-  padding: 1.5px 0;
+  padding: 2px 0;
 }
-.me-badge .me-line .me-site { font-weight: 800; }
-.me-badge .me-line strong { font-weight: 800; }
-.me-badge .me-remaining .me-line strong { color: #fff; }
+.me-badge .me-site { font-weight: 800; }
+.me-badge strong { font-weight: 800; }
+/* Colonne « Gardes restantes » : site+Semaine à gauche, WE/férié dans un panneau clair */
+.me-badge .me-rem-grid { display: flex; gap: 10px; align-items: stretch; }
+.me-badge .me-rem-main { flex: 1 1 auto; }
+.me-badge .me-rem-main .me-line { grid-template-columns: 3.6em auto; }
+.me-badge .me-rem-we {
+  background: rgba(255,255,255,0.20);
+  border-radius: 8px;
+  padding: 4px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+.me-badge .me-we-cell { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.me-badge .me-remaining strong { color: #ffffff; }
 .tabs {
   display: flex;
   gap: 4px;

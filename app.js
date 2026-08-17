@@ -1111,21 +1111,30 @@ function renderMeBadge() {
   // Ne montrer que la (les) ligne(s) des sites du médecin (mono-site → 1 site).
   const sites = eligibleSites(me);
   const shown = sites.length ? sites : ['ACH', 'HMN'];
-  const line = (site, o) => `<div class="me-line">` +
-      `<span class="me-site">${site} :</span>` +
-      `<span>Semaine = <strong>${fmtHalf(o.sem)}</strong></span>` +
-      `<span>WE/férié = <strong>${fmtHalf(o.we)}</strong></span>` +
-    `</div>`;
-  let objLines = '';   // objectifs TOTAUX par site
-  let remLines = '';   // gardes RESTANTES par site (bandeau vert foncé)
+  // Colonne « Objectifs » (fond clair) : site | Semaine | WE/férié
+  let objRows = '';
   shown.forEach(site => {
-    objLines += line(site, me[site]);
-    remLines += line(site, r[site]);
+    objRows += `<div class="me-line">` +
+      `<span class="me-site">${site} :</span>` +
+      `<span>Semaine = <strong>${fmtHalf(me[site].sem)}</strong></span>` +
+      `<span>WE/férié = <strong>${fmtHalf(me[site].we)}</strong></span>` +
+    `</div>`;
+  });
+  // Colonne « Gardes restantes » (bandeau vert) : site + Semaine à gauche, WE/férié dans un panneau clair
+  let remMain = '', remWe = '';
+  shown.forEach(site => {
+    remMain += `<div class="me-line"><span class="me-site">${site} :</span><span>Semaine = <strong>${fmtHalf(r[site].sem)}</strong></span></div>`;
+    remWe += `<div class="me-we-cell">WE/férié = <strong>${fmtHalf(r[site].we)}</strong></div>`;
   });
   el.innerHTML =
-    `<div class="me-name-band">${state.myName}</div>` +
-    `<div class="me-section"><div class="me-section-label">Objectifs</div>${objLines}</div>` +
-    `<div class="me-remaining"><div class="me-section-label me-remaining-label">Gardes restantes</div>${remLines}</div>`;
+    `<div class="me-name-band"><span>${state.myName}</span></div>` +
+    `<div class="me-cols">` +
+      `<div class="me-obj"><div class="me-section-label">Objectifs</div>${objRows}</div>` +
+      `<div class="me-remaining">` +
+        `<div class="me-section-label">Gardes restantes</div>` +
+        `<div class="me-rem-grid"><div class="me-rem-main">${remMain}</div><div class="me-rem-we">${remWe}</div></div>` +
+      `</div>` +
+    `</div>`;
 }
 
 function renderMyNextTurn() {
