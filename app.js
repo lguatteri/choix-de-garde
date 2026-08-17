@@ -95,6 +95,12 @@ async function loadAllFromSupabase() {
   });
   state.voeux = state.allVoeux[state.myName] || {};
   computeMyMaxWished();
+  // Recaler le suivi de tour du picker courant sur sa progression RÉELLE au
+  // chargement : le compteur persisté en base peut être obsolète (ex. resté à 4
+  // après un changement de période) et faussait le « X/N choisies » + le saut.
+  const _cur = currentPickerInfo();
+  state.currentTurnSlots = _cur ? currentTurnSlotsFor(_cur.name) : [];
+  state.currentTurnPickCount = state.currentTurnSlots.length;
 }
 
 // Max de vœux pour MOI = round((sem + 2×WE) / N), minimum 2
@@ -438,7 +444,16 @@ function currentTurnSlotsFor(name) {
     else if (e.action === 'assign') held.delete(key);              // réattribué à un autre
     else if (e.action === 'clear' && e.prevDoctor === name) held.delete(key);
   }
-  return [...held];
+  // Filet de sécurité : ne garder que les créneaux RÉELLEMENT attribués à `name`
+  // dans l'état courant. L'historique en mémoire peut diverger des assignments
+  // (changement de période, suppression via temps réel…) → évite les tours fantômes.
+  return [...held].filter(key => {
+    const [date, site, half] = key.split(':');
+    const s = (state.assignments[date] || {})[site];
+    if (!s) return false;
+    if (half) return !!s.split && s[half] === name;
+    return !s.split && s.doctor === name;
+  });
 }
 
 function setCurrentPickerManually(name) {
@@ -1540,6 +1555,7 @@ $('reset-btn').onclick = async () => {
   state.currentTurnSlots = [];
   state.returnCursor = null;
   state.manualPick = null;
+  state.history = []; UNDO_STACK.length = 0;   // vider l'historique en mémoire (sinon choix fantômes)
   state.tourDirection = 1;
   // tourStartIdx reste sur le firstPicker actuel
   if (state.firstPicker) {
@@ -1681,6 +1697,7 @@ async function startNewPeriod() {
   state.assignments = {}; state.voeux = {}; state.allVoeux = {};
   state.pickerCursor = 0; state.currentTour = 1; state.currentTurnPickCount = 0;
   state.currentTurnSlots = []; state.returnCursor = null; state.manualPick = null; state.forcedNextPicker = null;
+  state.history = []; UNDO_STACK.length = 0;   // sinon les choix de l'ancienne période restent comptés (tours fantômes)
   if (st) st.textContent = '✓ Nouvelle période démarrée.';
   render();
 }
