@@ -1921,7 +1921,6 @@ window.initApp = initApp;
 function setupRealtime() {
   const ch = sb().channel('garde-room')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, payload => {
-      console.log('[realtime] assignments', payload.eventType, (payload.new||payload.old||{}).date, (payload.new||payload.old||{}).site);
       if (payload.eventType === 'DELETE') {
         const r = payload.old;
         if (state.assignments[r.date]) {
@@ -1940,7 +1939,6 @@ function setupRealtime() {
       render();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'session_state' }, payload => {
-      console.log('[realtime] session_state', payload.eventType);
       if (payload.new) {
         state.firstPicker = payload.new.first_picker;
         state.pickerCursor = payload.new.picker_cursor;
@@ -1988,5 +1986,5 @@ function setupRealtime() {
       applyPermissions();
       render();
     });
-  ch.subscribe((status) => console.log('[realtime] channel status:', status));
+  ch.subscribe();
 }
