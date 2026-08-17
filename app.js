@@ -1108,14 +1108,17 @@ function renderMeBadge() {
   const me = findDoctor(state.myName);
   if (!me) { el.innerHTML = ''; return; }
   const r = objectivesRemaining(me);
+  // Ne montrer que la (les) ligne(s) des sites du médecin (mono-site → 1 site).
+  const sites = eligibleSites(me);
+  const shown = sites.length ? sites : ['ACH', 'HMN'];
+  let metrics = '';
+  shown.forEach(site => {
+    metrics += `<span><strong>${site} semaine</strong> : ${fmtHalf(r[site].sem)} / ${fmtHalf(me[site].sem)}</span>`;
+    metrics += `<span><strong>${site} we/fériés</strong> : ${fmtHalf(r[site].we)} / ${fmtHalf(me[site].we)}</span>`;
+  });
   el.innerHTML =
     `<div class="me-head"><span class="me-label">Mes objectifs restants</span><span class="me-name">${state.myName}</span></div>` +
-    `<div class="me-metrics">` +
-      `<span><strong>ACH semaine</strong> : ${fmtHalf(r.ACH.sem)} / ${fmtHalf(me.ACH.sem)}</span>` +
-      `<span><strong>ACH we/fériés</strong> : ${fmtHalf(r.ACH.we)} / ${fmtHalf(me.ACH.we)}</span>` +
-      `<span><strong>HMN semaine</strong> : ${fmtHalf(r.HMN.sem)} / ${fmtHalf(me.HMN.sem)}</span>` +
-      `<span><strong>HMN we/fériés</strong> : ${fmtHalf(r.HMN.we)} / ${fmtHalf(me.HMN.we)}</span>` +
-    `</div>`;
+    `<div class="me-metrics">${metrics}</div>`;
 }
 
 function renderMyNextTurn() {
