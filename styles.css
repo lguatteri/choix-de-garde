@@ -517,7 +517,7 @@ main {
 /* Mes gardes : le SITE où la garde m'est attribuée est surligné en vert un peu
    plus foncé (utile surtout pour les bi-sites, pour voir HMN vs ACH). */
 .focus-cal .day .slot.mine,
-.focus-cal .day .slot.mine-current { box-shadow: none; color: #14532d; background: #86efac; font-weight: 700; }
+.focus-cal .day .slot.mine-current { box-shadow: none; color: #14532d; background: #a7d8b9; font-weight: 700; }
 /* Vœu : fond bleu clair + marqueur 💙+site (pas de cadre sur le site) */
 .focus-cal .day[data-voeu^="wished"] { box-shadow: inset 0 0 0 2px #2563eb; background: #bfdbfe; }
 .focus-cal .day[data-voeu^="wished"] .slot { outline: none !important; }
