@@ -492,35 +492,42 @@ main {
 }
 
 /* =========================================================================
-   PLANNING — mode « focus choix » (Modèle 1). Scopé à #planning-calendar
-   pour ne pas toucher l'onglet Perso (#voeux-calendar).
+   Calendriers Planning ET Perso — mode « focus choix » (Modèle 1). Scopé à
+   .focus-cal (posé sur #planning-calendar et #voeux-calendar) ; n'affecte pas
+   les calendriers de l'app auto.
    ========================================================================= */
 /* Gardes des autres médecins : discrètes (contexte) */
-#planning-calendar .day .slot.HMN,
-#planning-calendar .day .slot.ACH { background: transparent; color: #94a3b8; font-weight: 500; }
-#planning-calendar .day .slot.empty-slot { color: #94a3b8; }
+.focus-cal .day .slot.HMN,
+.focus-cal .day .slot.ACH { background: transparent; color: #94a3b8; font-weight: 500; }
+.focus-cal .day .slot.empty-slot { color: #94a3b8; }
 /* Jour plein : gris neutre (fini les hachures rouges) */
-#planning-calendar .day.day-unavailable { background: #f1f5f9; }
-#planning-calendar .day.day-unavailable .num { text-decoration: none; opacity: 0.5; }
-#planning-calendar .day.day-unavailable .slot { background: transparent; color: #94a3b8; }
+.focus-cal .day.day-unavailable { background: #f1f5f9; }
+.focus-cal .day.day-unavailable .num { text-decoration: none; opacity: 0.5; }
+.focus-cal .day.day-unavailable .slot { background: transparent; color: #94a3b8; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
-#planning-calendar .day.day-suggested { box-shadow: inset 0 0 0 2px #2563eb; background: #eff6ff; }
-#planning-calendar .day.day-suggested .slot.empty-slot { color: #1d4ed8; font-weight: 800; }
-#planning-calendar .day.day-suggested .slot.HMN,
-#planning-calendar .day.day-suggested .slot.ACH { color: #64748b; }
-/* Mes gardes : la case verte suffit (pas de cadre autour du site) */
-#planning-calendar .day .slot.mine,
-#planning-calendar .day .slot.mine-current { box-shadow: none; color: #14532d; }
+.focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #2563eb; background: #eff6ff; }
+.focus-cal .day.day-suggested .slot.empty-slot { color: #1d4ed8; font-weight: 800; }
+.focus-cal .day.day-suggested .slot.HMN,
+.focus-cal .day.day-suggested .slot.ACH { color: #64748b; }
+/* Mes gardes (choisisseur courant) : case VERT CLAIR — même si le jour est plein
+   (rétablit le vert écrasé par la règle « jour plein = gris » ci-dessus). */
+.focus-cal .day.day-mine,
+.focus-cal .day.day-unavailable-mine { background: #dcfce7; box-shadow: inset 0 0 0 2px var(--ok); }
+.focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
+/* Mes gardes : le SITE où la garde m'est attribuée est surligné en vert un peu
+   plus foncé (utile surtout pour les bi-sites, pour voir HMN vs ACH). */
+.focus-cal .day .slot.mine,
+.focus-cal .day .slot.mine-current { box-shadow: none; color: #14532d; background: #86efac; font-weight: 700; }
 /* Vœu : fond bleu clair + marqueur 💙+site (pas de cadre sur le site) */
-#planning-calendar .day[data-voeu^="wished"] { box-shadow: inset 0 0 0 2px #2563eb; background: #bfdbfe; }
-#planning-calendar .day[data-voeu^="wished"] .slot { outline: none !important; }
-#planning-calendar .day[data-voeu]::before { font-size: 9px; }
-#planning-calendar .day[data-voeu="wishedHMN"]::before  { content: "💙HMN"; }
-#planning-calendar .day[data-voeu="wishedACH"]::before  { content: "💙ACH"; }
-#planning-calendar .day[data-voeu="wishedBoth"]::before { content: "💙 2 sites"; }
+.focus-cal .day[data-voeu^="wished"] { box-shadow: inset 0 0 0 2px #2563eb; background: #bfdbfe; }
+.focus-cal .day[data-voeu^="wished"] .slot { outline: none !important; }
+.focus-cal .day[data-voeu]::before { font-size: 9px; }
+.focus-cal .day[data-voeu="wishedHMN"]::before  { content: "💙HMN"; }
+.focus-cal .day[data-voeu="wishedACH"]::before  { content: "💙ACH"; }
+.focus-cal .day[data-voeu="wishedBoth"]::before { content: "💙 2 sites"; }
 /* Indispo (affichée seulement au choisisseur lui-même) : rouge léger + 🚫 */
-#planning-calendar .day[data-voeu="blocked"] { background: #fef2f2; box-shadow: inset 0 0 0 1.5px #fca5a5; }
-#planning-calendar .day[data-voeu="blocked"] .slot { background: transparent; color: #b0b8c4; }
+.focus-cal .day[data-voeu="blocked"] { background: #fef2f2; box-shadow: inset 0 0 0 1.5px #fca5a5; }
+.focus-cal .day[data-voeu="blocked"] .slot { background: transparent; color: #b0b8c4; }
 
 /* Modal */
 #modal-backdrop,
