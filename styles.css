@@ -68,21 +68,20 @@ header h1 {
   display: block;
   background: #f0fdf4;               /* conteneur vert très clair */
   border: 2px solid #15803d;         /* liseré vert foncé sur le grand rectangle */
-  padding: 10px;
+  padding: 0;
+  overflow: hidden;                  /* pour que le bandeau nom épouse les coins arrondis */
   border-radius: 16px;
   line-height: 1.4;
   text-align: left;
   box-shadow: 0 4px 12px -6px rgba(21,128,61,0.4);
   margin: 0 0 14px;
 }
-.me-badge .me-name-band {
+.me-badge .me-name-band {           /* bandeau vert foncé pleine largeur, en haut */
   background: linear-gradient(135deg, #166534, #15803d);
   text-align: center;
-  padding: 8px 14px;
-  border-radius: 12px;
-  margin-bottom: 10px;
-  box-shadow: 0 1px 3px rgba(21,128,61,0.25);
+  padding: 10px 14px;
 }
+.me-badge .me-body { padding: 10px; }
 .me-badge .me-name-band span {
   color: #ffffff;
   font-weight: 800;
@@ -128,14 +127,15 @@ header h1 {
 }
 .me-badge .me-site { font-weight: 800; }
 .me-badge strong { font-weight: 800; }
-/* Colonne « Gardes restantes » : site+Semaine à gauche, WE/férié dans un panneau clair */
-.me-badge .me-rem-grid { display: flex; gap: 10px; align-items: stretch; }
+/* Colonne « Gardes restantes » : site+Semaine à gauche, WE/férié poussé à droite */
+.me-badge .me-rem-grid { display: flex; gap: 14px; align-items: stretch; }
 .me-badge .me-rem-main { flex: 1 1 auto; }
 .me-badge .me-rem-main .me-line { grid-template-columns: 3.6em auto; }
 .me-badge .me-rem-we {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-end;   /* WE/férié aligné à droite du bloc */
   gap: 6px;
 }
 .me-badge .me-we-cell { font-size: 15px; font-weight: 600; white-space: nowrap; }

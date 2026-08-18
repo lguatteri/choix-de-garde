@@ -1128,13 +1128,13 @@ function renderMeBadge() {
   });
   el.innerHTML =
     `<div class="me-name-band"><span>${state.myName}</span></div>` +
-    `<div class="me-cols">` +
+    `<div class="me-body"><div class="me-cols">` +
       `<div class="me-obj"><div class="me-section-label">Objectifs</div>${objRows}</div>` +
       `<div class="me-remaining">` +
         `<div class="me-section-label">Gardes restantes</div>` +
         `<div class="me-rem-grid"><div class="me-rem-main">${remMain}</div><div class="me-rem-we">${remWe}</div></div>` +
       `</div>` +
-    `</div>`;
+    `</div></div>`;
 }
 
 function renderMyNextTurn() {
