@@ -518,12 +518,9 @@ main {
 #planning-calendar .day[data-voeu="wishedHMN"]::before  { content: "💙HMN"; }
 #planning-calendar .day[data-voeu="wishedACH"]::before  { content: "💙ACH"; }
 #planning-calendar .day[data-voeu="wishedBoth"]::before { content: "💙 2 sites"; }
-/* Indispo : gris « non choisissable » par défaut (admin / lecteurs) ;
-   rouge + 🚫 seulement quand c'est TON tour (.is-my-turn) */
-#planning-calendar .day[data-voeu="blocked"] { background: #f8fafc; box-shadow: none; }
-#planning-calendar .day[data-voeu="blocked"] .slot { background: transparent; color: #94a3b8; }
-#planning-calendar.is-my-turn .day[data-voeu="blocked"] { background: #fef2f2; box-shadow: inset 0 0 0 1.5px #fca5a5; }
-#planning-calendar.is-my-turn .day[data-voeu="blocked"] .slot { color: #b0b8c4; }
+/* Indispo (affichée seulement au choisisseur lui-même) : rouge léger + 🚫 */
+#planning-calendar .day[data-voeu="blocked"] { background: #fef2f2; box-shadow: inset 0 0 0 1.5px #fca5a5; }
+#planning-calendar .day[data-voeu="blocked"] .slot { background: transparent; color: #b0b8c4; }
 
 /* Modal */
 #modal-backdrop,
