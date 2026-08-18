@@ -67,7 +67,7 @@ header h1 {
 .me-badge {
   display: block;
   background: #f0fdf4;               /* conteneur vert très clair */
-  border: 1px solid #bbf7d0;
+  border: 2px solid #15803d;         /* liseré vert foncé sur le grand rectangle */
   padding: 10px;
   border-radius: 16px;
   line-height: 1.4;
@@ -102,12 +102,13 @@ header h1 {
   color: #166534;
   padding: 2px 4px;
 }
-.me-badge .me-remaining {          /* colonne droite : bandeau vert foncé */
+.me-badge .me-remaining {          /* colonne droite : fond clair + liseré vert foncé */
   flex: 1 1 230px;
-  background: linear-gradient(135deg, #166534, #15803d);
-  color: #ecfdf5;
+  background: #ffffff;
+  border: 2px solid #15803d;
+  color: #166534;
   border-radius: 12px;
-  padding: 9px 12px;
+  padding: 8px 12px;
 }
 .me-badge .me-section-label {
   font-size: 11.5px;
@@ -116,7 +117,7 @@ header h1 {
   text-transform: uppercase;
   margin-bottom: 6px;
 }
-.me-badge .me-remaining .me-section-label { color: #dcfce7; }
+.me-badge .me-remaining .me-section-label { color: #15803d; }
 .me-badge .me-line {
   display: grid;
   grid-template-columns: 3.6em auto auto;
@@ -134,7 +135,7 @@ header h1 {
 .me-badge .me-rem-main { flex: 1 1 auto; }
 .me-badge .me-rem-main .me-line { grid-template-columns: 3.6em auto; }
 .me-badge .me-rem-we {
-  background: rgba(255,255,255,0.20);
+  background: #dcfce7;               /* panneau vert clair */
   border-radius: 8px;
   padding: 4px 12px;
   display: flex;
@@ -143,7 +144,7 @@ header h1 {
   gap: 6px;
 }
 .me-badge .me-we-cell { font-size: 15px; font-weight: 600; white-space: nowrap; }
-.me-badge .me-remaining strong { color: #ffffff; }
+.me-badge .me-remaining strong { color: #15803d; }
 .tabs {
   display: flex;
   gap: 4px;
