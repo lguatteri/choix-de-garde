@@ -88,8 +88,6 @@ header h1 {
   font-weight: 800;
   font-size: 20px;
   letter-spacing: 0.3px;
-  border-bottom: 3px solid #86efac;   /* petit soulignement */
-  padding-bottom: 3px;
 }
 .me-badge .me-cols {
   display: flex;
@@ -135,9 +133,6 @@ header h1 {
 .me-badge .me-rem-main { flex: 1 1 auto; }
 .me-badge .me-rem-main .me-line { grid-template-columns: 3.6em auto; }
 .me-badge .me-rem-we {
-  background: #dcfce7;               /* panneau vert clair */
-  border-radius: 8px;
-  padding: 4px 12px;
   display: flex;
   flex-direction: column;
   justify-content: center;
