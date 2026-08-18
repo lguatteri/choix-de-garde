@@ -839,8 +839,13 @@ function buildDayCell(dateStr, mode) {
   // quand c'est MON tour. Sur le Planning on adapte le marqueur selon les slots
   // déjà pris : un vœu sur un site déjà pris disparaît, un vœu "les 2" se réduit
   // au site restant, une indispo disparaît si la journée est full.
-  const showVoeux = (mode !== 'planning') || (curName === state.myName);
-  let voeu = state.voeux[dateStr];
+  // Planning : on montre les vœux/indispos DU CHOISISSEUR COURANT (à tous les
+  // spectateurs) ; Perso : les miens. (L'affichage réel des vœux d'autrui côté
+  // admin/lecteur dépend des droits de lecture Supabase — cf. RLS voeux.)
+  const showVoeux = (mode !== 'planning') || !!curName;
+  let voeu = (mode === 'planning')
+    ? (curName ? (state.allVoeux[curName] || {})[dateStr] : null)
+    : state.voeux[dateStr];
   if (showVoeux && voeu && mode === 'planning') {
     const HMNt = siteFull(a.HMN), ACHt = siteFull(a.ACH);
     if (voeu === 'wishedHMN' && HMNt) voeu = null;
@@ -1187,6 +1192,11 @@ function render() {
   renderMeBadge();
   const activeTab = document.querySelector('.tab.active').dataset.tab;
   if (activeTab === 'planning') {
+    // Indispo en rouge seulement si le choisisseur affiché = utilisateur connecté
+    // (sinon — admin qui pilote / lecteur — l'indispo reste grise « non choisissable »).
+    const _cur = currentPickerInfo();
+    const _cal = document.getElementById('planning-calendar');
+    if (_cal) _cal.classList.toggle('is-my-turn', !!(_cur && _cur.name === state.myName));
     renderCalendar('planning-calendar', 'planning');
     renderPickerInfo();
   } else if (activeTab === 'voeux') {
