@@ -624,13 +624,28 @@ main {
   color: var(--danger);
   border-color: var(--danger);
 }
-#modal-split {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  margin-top: 8px;
+#modal-split-wrapper {
+  margin: 6px 0 10px;
 }
+#modal-split-btn {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px dashed #c4b5fd;
+  background: #f5f3ff;
+  color: #5b21b6;
+  transition: background 0.12s, border-color 0.12s;
+}
+#modal-split-btn:hover { background: #ede9fe; border-color: #a78bfa; }
+#modal-split-btn.modal-split-merge {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+#modal-split-btn.modal-split-merge:hover { background: #fee2e2; }
 
 /* Actions bar */
 .actions {

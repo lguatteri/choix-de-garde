@@ -888,14 +888,7 @@ function buildDayCell(dateStr, mode) {
         s.dataset.slotKey = site; s.dataset.half = half;
         el.appendChild(s); slotEls.push(s);
       });
-      if (canSplit) {
-        const mb = document.createElement('button');
-        mb.textContent = '↩ fusionner';
-        mb.title = 'Re-fusionner en garde 24h';
-        mb.style.cssText = 'font-size:9px;padding:1px 6px;margin:2px 0;cursor:pointer;border:1px solid #cbd5e1;border-radius:4px;background:#f1f5f9;color:#475569;align-self:flex-start';
-        mb.onclick = (e) => { e.stopPropagation(); mergeSite(dateStr, site); };
-        el.appendChild(mb);
-      }
+      // (diviser / re-fusionner se fait désormais depuis la modale d'assignation)
       return;
     }
 
@@ -914,23 +907,7 @@ function buildDayCell(dateStr, mode) {
     if (greyed) s.classList.add('slot-greyed');
     s.dataset.slotKey = site;
     slotEls.push(s);
-
-    // Bouton « diviser en 2 » compact, sur la même ligne que le site (planning, 24h, admin)
-    if (canSplit && longShift) {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:5px';
-      s.style.flex = '1';
-      row.appendChild(s);
-      const db = document.createElement('button');
-      db.textContent = '✂ 2';
-      db.title = 'Diviser en 2 (Jour / Nuit)';
-      db.style.cssText = 'font-size:10px;padding:2px 6px;cursor:pointer;border:1px solid #cbd5e1;border-radius:4px;background:#f1f5f9;color:#475569;white-space:nowrap';
-      db.onclick = (e) => { e.stopPropagation(); divideSite(dateStr, site); };
-      row.appendChild(db);
-      el.appendChild(row);
-    } else {
-      el.appendChild(s);
-    }
+    el.appendChild(s);   // diviser en 2 se fait depuis la modale d'assignation
   });
 
   // "Mine" : au moins un créneau pris par le picker courant (planning) ou par moi (perso)
@@ -1288,6 +1265,7 @@ function openAssignModal(dateStr, slotKey = null, half = null) {
   }
 
   refreshDoctorDropdown();
+  updateModalSplitBtn();
   $('modal-backdrop').hidden = false;
 }
 
@@ -1333,12 +1311,37 @@ function selectSlot(buttonEl, slotKey) {
   modalState.half = null;
   highlightSlot();
   refreshDoctorDropdown();
+  updateModalSplitBtn();
 }
 function highlightSlot() {
   document.querySelectorAll('#modal-slots button').forEach((b, i) => {
     const key = i === 0 ? 'HMN' : 'ACH';
     b.classList.toggle('active', key === modalState.slotKey);
   });
+}
+
+// Bouton diviser/re-fusionner dans la modale (remplace l'ancien ✂ des cases).
+// Visible uniquement pour les gardes 24h (dim/férié) ; l'action ferme la modale
+// car divideSite/mergeSite re-render le planning.
+function updateModalSplitBtn() {
+  const wrap = $('modal-split-wrapper');
+  const btn = $('modal-split-btn');
+  if (!wrap || !btn) return;
+  const date = modalState.dateStr;
+  const site = modalState.slotKey;
+  if (!is24h(date) || !site) { wrap.hidden = true; return; }
+  const occ = (state.assignments[date] || {})[site];
+  const isSplit = !!(occ && occ.split);
+  wrap.hidden = false;
+  btn.className = isSplit ? 'modal-split-merge' : 'modal-split-divide';
+  btn.textContent = isSplit
+    ? `↩ Re-fusionner ${site} en garde 24h`
+    : `✂ Diviser ${site} en 2 (Jour / Nuit)`;
+  btn.onclick = () => {
+    $('modal-backdrop').hidden = true;
+    if (isSplit) mergeSite(date, site);
+    else divideSite(date, site);
+  };
 }
 
 // Raccourcis clavier dans la modale d'assignation : Entrée = Assigner, Backspace/Delete = Vider, Esc = Annuler

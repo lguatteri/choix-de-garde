@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=103">
+<link rel="stylesheet" href="styles.css?v=104">
 </head>
 <body>
 
@@ -142,10 +142,7 @@
         <div id="modal-day-info" class="hint"></div>
         <div class="slot-buttons" id="modal-slots"></div>
         <div id="modal-split-wrapper" hidden>
-          <label id="modal-split">
-            <input type="checkbox" id="modal-split-cb">
-            Garde 24h scindée en 2 (deux médecins)
-          </label>
+          <button type="button" id="modal-split-btn"></button>
         </div>
         <label>Médecin :
           <select id="modal-doctor"></select>
@@ -177,7 +174,7 @@
   <script src="auth.js?v=42"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=86"></script>
+  <script src="app.js?v=87"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
