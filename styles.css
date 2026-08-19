@@ -10,9 +10,9 @@
   --ok: #15803d;
   --warn: #f59e0b;
   --danger: #b91c1c;
-  --friday:  #f1f5f9;
-  --weekend: #dde3eb;  /* gris adouci, entre slate-200 et 300 */
-  --holiday: #dde3eb;
+  --friday:  #f8fafc;  /* presque blanc */
+  --weekend: #f1f5f9;  /* gris très léger */
+  --holiday: #f1f5f9;
   --border: #e2e8f0;
   --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
   --shadow:    0 1px 3px rgba(15,23,42,0.06), 0 8px 20px -8px rgba(15,23,42,0.10);
@@ -513,7 +513,7 @@ main {
 .focus-cal .day .slot.empty-slot { color: #94a3b8; }
 /* Jour plein : gris nettement plus foncé, pour se distinguer du gris léger
    des vendredis/week-ends. */
-.focus-cal .day.day-unavailable { background: #ccd4de; }
+.focus-cal .day.day-unavailable { background: #dde3eb; }
 .focus-cal .day.day-unavailable .num { text-decoration: none; opacity: 0.6; }
 .focus-cal .day.day-unavailable .slot { background: transparent; color: #64748b; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
