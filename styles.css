@@ -365,6 +365,8 @@ main {
   position: relative;
   transition: box-shadow 0.12s, transform 0.05s;
 }
+/* Calendriers de l'app principale (Planning + Perso) : cases de taille fixe */
+.focus-cal .day { height: 78px; min-height: 0; overflow: hidden; }
 .day:hover { transform: translateY(-1px); }
 .day:hover { box-shadow: 0 0 0 2px var(--primary); }
 .day.empty { visibility: hidden; cursor: default; }
@@ -780,6 +782,7 @@ body.neutral .picker-current-box::after {
     grid-auto-flow: row;
   }
   .day { min-height: 56px; font-size: 10px; }
+  .focus-cal .day { height: 88px; }
   .day .slot { font-size: 9px; }
   .tabs { order: 99; width: 100%; }
   .me-badge { max-width: none; flex: 1; }
