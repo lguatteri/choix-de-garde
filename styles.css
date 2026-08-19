@@ -316,9 +316,10 @@ main {
 .calendar {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: 1fr 1fr;
-  grid-auto-flow: column;
-  gap: 14px;
+  grid-template-rows: auto auto;
+  grid-auto-flow: row;   /* lecture en Z : oct → nov puis déc → jan */
+  gap: 10px;
+  align-items: start;
 }
 .month {
   background: var(--surface);
@@ -365,8 +366,9 @@ main {
   position: relative;
   transition: box-shadow 0.12s, transform 0.05s;
 }
-/* Calendriers de l'app principale (Planning + Perso) : cases de taille fixe */
-.focus-cal .day { height: 78px; min-height: 0; overflow: hidden; }
+/* Calendriers de l'app principale (Planning + Perso) : cases de taille fixe,
+   dimensionnées en vh pour que les 4 mois tiennent sur un seul écran. */
+.focus-cal .day { height: clamp(40px, 5vh, 72px); min-height: 0; overflow: hidden; }
 .day:hover { transform: translateY(-1px); }
 .day:hover { box-shadow: 0 0 0 2px var(--primary); }
 .day.empty { visibility: hidden; cursor: default; }
