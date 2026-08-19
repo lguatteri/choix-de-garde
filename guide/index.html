@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guide médecin — Choix de garde (mode lecteur)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+<style>
+  :root{
+    --ink:#0f172a; --soft:#64748b; --primary:#2563eb; --primary-soft:#eff6ff;
+    --ok:#16a34a; --green-cell:#dcfce7; --green-site:#a7d8b9;
+    --friday:#f8fafc; --weekend:#f1f5f9; --full:#dde3eb;
+    --voeu:#bfdbfe; --indispo:#fef2f2; --indispo-b:#fca5a5;
+    --purple:#7c3aed;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',system-ui,sans-serif; color:var(--ink);
+    background:#0b1220; display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .stage{
+    width:min(100vw,1280px); height:min(100vh,720px);
+    position:relative;
+  }
+  .slide{
+    position:absolute; inset:0; background:#fff;
+    border-radius:18px; overflow:hidden;
+    padding:52px 64px; display:none; flex-direction:column;
+    box-shadow:0 24px 60px -20px rgba(0,0,0,.6);
+  }
+  .slide.active{display:flex; animation:fade .35s ease}
+  @keyframes fade{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:none}}
+  .kicker{
+    font-size:13px; font-weight:800; letter-spacing:2px; text-transform:uppercase;
+    color:var(--primary);
+  }
+  h1{font-size:44px; font-weight:900; line-height:1.08; margin:6px 0 4px; letter-spacing:-1px}
+  h2{font-size:30px; font-weight:800; line-height:1.12; margin:6px 0 14px; letter-spacing:-.5px}
+  p.lead{font-size:18px; color:var(--soft); line-height:1.5; max-width:70ch}
+  .body{margin-top:18px; display:flex; gap:34px; flex:1; min-height:0}
+  .col{flex:1; min-width:0; display:flex; flex-direction:column; gap:14px}
+  ul{list-style:none; display:flex; flex-direction:column; gap:12px}
+  li{font-size:18px; line-height:1.4; padding-left:34px; position:relative}
+  li::before{content:attr(data-ic); position:absolute; left:0; top:-1px; font-size:20px}
+  .step{
+    display:flex; gap:14px; align-items:flex-start; font-size:18px; line-height:1.4;
+  }
+  .num{
+    flex:none; width:30px; height:30px; border-radius:50%;
+    background:var(--primary); color:#fff; font-weight:800; font-size:15px;
+    display:grid; place-items:center; margin-top:1px;
+  }
+  .tag{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:3px 11px; border-radius:999px; font-size:14px; font-weight:700;
+  }
+  .callout{
+    background:var(--primary-soft); border:1px solid #bfdbfe; border-radius:12px;
+    padding:14px 18px; font-size:16px; line-height:1.45; color:#1e3a8a;
+  }
+  .callout.warn{background:#fffbeb; border-color:#fde68a; color:#92400e}
+  .callout.green{background:#f0fdf4; border-color:#bbf7d0; color:#166534}
+  b{font-weight:800}
+  .fig{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:22px;
+  }
+  /* mini-calendrier maquette */
+  .mini{display:grid; grid-template-columns:repeat(4,1fr); gap:7px; width:100%}
+  .cell{
+    border:1px solid #e2e8f0; border-radius:8px; min-height:76px; background:#fff;
+    padding:6px 7px; font-size:12px; display:flex; flex-direction:column; gap:3px;
+    position:relative;
+  }
+  .cell .d{font-weight:800; font-size:15px; text-align:center}
+  .cell .s{font-size:11px; color:#94a3b8; display:flex; justify-content:space-between}
+  .cell .s b{color:#475569; font-weight:700}
+  .cell.friday{background:var(--friday)}
+  .cell.weekend{background:var(--weekend)}
+  .cell.full{background:var(--full)}
+  .cell.full .s{color:#64748b}
+  .cell.mine{background:var(--green-cell); box-shadow:inset 0 0 0 2px var(--ok)}
+  .cell.mine .site-on{background:var(--green-site); color:#14532d; font-weight:700; border-radius:3px; padding:0 3px}
+  .cell.pick{box-shadow:inset 0 0 0 2px var(--primary); background:var(--primary-soft)}
+  .cell.pick .free{color:#1d4ed8; font-weight:800}
+  .cell.voeu{background:var(--voeu)}
+  .cell.voeu::after{content:attr(data-v); position:absolute; top:2px; right:3px; font-size:9px; font-weight:700}
+  .cell.indispo{background:var(--indispo); box-shadow:inset 0 0 0 1.5px var(--indispo-b)}
+  .cell.indispo .d::after{content:" 🚫"; font-size:11px}
+  .caption{margin-top:12px; font-size:14px; color:var(--soft); text-align:center}
+  .legend{display:grid; grid-template-columns:1fr 1fr; gap:12px 26px; width:100%}
+  .lg{display:flex; align-items:center; gap:12px; font-size:16px}
+  .sw{width:44px; height:34px; border-radius:7px; border:1px solid #e2e8f0; flex:none}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:22px}
+  .card{border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px}
+  .card h3{font-size:19px; margin-bottom:10px; display:flex; align-items:center; gap:8px}
+  .card.mono{background:#faf5ff; border-color:#e9d5ff}
+  .card.duo{background:#eff6ff; border-color:#bfdbfe}
+  .card ul li{font-size:16px}
+  .footer{
+    position:absolute; left:0; right:0; bottom:0; height:52px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 26px; font-size:13px; color:var(--soft);
+  }
+  .dots{display:flex; gap:6px}
+  .dot{width:8px; height:8px; border-radius:50%; background:#cbd5e1; cursor:pointer}
+  .dot.on{background:var(--primary); width:22px; border-radius:5px}
+  .nav{position:fixed; bottom:18px; right:22px; display:flex; gap:10px; z-index:10}
+  .nav button{
+    font-family:inherit; border:none; border-radius:10px; padding:10px 16px;
+    font-size:15px; font-weight:700; cursor:pointer; background:#1e293b; color:#fff;
+  }
+  .nav button:hover{background:#334155}
+  .hint-key{position:fixed; bottom:22px; left:22px; color:#64748b; font-size:12px; z-index:10}
+  .pill-tabs{display:flex; gap:6px; background:#f1f5f9; padding:5px; border-radius:999px; width:fit-content}
+  .pill-tabs span{padding:6px 16px; border-radius:999px; font-size:14px; font-weight:700; color:#64748b}
+  .pill-tabs span.act{background:#fff; color:var(--primary); box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .pill-tabs span.adm{opacity:.4}
+  .banner{
+    background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af;
+    border-radius:10px; padding:10px 16px; font-size:15px; line-height:1.4;
+  }
+  .notif{
+    background:#fff; border-radius:16px; padding:22px 26px; text-align:center;
+    box-shadow:0 10px 30px -8px rgba(0,0,0,.25); border:1px solid #e2e8f0; max-width:340px;
+  }
+  .notif .ico{font-size:40px}
+  .notif h3{font-size:22px; margin:6px 0}
+  .notif p{color:var(--soft); font-size:15px}
+  .quote-note{font-size:12px; color:#94a3b8; font-style:italic; margin-top:6px}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+
+  <!-- 1 -->
+  <section class="slide active">
+    <div class="kicker">Choix de garde — juin ▸ sept</div>
+    <h1>Guide du médecin<br>Créer son compte, déclarer, suivre le planning</h1>
+    <p class="lead" style="margin-top:16px">Ce guide s'adresse aux médecins <b>non-admins</b> (mode lecteur). En 3 temps :
+      créer son compte, renseigner ses <b>indispos 🚫</b> et ses <b>vœux 💙</b>, puis suivre l'attribution des gardes en temps réel.</p>
+    <div class="callout" style="margin-top:26px">👉 Naviguez avec les <b>flèches ← →</b> du clavier, ou les boutons en bas à droite.</div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <div class="kicker">Étape 1 · Compte</div>
+    <h2>Créer son compte</h2>
+    <div class="body">
+      <div class="col">
+        <div class="step"><div class="num">1</div><div>Saisir un <b>email</b> et un <b>mot de passe</b>.</div></div>
+        <div class="step"><div class="num">2</div><div>Cliquer sur <span class="tag" style="background:#e2e8f0">Créer un compte</span> (la première fois seulement).</div></div>
+        <div class="step"><div class="num">3</div><div>Les fois suivantes : <span class="tag" style="background:#dbeafe;color:#1e40af">Se connecter</span> avec les mêmes identifiants.</div></div>
+        <div class="callout" style="margin-top:8px">Un seul compte par personne — le mot de passe est à conserver précieusement.</div>
+      </div>
+      <div class="col fig">
+        <div style="width:280px; border:1px solid #e2e8f0; border-radius:14px; padding:22px; background:#fff">
+          <div style="font-weight:900; font-size:20px">Choix Garde</div>
+          <div style="color:#64748b; font-size:13px; margin-bottom:14px">juin – sept 2026</div>
+          <div style="font-size:12px; color:#475569">Email</div>
+          <div style="border:1px solid #cbd5e1; border-radius:7px; height:34px; margin:3px 0 10px"></div>
+          <div style="font-size:12px; color:#475569">Mot de passe</div>
+          <div style="border:1px solid #cbd5e1; border-radius:7px; height:34px; margin:3px 0 14px"></div>
+          <div style="display:flex; gap:8px">
+            <div style="flex:1; background:var(--primary); color:#fff; text-align:center; border-radius:7px; padding:8px; font-weight:700; font-size:13px">Se connecter</div>
+            <div style="flex:1; border:1px solid #cbd5e1; text-align:center; border-radius:7px; padding:8px; font-weight:700; font-size:13px">Créer un compte</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <div class="kicker">Étape 1 · Identité</div>
+    <h2>Première connexion : choisir son nom</h2>
+    <div class="body">
+      <div class="col">
+        <p class="lead">À la toute première connexion, l'application demande de <b>s'associer à son nom</b> dans la liste des médecins.</p>
+        <div class="step"><div class="num">1</div><div>Sélectionner <b>son nom</b> dans le menu déroulant.</div></div>
+        <div class="step"><div class="num">2</div><div>Cliquer sur <span class="tag" style="background:#dbeafe;color:#1e40af">Valider</span>.</div></div>
+        <div class="callout warn" style="margin-top:8px">⚠️ Bien sélectionner <b>son propre</b> nom : c'est lui qui porte les objectifs, les vœux et les gardes.</div>
+      </div>
+      <div class="col fig">
+        <div style="width:300px; border:1px solid #e2e8f0; border-radius:14px; padding:22px; background:#fff">
+          <p style="font-size:14px; color:#475569; margin-bottom:12px">Première connexion — choisis ton nom dans la liste :</p>
+          <div style="font-size:12px; color:#475569">Nom</div>
+          <div style="border:1px solid #cbd5e1; border-radius:7px; height:36px; margin:3px 0 14px; display:flex; align-items:center; padding:0 10px; font-size:13px; color:#0f172a; justify-content:space-between">Dr Martin <span style="color:#94a3b8">▾</span></div>
+          <div style="background:var(--primary); color:#fff; text-align:center; border-radius:7px; padding:9px; font-weight:700; font-size:13px">Valider</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <div class="kicker">Repères</div>
+    <h2>Deux onglets à disposition</h2>
+    <div class="body">
+      <div class="col" style="gap:20px">
+        <div class="pill-tabs">
+          <span class="act">Planning</span><span>Perso</span><span class="adm">Réglages · admin</span><span>Déconnexion</span>
+        </div>
+        <ul>
+          <li data-ic="🗓️"><b>Planning</b> — le calendrier des gardes, en <b>lecture seule</b>. Il permet de suivre qui prend quoi, en temps réel.</li>
+          <li data-ic="👤"><b>Perso</b> — l'espace personnel : les objectifs, et l'endroit où déclarer ses <b>indispos 🚫</b> et ses <b>vœux 💙</b>.</li>
+          <li data-ic="🔒"><b>Réglages</b> — réservé à l'admin, il n'apparaît pas côté médecin.</li>
+        </ul>
+        <div class="callout">Le passage de <b>Perso</b> à <b>Planning</b> est possible à tout moment : les déclarations sont enregistrées automatiquement.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <div class="kicker">Étape 2 · Perso</div>
+    <h2>L'onglet Perso en un coup d'œil</h2>
+    <div class="body">
+      <div class="col">
+        <ul>
+          <li data-ic="🎯"><b>Mes objectifs restants</b> — le nombre de gardes restant à obtenir (par site, semaine / WE-férié).</li>
+          <li data-ic="⏭️"><b>À mon prochain tour</b> — un rappel de ce qui pourra être choisi.</li>
+          <li data-ic="🚫"><b>Indispos</b> — les jours d'indisponibilité.</li>
+          <li data-ic="💙"><b>Vœux</b> — les jours / sites souhaités.</li>
+        </ul>
+        <div class="callout green">Plus les indispos et vœux sont à jour, mieux l'attribution correspondra aux préférences de chacun.</div>
+      </div>
+      <div class="col fig">
+        <div style="width:100%">
+          <div style="background:linear-gradient(90deg,#166534,#15803d); color:#fff; border-radius:10px 10px 0 0; padding:10px 14px; font-weight:800">Dr Martin</div>
+          <div style="border:1px solid #e2e8f0; border-top:none; border-radius:0 0 10px 10px; padding:14px; display:flex; gap:14px; font-size:13px">
+            <div style="flex:1"><div style="color:#64748b; font-size:11px; text-transform:uppercase; font-weight:700">Objectifs</div>
+              HMN · Semaine 7 · WE 4<br>ACH · Semaine 5 · WE 3</div>
+            <div style="flex:1; background:#f0fdf4; border:1px solid #166534; border-radius:8px; padding:8px"><div style="color:#166534; font-size:11px; font-weight:800">Gardes restantes</div>HMN 3 · ACH 2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <div class="kicker">Étape 2 · Déclarer</div>
+    <h2>Poser une indispo 🚫 ou un vœu 💙</h2>
+    <div class="body">
+      <div class="col">
+        <div class="banner" style="background:#f8fafc; border-color:#e2e8f0; color:#334155">
+          Clic sur la <b>date</b> = 🚫 indispo (re-clic = annuler).<br>
+          Clic sur <b>HMN</b> ou <b>ACH</b> = 💙 vœu sur ce site (re-clic = annuler).
+        </div>
+        <ul>
+          <li data-ic="🚫"><b>Indispo</b> : cliquer sur le <b>numéro du jour</b> → la case devient rouge.</li>
+          <li data-ic="💙"><b>Vœu</b> : cliquer sur <b>HMN</b> ou <b>ACH</b> dans la case → fond bleu + cœur.</li>
+          <li data-ic="🔁"><b>Annuler</b> : re-cliquer au même endroit.</li>
+          <li data-ic="⛔"><b>Exclusifs</b> : un jour est soit indispo, soit vœu — pas les deux.</li>
+        </ul>
+      </div>
+      <div class="col fig">
+        <div class="mini" style="grid-template-columns:repeat(2,1fr); max-width:260px">
+          <div class="cell indispo"><div class="d">12</div><div class="s">HMN</div><div class="s">ACH</div></div>
+          <div class="cell voeu" data-v="💙HMN"><div class="d">14</div><div class="s"><b>HMN</b></div><div class="s">ACH</div></div>
+        </div>
+        <div class="caption">À gauche : indispo 🚫 · À droite : vœu 💙 sur HMN</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide">
+    <div class="kicker">Subtilité importante</div>
+    <h2>Mono-site vs double-site</h2>
+    <div class="body">
+      <div class="two" style="width:100%">
+        <div class="card mono">
+          <h3>🅜 Médecin mono-site</h3>
+          <ul>
+            <li data-ic="•">Un <b>seul site</b> pratiqué (HMN <i>ou</i> ACH).</li>
+            <li data-ic="•">L'application n'affiche que <b>la ligne de garde concernée</b> — objectifs, consignes et calendrier adaptés au site.</li>
+            <li data-ic="💙">Un vœu = un clic sur son site. Simple.</li>
+          </ul>
+        </div>
+        <div class="card duo">
+          <h3>🅓 Médecin double-site</h3>
+          <ul>
+            <li data-ic="•"><b>HMN et ACH</b> pratiqués : les deux lignes s'affichent.</li>
+            <li data-ic="💙">Un vœu peut porter sur <b>HMN</b>, sur <b>ACH</b>, ou sur <b>les deux</b> le même jour.</li>
+            <li data-ic="①">Un vœu <b>HMN + ACH le même jour = 1 seul vœu</b> (« les deux »), pas deux.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <div class="kicker">Étape 3 · Suivre</div>
+    <h2>Le Planning est en lecture seule</h2>
+    <div class="body">
+      <div class="col">
+        <div class="banner">👁 Lecture seule — seul l'admin modifie le planning. Tu vois les changements en temps réel ; tu peux toujours ajuster tes indispos &amp; vœux dans l'onglet <b>Perso</b>.</div>
+        <div class="quote-note">↑ texte exact affiché dans l'application</div>
+        <ul>
+          <li data-ic="👀">Le planning se <b>consulte</b> sans possibilité de le modifier.</li>
+          <li data-ic="⚡">Chaque garde posée par l'admin <b>apparaît instantanément</b>.</li>
+          <li data-ic="✍️">Seul l'onglet <b>Perso</b> reste modifiable (indispos &amp; vœux), à tout moment.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide">
+    <div class="kicker">Affichage</div>
+    <h2>Quand c'est une autre personne qui choisit</h2>
+    <div class="body">
+      <div class="col">
+        <p class="lead">L'onglet <b>Planning</b> est affiché <b>du point de vue de la personne dont c'est le tour</b>, pour l'aider à choisir.</p>
+        <ul>
+          <li data-ic="🟩"><b>Vert</b> = les gardes de la <b>personne en train de choisir</b> — <b>pas</b> les siennes.</li>
+          <li data-ic="⬜"><b>Gris foncé</b> = jour <b>complet</b> (les deux sites pris).</li>
+          <li data-ic="🔵"><b>Liseré bleu</b> = date encore <b>choisissable</b> par cette personne.</li>
+          <li data-ic="🙈">Les vœux / indispos ne sont visibles que par la personne concernée.</li>
+        </ul>
+        <div class="callout green">💡 Pour suivre <b>ses propres gardes</b> et son avancement, ouvrir l'onglet <b>Perso</b> : le calendrier y reste centré sur soi (ses gardes en vert).</div>
+      </div>
+      <div class="col fig">
+        <div class="mini">
+          <div class="cell mine"><div class="d">3</div><div class="s"><span class="site-on">HMN</span></div><div class="s">ACH</div></div>
+          <div class="cell full"><div class="d">4</div><div class="s"><b>HMN</b></div><div class="s"><b>ACH</b></div></div>
+          <div class="cell pick"><div class="d">5</div><div class="s free">HMN</div><div class="s free">ACH</div></div>
+          <div class="cell friday"><div class="d">6</div><div class="s">HMN</div><div class="s">ACH</div></div>
+        </div>
+        <div class="caption">Vert = garde de la personne qui choisit · jour complet · date choisissable · jour libre</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide">
+    <div class="kicker">Affichage</div>
+    <h2>Quand c'est à son tour de choisir</h2>
+    <div class="body">
+      <div class="col">
+        <ul>
+          <li data-ic="🔔">Une <b>notification</b> « C'est à toi de choisir ! » apparaît, quel que soit l'onglet.</li>
+          <li data-ic="💙">Sur le planning, les <b>vœux</b> (bleu) et les <b>indispos</b> (rouge 🚫) du médecin s'affichent pour repérer les bons jours.</li>
+          <li data-ic="🔵">Les <b>dates choisissables</b> ressortent en liseré bleu.</li>
+          <li data-ic="🧑‍⚕️">👉 <b>C'est l'admin qui pose la garde</b> — il suffit de lui communiquer le choix.</li>
+        </ul>
+      </div>
+      <div class="col fig">
+        <div class="notif">
+          <div class="ico">🔔</div>
+          <h3>C'est à toi de choisir&nbsp;!</h3>
+          <p>Tour 2 — à choisir : 1 semaine, 1 WE/férié.</p>
+          <div style="margin-top:12px; display:flex; gap:8px; justify-content:center">
+            <div style="background:var(--primary); color:#fff; border-radius:8px; padding:8px 16px; font-weight:700; font-size:13px">Voir le planning</div>
+            <div style="border:1px solid #cbd5e1; border-radius:8px; padding:8px 16px; font-weight:700; font-size:13px">OK</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 -->
+  <section class="slide">
+    <div class="kicker">Aide-mémoire</div>
+    <h2>La légende des couleurs</h2>
+    <div class="body">
+      <div class="col" style="justify-content:center">
+        <div class="legend">
+          <div class="lg"><span class="sw" style="background:var(--green-cell); box-shadow:inset 0 0 0 2px var(--ok)"></span> Garde attribuée <span style="color:#64748b;font-size:13px">(du choisisseur sur Planning, de soi sur Perso)</span></div>
+          <div class="lg"><span class="sw" style="background:var(--voeu)"></span> Vœu 💙 (visible à son tour)</div>
+          <div class="lg"><span class="sw" style="background:var(--indispo); box-shadow:inset 0 0 0 1.5px var(--indispo-b)"></span> Indispo 🚫 (visible à son tour)</div>
+          <div class="lg"><span class="sw" style="background:var(--primary-soft); box-shadow:inset 0 0 0 2px var(--primary)"></span> Date choisissable</div>
+          <div class="lg"><span class="sw" style="background:var(--full)"></span> Jour complet</div>
+          <div class="lg"><span class="sw" style="background:var(--weekend)"></span> Week-end / férié</div>
+          <div class="lg"><span class="sw" style="background:var(--friday)"></span> Vendredi</div>
+          <div class="lg"><span class="sw" style="background:#fff"></span> Jour de semaine libre</div>
+        </div>
+        <div class="callout green" style="margin-top:22px">Une <b>garde attribuée (vert)</b> prime toujours : si un vœu tombe sur ce jour, la case reste verte.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 -->
+  <section class="slide">
+    <div class="kicker">C'est tout !</div>
+    <h1>En résumé</h1>
+    <div class="body">
+      <div class="col" style="justify-content:center">
+        <ul style="gap:16px">
+          <li data-ic="①"><b>Créer son compte</b> et s'associer à son nom.</li>
+          <li data-ic="②"><b>Onglet Perso</b> : poser ses indispos 🚫 et ses vœux 💙 (mono ou double-site).</li>
+          <li data-ic="③"><b>Onglet Planning</b> : suivre l'attribution en temps réel (lecture seule).</li>
+          <li data-ic="④"><b>À son tour</b> : une notification prévient, l'admin pose la garde.</li>
+        </ul>
+        <div class="callout" style="margin-top:10px">Une question, un doute sur un vœu ou une indispo ? S'adresser à l'admin — tout se met à jour en direct.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="hint-key">← → pour naviguer</div>
+<div class="nav">
+  <button id="prev">← Précédent</button>
+  <button id="next">Suivant →</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    renderDots();
+  }
+  function renderDots(){
+    slides.forEach(s=>{
+      let f=s.querySelector('.footer');
+      if(!f){f=document.createElement('div');f.className='footer';s.appendChild(f);}
+      f.innerHTML='<div class="dots">'+slides.map((_,k)=>'<span class="dot '+(k===i?'on':'')+'" data-k="'+k+'"></span>').join('')+'</div>'
+        +'<div>'+(i+1)+' / '+slides.length+'</div>';
+    });
+    document.querySelectorAll('.dot').forEach(d=>d.onclick=()=>show(+d.dataset.k));
+  }
+  document.getElementById('next').onclick=()=>show(i+1);
+  document.getElementById('prev').onclick=()=>show(i-1);
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown')show(i+1);
+    else if(e.key==='ArrowLeft'||e.key==='PageUp')show(i-1);
+    else if(e.key==='Home')show(0);
+    else if(e.key==='End')show(slides.length-1);
+  });
+  show(0);
+</script>
+</body>
+</html>

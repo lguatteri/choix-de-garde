@@ -503,7 +503,7 @@ function dateAdd(dateStr, n) {
   return ymd(d);
 }
 function siteHasDoctor(s, name) {
-  if (!s) return false;
+  if (!s || !name) return false;   // un nom vide ne "possède" jamais un créneau (évite null === demi-garde vide)
   return s.split ? (s.jour === name || s.nuit === name) : (s.doctor === name);
 }
 function pickerOnDay(name, dateStr) {
