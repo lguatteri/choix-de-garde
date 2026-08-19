@@ -529,6 +529,13 @@ main {
 .focus-cal .day[data-voeu="wishedHMN"]::before  { content: "💙HMN"; }
 .focus-cal .day[data-voeu="wishedACH"]::before  { content: "💙ACH"; }
 .focus-cal .day[data-voeu="wishedBoth"]::before { content: "💙 2 sites"; }
+/* Une garde qui m'est attribuée (vert) prime toujours sur un vœu (bleu) :
+   dès qu'un vœu tombe sur un jour où j'ai une garde, la case reste verte
+   et le marqueur 💙 disparaît. */
+.focus-cal .day.day-mine[data-voeu^="wished"],
+.focus-cal .day.day-unavailable-mine[data-voeu^="wished"] { background: #dcfce7; box-shadow: inset 0 0 0 2px var(--ok); }
+.focus-cal .day.day-mine[data-voeu^="wished"]::before,
+.focus-cal .day.day-unavailable-mine[data-voeu^="wished"]::before { content: ""; }
 /* Indispo (affichée seulement au choisisseur lui-même) : rouge léger + 🚫 */
 .focus-cal .day[data-voeu="blocked"] { background: #fef2f2; box-shadow: inset 0 0 0 1.5px #fca5a5; }
 .focus-cal .day[data-voeu="blocked"] .slot { background: transparent; color: #b0b8c4; }
