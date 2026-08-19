@@ -323,19 +323,25 @@ main {
 .month {
   background: var(--surface);
   border-radius: 12px;
-  padding: 5px 8px 6px;
+  padding: 5px 6px 6px;
   box-shadow: var(--shadow);
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
 }
 .month h2 {
-  margin: 0 0 2px;
-  text-align: left;
+  margin: 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-align: center;
   font-size: 11px;
   color: var(--ink);
   text-transform: uppercase;
   font-weight: 800;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.5px;
+  flex-shrink: 0;
 }
-.month-content { /* prend toute la largeur */ }
+.month-content { flex: 1; min-width: 0; }
 .weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -369,7 +375,7 @@ main {
    calculée pour que les 2 rangées de mois (12 semaines au total) tiennent
    dans la hauteur de l'écran — grandes en plein écran, plus petites sur
    petit portable, jamais sous 50px. */
-.focus-cal .day { height: clamp(50px, calc((100vh - 140px) / 12), 82px); min-height: 0; overflow: hidden; }
+.focus-cal .day { height: clamp(50px, calc((100vh - 108px) / 12), 88px); min-height: 0; overflow: hidden; }
 .day:hover { transform: translateY(-1px); }
 .day:hover { box-shadow: 0 0 0 2px var(--primary); }
 .day.empty { visibility: hidden; cursor: default; }
