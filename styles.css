@@ -34,7 +34,7 @@ body {
 header {
   background: var(--surface);
   color: var(--ink);
-  padding: 12px 20px;
+  padding: 7px 20px;
   position: sticky;
   top: 0;
   z-index: 50;
@@ -171,7 +171,7 @@ header h1 {
 }
 
 main {
-  padding: 20px;
+  padding: 10px 16px;
   max-width: none;
   margin: 0;
 }
@@ -318,17 +318,17 @@ main {
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: auto auto;
   grid-auto-flow: row;   /* lecture en Z : oct → nov puis déc → jan */
-  gap: 10px;
+  gap: 8px;
   align-items: start;
 }
 .month {
   background: var(--surface);
   border-radius: 12px;
-  padding: 8px 10px 10px;
+  padding: 5px 8px 6px;
   box-shadow: var(--shadow);
 }
 .month h2 {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   text-align: left;
   font-size: 11px;
   color: var(--ink);
@@ -341,8 +341,8 @@ main {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
-  margin-bottom: 2px;
-  font-size: 10px;
+  margin-bottom: 1px;
+  font-size: 9px;
   font-weight: 600;
   color: var(--ink-soft);
   text-align: center;
@@ -366,9 +366,8 @@ main {
   position: relative;
   transition: box-shadow 0.12s, transform 0.05s;
 }
-/* Calendriers de l'app principale (Planning + Perso) : cases de taille fixe,
-   dimensionnées en vh pour que les 4 mois tiennent sur un seul écran. */
-.focus-cal .day { height: clamp(40px, 5vh, 72px); min-height: 0; overflow: hidden; }
+/* Calendriers de l'app principale (Planning + Perso) : cases de taille fixe. */
+.focus-cal .day { height: 76px; min-height: 0; overflow: hidden; }
 .day:hover { transform: translateY(-1px); }
 .day:hover { box-shadow: 0 0 0 2px var(--primary); }
 .day.empty { visibility: hidden; cursor: default; }
@@ -917,10 +916,10 @@ body.neutral .picker-current-box::after {
   border: 1px solid #bfdbfe;
   color: #1e40af;
   border-radius: 10px;
-  padding: 9px 14px;
-  margin: 0 0 12px;
-  font-size: 13px;
-  line-height: 1.35;
+  padding: 6px 12px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 #account-info {
