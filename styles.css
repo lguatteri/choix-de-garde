@@ -35,8 +35,7 @@ header {
   background: var(--surface);
   color: var(--ink);
   padding: 7px 20px;
-  position: sticky;
-  top: 0;
+  position: static;   /* l'en-tête défile (on peut le sortir de l'écran pour ne garder que le calendrier) */
   z-index: 50;
   box-shadow: 0 1px 0 var(--border), 0 8px 16px -8px rgba(15,23,42,0.08);
   display: flex;
@@ -366,8 +365,11 @@ main {
   position: relative;
   transition: box-shadow 0.12s, transform 0.05s;
 }
-/* Calendriers de l'app principale (Planning + Perso) : cases de taille fixe. */
-.focus-cal .day { height: 76px; min-height: 0; overflow: hidden; }
+/* Calendriers de l'app principale (Planning + Perso) : hauteur des cases
+   calculée pour que les 2 rangées de mois (12 semaines au total) tiennent
+   dans la hauteur de l'écran — grandes en plein écran, plus petites sur
+   petit portable, jamais sous 50px. */
+.focus-cal .day { height: clamp(50px, calc((100vh - 140px) / 12), 82px); min-height: 0; overflow: hidden; }
 .day:hover { transform: translateY(-1px); }
 .day:hover { box-shadow: 0 0 0 2px var(--primary); }
 .day.empty { visibility: hidden; cursor: default; }
