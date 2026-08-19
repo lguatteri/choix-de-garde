@@ -392,9 +392,7 @@ main {
   font-size: 8px;
   vertical-align: super;
 }
-.day.weekend { background: var(--weekend); }
 .day.holiday { background: var(--holiday); }
-.day.friday { background: var(--friday); }
 .day[data-voeu]::before {
   position: absolute;
   top: 2px;
