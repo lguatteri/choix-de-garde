@@ -318,7 +318,7 @@ main {
   grid-template-rows: auto auto;
   grid-auto-flow: row;   /* lecture en Z : oct → nov puis déc → jan */
   gap: 8px;
-  align-items: start;
+  align-items: stretch;   /* deux mois côte à côte = même hauteur de cadre */
 }
 .month {
   background: var(--surface);
