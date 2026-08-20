@@ -450,7 +450,233 @@ function generatePlanning() {
   autoState.proposed = assignment;
   autoState.failures = failures;
   autoState.remainingAfter = rem;
+  autoState.genInfo = `<p style="font-size:12px;color:#64748b;margin:0 0 6px">Méthode : <strong>glouton (ancien)</strong> — remplissage créneau par créneau.</p>`;
   return { assignment, failures, rem };
+}
+
+// ============================================================
+// Génération « draft serpentin » — mime le choix assisté
+// ------------------------------------------------------------
+// 1er médecin tiré au sort → ordre serpentin (comme pickerAt/advanceTour de
+// l'app assistée). À chaque tour, chaque médecin remplit son panier (tourQuota)
+// en prenant, pour chaque type, le meilleur créneau : VŒU d'abord, puis meilleur
+// ESPACEMENT, puis date RARE (dernier tie-break). Réparation en fin de passe pour
+// combler les trous. N essais → on garde le meilleur planning.
+// ============================================================
+const TOUR_RULES_AUTO = {
+  ge4: { 1: { semaine: 1, vendredi: 1, we: 2 }, 2: { semaine: 1, we: 1 } },
+  eq3: { 1: { semaine: 1, vendredi: 1, we: 1 }, 2: { semaine: 1, we: 1 } },
+  lt3: { 1: { semaine: 1, vendredi: 1 },        2: { semaine: 1, we: 1 } },
+  no:  { 1: { semaine: 1, vendredi: 1 },        2: { semaine: 1 } },
+};
+function totalWEobj(d)  { return (d.ACH.we|0)  + (d.HMN.we|0); }
+function totalSemObj(d) { return (d.ACH.sem|0) + (d.HMN.sem|0); }
+function categoryAuto(d) {
+  const t = totalWEobj(d);
+  if (t >= 4) return 'ge4';
+  if (t === 3) return 'eq3';
+  if (t > 0)   return 'lt3';
+  return 'no';
+}
+function tourQuotaAuto(d, tour) {
+  const rules = TOUR_RULES_AUTO[categoryAuto(d)];
+  const q = rules[tour] ? Object.assign({}, rules[tour]) : { libre: 1 };
+  if (totalWEobj(d) === 0)  delete q.we;
+  if (totalSemObj(d) === 0) { delete q.semaine; delete q.vendredi; }
+  return q;
+}
+// Catégorie de PICK (vendredi distinct) — ≠ bucket d'objectif (bucketOf : vendredi→sem)
+function pickCategoryOf(dateStr) {
+  const t = dayType(dateStr);
+  if (t === 'holiday' || t === 'sunday' || t === 'saturday') return 'we';
+  if (t === 'friday') return 'vendredi';
+  return 'semaine';
+}
+
+function wishesHonoredIn(assignment) {
+  let honored = 0;
+  Object.entries(autoState.voeuxByDoctor).forEach(([name, map]) => {
+    Object.entries(map).forEach(([date, v]) => {
+      if (!v || !v.startsWith('wished')) return;
+      const a = assignment[date]; if (!a) return;
+      if (v === 'wishedHMN')      { if (a.HMN === name) honored++; }
+      else if (v === 'wishedACH') { if (a.ACH === name) honored++; }
+      else                        { if (a.HMN === name || a.ACH === name) honored++; }
+    });
+  });
+  return honored;
+}
+
+function generatePlanningDraft(tries = 200) {
+  const dates = [...iterDates(PERIOD_START, PERIOD_END)];
+  const N = autoState.doctors.length;
+  const dayIndex = {}; dates.forEach((d, i) => { dayIndex[d] = i; });
+  // Méta pré-calculée par date (évite toute manip de Date dans la boucle chaude)
+  const meta = {};
+  dates.forEach(d => {
+    const ws = weekStart(d);
+    const week = [];
+    for (let i = 0; i < 7; i++) week.push(dateAdd(ws, i));
+    meta[d] = { b: bucketOf(d), dow: parseYMD(d).getDay(),
+                prev: dateAdd(d, -1), next: dateAdd(d, 1), week };
+  });
+  // Liste des créneaux + catégorie de pick
+  const slotList = [];
+  dates.forEach(d => {
+    const pcat = pickCategoryOf(d);
+    slotList.push({ date: d, site: 'HMN', pcat, key: d + 'HMN' });
+    slotList.push({ date: d, site: 'ACH', pcat, key: d + 'ACH' });
+  });
+  // Rareté statique : combien de médecins POURRAIENT couvrir ce créneau (objectif +
+  // pas d'indispo + pas de blocage préf jour). Constante entre essais → dernier tie-break.
+  const scarcity = {};
+  slotList.forEach(s => {
+    const b = meta[s.date].b, dow = meta[s.date].dow;
+    let n = 0;
+    autoState.doctors.forEach(d => {
+      if ((d[s.site][b] | 0) <= 0) return;
+      if ((autoState.voeuxByDoctor[d.name] || {})[s.date] === 'blocked') return;
+      const prefs = autoState.prefsByDoctor[d.name];
+      if (prefs) {
+        if (s.site === 'HMN' && prefs.blockedHMN.includes(dow)) return;
+        if (s.site === 'ACH' && prefs.blockedACH.includes(dow)) return;
+      }
+      n++;
+    });
+    scarcity[s.key] = n;
+  });
+
+  function canPut(assignment, rem, s, name) {
+    const m = meta[s.date];
+    if (assignment[s.date] && assignment[s.date][s.site]) return false;   // créneau déjà pris
+    if ((rem[name][s.site][m.b] | 0) <= 0) return false;                  // plus d'objectif
+    if ((autoState.voeuxByDoctor[name] || {})[s.date] === 'blocked') return false;
+    const prefs = autoState.prefsByDoctor[name];
+    if (prefs) {
+      if (s.site === 'HMN' && prefs.blockedHMN.includes(m.dow)) return false;
+      if (s.site === 'ACH' && prefs.blockedACH.includes(m.dow)) return false;
+    }
+    const prev = assignment[m.prev];
+    if (prev && (prev.HMN === name || prev.ACH === name)) return false;
+    const next = assignment[m.next];
+    if (next && (next.HMN === name || next.ACH === name)) return false;
+    const other = s.site === 'HMN' ? 'ACH' : 'HMN';
+    if (assignment[s.date] && assignment[s.date][other] === name) return false;
+    let wc = 0;
+    for (let i = 0; i < 7; i++) {
+      const a = assignment[m.week[i]]; if (!a) continue;
+      if (a.HMN === name) wc++; if (a.ACH === name) wc++;
+    }
+    if (wc >= MAX_GARDES_PER_WEEK) return false;
+    return true;
+  }
+  function doPut(assignment, rem, myIdxs, s, name) {
+    if (!assignment[s.date]) assignment[s.date] = {};
+    assignment[s.date][s.site] = name;
+    rem[name][s.site][meta[s.date].b]--;
+    (myIdxs[name] || (myIdxs[name] = [])).push(dayIndex[s.date]);
+  }
+  function spacingOf(myIdxs, name, date) {
+    const arr = myIdxs[name];
+    if (!arr || !arr.length) return 999;
+    const di = dayIndex[date]; let best = 999;
+    for (let i = 0; i < arr.length; i++) { const dd = Math.abs(arr[i] - di); if (dd < best) best = dd; }
+    return best;
+  }
+  function cmpKey(a, b) { for (let i = 0; i < a.length; i++) { if (a[i] !== b[i]) return a[i] - b[i]; } return 0; }
+  // Meilleur créneau d'une catégorie pour un médecin : vœu > espacement > rareté > aléa
+  function bestSlotFor(assignment, rem, myIdxs, name, cat, rng) {
+    let best = null, bestKey = null;
+    for (let i = 0; i < slotList.length; i++) {
+      const s = slotList[i];
+      if (cat !== 'libre' && s.pcat !== cat) continue;
+      if (!canPut(assignment, rem, s, name)) continue;
+      const v = (autoState.voeuxByDoctor[name] || {})[s.date];
+      const wished = (v === 'wished' + s.site || v === 'wishedBoth') ? 1 : 0;
+      const key = [wished, spacingOf(myIdxs, name, s.date), -(scarcity[s.key] || 0), rng()];
+      if (!bestKey || cmpKey(key, bestKey) > 0) { best = s; bestKey = key; }
+    }
+    return best;
+  }
+
+  function runOnce(seed) {
+    const rng = mulberry32(seed);
+    const rem = {};
+    autoState.doctors.forEach(d => {
+      rem[d.name] = { ACH: { sem: d.ACH.sem, we: d.ACH.we }, HMN: { sem: d.HMN.sem, we: d.HMN.we } };
+    });
+    const assignment = {}, myIdxs = {};
+    const anyLeft = () => autoState.doctors.some(d => {
+      const r = rem[d.name]; return (r.ACH.sem + r.ACH.we + r.HMN.sem + r.HMN.we) > 0;
+    });
+    let tourStartIdx = Math.floor(rng() * N), dir = 1, tour = 1, safety = 300;
+    while (safety-- > 0 && anyLeft()) {
+      let placed = 0;
+      for (let c = 0; c < N; c++) {
+        const idx = ((tourStartIdx + c * dir) % N + N) % N;
+        const doc = autoState.doctors[idx];
+        const r = rem[doc.name];
+        if ((r.ACH.sem + r.ACH.we + r.HMN.sem + r.HMN.we) <= 0) continue;
+        const quota = tourQuotaAuto(doc, tour);
+        for (const cat in quota) {
+          for (let k = 0; k < quota[cat]; k++) {
+            const s = bestSlotFor(assignment, rem, myIdxs, doc.name, cat, rng);
+            if (!s) break;
+            doPut(assignment, rem, myIdxs, s, doc.name);
+            placed++;
+          }
+        }
+      }
+      // tour suivant : serpentin (dernier du tour repart en sens inverse)
+      tourStartIdx = ((tourStartIdx + (N - 1) * dir) % N + N) % N;
+      dir = -dir; tour++;
+      if (placed === 0) break;
+    }
+    // Réparation : combler les créneaux vides, du plus rare au moins rare
+    const empties = slotList
+      .filter(s => !(assignment[s.date] && assignment[s.date][s.site]))
+      .sort((a, b) => (scarcity[a.key] || 0) - (scarcity[b.key] || 0));
+    for (const s of empties) {
+      const b = meta[s.date].b;
+      let pick = null, pickRem = -1;
+      for (let i = 0; i < autoState.doctors.length; i++) {
+        const name = autoState.doctors[i].name;
+        if (!canPut(assignment, rem, s, name)) continue;
+        const rr = rem[name][s.site][b];
+        if (rr > pickRem) { pickRem = rr; pick = name; }
+      }
+      if (pick) doPut(assignment, rem, myIdxs, s, pick);
+    }
+    const failures = slotList
+      .filter(s => !(assignment[s.date] && assignment[s.date][s.site]))
+      .map(s => ({ date: s.date, site: s.site, reason: 'aucun candidat disponible (objectifs épuisés ou contraintes)' }));
+    return { assignment, rem, failures };
+  }
+
+  function scoreOf(res) {
+    let unmet = 0;
+    autoState.doctors.forEach(d => { const r = res.rem[d.name]; unmet += r.ACH.sem + r.ACH.we + r.HMN.sem + r.HMN.we; });
+    return { holes: res.failures.length, wishes: wishesHonoredIn(res.assignment), unmet };
+  }
+  function better(a, b) {
+    if (a.holes !== b.holes) return a.holes < b.holes;      // le moins de trous
+    if (a.wishes !== b.wishes) return a.wishes > b.wishes;  // le plus de vœux
+    return a.unmet < b.unmet;                               // le moins d'objectifs non placés
+  }
+
+  let best = null, bestScore = null;
+  for (let t = 0; t < tries; t++) {
+    const seed = ((t + 1) * 2654435761 ^ 0x9e3779b9) >>> 0;
+    const res = runOnce(seed);
+    const sc = scoreOf(res);
+    if (!best || better(sc, bestScore)) { best = res; bestScore = sc; }
+    if (bestScore.holes === 0 && bestScore.unmet === 0) break;   // planning parfait : inutile de continuer
+  }
+  autoState.proposed = best.assignment;
+  autoState.failures = best.failures;
+  autoState.remainingAfter = best.rem;
+  autoState.genInfo = `<p style="font-size:12px;color:#64748b;margin:0 0 6px">Méthode : <strong>draft serpentin</strong> · ${tries} essais · meilleur : ${bestScore.holes} trou(s), ${bestScore.wishes} vœu(x) honoré(s).</p>`;
+  return best;
 }
 
 function renderProposedCalendar() {
@@ -637,6 +863,7 @@ function renderAlgoStatus() {
     }
   }
   el.innerHTML = `
+    ${autoState.genInfo || ''}
     <p><strong>${allOk && !autoState.failures.length ? '✓ Génération réussie' : '⚠ Génération partielle'}</strong> — ${Object.keys(autoState.proposed).length} jours assignés, ${autoState.failures.length} créneau(x) en échec.</p>
     ${manqueHtml}
     ${wishedHtml}
@@ -1633,10 +1860,12 @@ function bindAutoButtons() {
       return;
     }
       const status = document.getElementById('algo-status');
-      status.innerHTML = '<p>⏳ Génération en cours…</p>';
+      const method = (document.getElementById('gen-method') || {}).value || 'draft';
+      status.innerHTML = `<p>⏳ Génération en cours… (${method === 'greedy' ? 'glouton' : 'draft serpentin, 200 essais'})</p>`;
       setTimeout(() => {
         try {
-          generatePlanning();
+          if (method === 'greedy') generatePlanning();
+          else generatePlanningDraft(200);
           renderProposedCalendar();
           renderAlgoStatus();
           if (!document.getElementById('commit-btn')) {

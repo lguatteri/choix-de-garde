@@ -59,6 +59,12 @@
         </div>
 
         <div class="auto-actions">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600">Méthode
+            <select id="gen-method" style="font-family:inherit;padding:6px 8px;border-radius:8px;border:1px solid #cbd5e1">
+              <option value="draft">Draft serpentin (mime le choix assisté)</option>
+              <option value="greedy">Glouton (ancien)</option>
+            </select>
+          </label>
           <button id="generate-btn" class="primary-action">⚡ Générer le planning</button>
           <button id="reload-btn">↻ Recharger les données</button>
           <button id="logout-btn">Se déconnecter</button>
@@ -226,6 +232,6 @@
   <script src="../doctors.js?v=86"></script>
   <script src="../xlsx.js?v=1"></script>
   <script src="auth-auto.js?v=5"></script>
-  <script src="app-auto.js?v=30"></script>
+  <script src="app-auto.js?v=31"></script>
 </body>
 </html>
