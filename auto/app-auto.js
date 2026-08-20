@@ -68,7 +68,7 @@ function weekStart(dateStr) {
   return ymd(d);
 }
 
-const MAX_GARDES_PER_WEEK = 3;
+const MAX_GARDES_PER_WEEK = 2;
 
 function periodLabel() {
   const s = parseYMD(PERIOD_START), e = parseYMD(PERIOD_END);
@@ -599,6 +599,64 @@ function generatePlanningDraft(tries = 200) {
     return best;
   }
 
+  // Réparation par ÉCHANGE (déplacement objectif-invariant) : pour un créneau
+  // resté vide S=(d,s) qu'un médecin A voudrait (objectif restant) mais où il est
+  // bloqué, on cherche un créneau T de MÊME site+bucket occupé par B, tel que
+  // B puisse aller en S et A prendre T. Garde-fous : on ne déplace jamais une
+  // garde qui honore un VŒU de B, et on refuse si ça CONCENTRE les gardes de B
+  // ou de A (espacement < MIN_GAP). Les objectifs restent inchangés (même bucket).
+  const SWAP_MIN_GAP = 3;
+  function isWishGarde(name, date, site) {
+    const v = (autoState.voeuxByDoctor[name] || {})[date];
+    return v === 'wished' + site || v === 'wishedBoth';
+  }
+  function nearestGap(assignment, name, date) {
+    const di = dayIndex[date]; let g = 999;
+    for (const dt in assignment) {
+      const a = assignment[dt];
+      if (a.HMN === name || a.ACH === name) { const x = Math.abs(dayIndex[dt] - di); if (x > 0 && x < g) g = x; }
+    }
+    return g;
+  }
+  function swapRepair(assignment, rem) {
+    let filled = 0;
+    const bucketSlotsSameSite = {};   // (site+bucket) -> slots
+    slotList.forEach(s => { const k = s.site + meta[s.date].b; (bucketSlotsSameSite[k] = bucketSlotsSameSite[k] || []).push(s); });
+    const empties = slotList.filter(s => !(assignment[s.date] && assignment[s.date][s.site]));
+    for (const S of empties) {
+      const s = S.site, b = meta[S.date].b;
+      let done = false;
+      for (let ai = 0; ai < autoState.doctors.length && !done; ai++) {
+        const A = autoState.doctors[ai].name;
+        if ((rem[A][s][b] | 0) <= 0) continue;               // A n'a pas besoin de (s,b)
+        const cands = bucketSlotsSameSite[s + b] || [];
+        for (let ti = 0; ti < cands.length && !done; ti++) {
+          const T = cands[ti];
+          if (T.date === S.date) continue;
+          const B = assignment[T.date] && assignment[T.date][s];
+          if (!B || B === A) continue;
+          if (isWishGarde(B, T.date, s)) continue;           // ne pas déplacer une garde-vœu
+          // simuler : retirer B de T
+          delete assignment[T.date][s]; rem[B][s][b]++;
+          const Bslot = { date: S.date, site: s }, Aslot = { date: T.date, site: s };
+          let committed = false;
+          if (canPut(assignment, rem, Bslot, B) && nearestGap(assignment, B, S.date) >= SWAP_MIN_GAP) {
+            if (!assignment[S.date]) assignment[S.date] = {};
+            assignment[S.date][s] = B; rem[B][s][b]--;       // B : T -> S
+            if (canPut(assignment, rem, Aslot, A) && nearestGap(assignment, A, T.date) >= SWAP_MIN_GAP) {
+              assignment[T.date][s] = A; rem[A][s][b]--;     // A -> T
+              committed = true; done = true; filled++;
+            } else {
+              delete assignment[S.date][s]; rem[B][s][b]++;  // annuler B->S
+            }
+          }
+          if (!committed) { assignment[T.date][s] = B; rem[B][s][b]--; }  // restaurer B en T
+        }
+      }
+    }
+    return filled;
+  }
+
   function runOnce(seed) {
     const rng = mulberry32(seed);
     const rem = {};
@@ -672,10 +730,16 @@ function generatePlanningDraft(tries = 200) {
     if (!best || better(sc, bestScore)) { best = res; bestScore = sc; }
     if (bestScore.holes === 0 && bestScore.unmet === 0) break;   // planning parfait : inutile de continuer
   }
+  // Polissage du meilleur planning par échanges (comble les trous récupérables)
+  const swapped = swapRepair(best.assignment, best.rem);
+  best.failures = slotList
+    .filter(s => !(best.assignment[s.date] && best.assignment[s.date][s.site]))
+    .map(s => ({ date: s.date, site: s.site, reason: 'aucun candidat disponible (objectifs épuisés ou contraintes)' }));
+  const finalScore = scoreOf(best);
   autoState.proposed = best.assignment;
   autoState.failures = best.failures;
   autoState.remainingAfter = best.rem;
-  autoState.genInfo = `<p style="font-size:12px;color:#64748b;margin:0 0 6px">Méthode : <strong>draft serpentin</strong> · ${tries} essais · meilleur : ${bestScore.holes} trou(s), ${bestScore.wishes} vœu(x) honoré(s).</p>`;
+  autoState.genInfo = `<p style="font-size:12px;color:#64748b;margin:0 0 6px">Méthode : <strong>draft serpentin</strong> · ${tries} essais${swapped ? ` · ${swapped} échange(s) de réparation` : ''} · meilleur : ${finalScore.holes} trou(s), ${finalScore.wishes} vœu(x) honoré(s).</p>`;
   return best;
 }
 
