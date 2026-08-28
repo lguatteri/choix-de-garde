@@ -115,6 +115,52 @@ async function logout() {
   location.reload();
 }
 
+// ============================================================
+// Mot de passe oublié : envoi d'un lien de réinitialisation, puis
+// saisie d'un nouveau mot de passe au retour (événement PASSWORD_RECOVERY).
+// ============================================================
+function isRecoveryUrl() {
+  return (window.location.hash || '').includes('type=recovery');
+}
+function showNewPasswordForm() {
+  const f = document.getElementById('auth-form'); if (f) f.hidden = true;
+  const ps = document.getElementById('profile-setup'); if (ps) ps.hidden = true;
+  const pr = document.getElementById('password-reset'); if (pr) pr.hidden = false;
+}
+async function sendPasswordReset() {
+  const email = document.getElementById('auth-email').value.trim();
+  const errEl = document.getElementById('auth-error');
+  errEl.style.color = ''; errEl.textContent = '';
+  if (!email) {
+    errEl.textContent = 'Entre ton email ci-dessus, puis re-clique « Mot de passe oublié ? ».';
+    return;
+  }
+  errEl.style.color = '#6b7280'; errEl.textContent = 'Envoi du lien…';
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await sbClient.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) { errEl.style.color = ''; errEl.textContent = error.message; return; }
+  errEl.style.color = '#16a34a';
+  errEl.textContent = 'Email envoyé ! Clique le lien reçu pour choisir un nouveau mot de passe.';
+}
+async function saveNewPassword() {
+  const pwd = document.getElementById('reset-password').value;
+  const errEl = document.getElementById('reset-error');
+  errEl.style.color = ''; errEl.textContent = '';
+  if (!pwd || pwd.length < 6) { errEl.textContent = 'Mot de passe : 6 caractères minimum'; return; }
+  errEl.style.color = '#6b7280'; errEl.textContent = 'Enregistrement…';
+  const { data, error } = await sbClient.auth.updateUser({ password: pwd });
+  if (error) { errEl.style.color = ''; errEl.textContent = error.message; return; }
+  // Nettoyer l'URL (retirer le token de récupération)
+  history.replaceState(null, '', window.location.origin + window.location.pathname);
+  currentUser = data.user;
+  currentProfile = await getProfile(currentUser.id);
+  syncUserGlobals();
+  document.getElementById('password-reset').hidden = true;
+  const f = document.getElementById('auth-form'); if (f) f.hidden = false;
+  if (!currentProfile) await showProfileSetup();
+  else onAuthenticated();
+}
+
 function onAuthenticated() {
   hideAuthScreen();
   // Trigger l'init de l'app principale
@@ -124,7 +170,11 @@ function onAuthenticated() {
 // Bootstrap
 (async () => {
   const { data: { session } } = await sbClient.auth.getSession();
-  if (session) {
+  if (isRecoveryUrl()) {
+    // Retour depuis le lien « mot de passe oublié » → saisir un nouveau mot de passe
+    showAuthScreen();
+    showNewPasswordForm();
+  } else if (session) {
     currentUser = session.user;
     currentProfile = await getProfile(currentUser.id);
     syncUserGlobals();
@@ -139,7 +189,8 @@ function onAuthenticated() {
     showAuthScreen();
   }
   // Réagir aux changements de session
-  sbClient.auth.onAuthStateChange((_evt, sess) => {
+  sbClient.auth.onAuthStateChange((evt, sess) => {
+    if (evt === 'PASSWORD_RECOVERY') { showAuthScreen(); showNewPasswordForm(); return; }
     if (!sess) showAuthScreen();
   });
 })();
@@ -159,6 +210,14 @@ function bindAuthUI() {
   if (logoutBtn) logoutBtn.onclick = logout;
   if (pwdInput) pwdInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') loginOrSignup('login');
+  });
+  const forgotBtn = document.getElementById('auth-forgot-btn');
+  if (forgotBtn) forgotBtn.onclick = sendPasswordReset;
+  const resetSaveBtn = document.getElementById('reset-save-btn');
+  if (resetSaveBtn) resetSaveBtn.onclick = saveNewPassword;
+  const resetInput = document.getElementById('reset-password');
+  if (resetInput) resetInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveNewPassword();
   });
 }
 if (document.readyState === 'loading') {

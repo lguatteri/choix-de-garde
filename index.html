@@ -30,6 +30,7 @@
           <button id="auth-login-btn" class="primary">Se connecter</button>
           <button id="auth-signup-btn">Créer un compte</button>
         </div>
+        <button type="button" id="auth-forgot-btn" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:13px;padding:6px 0 0;font-family:inherit">Mot de passe oublié ?</button>
         <div class="auth-error" id="auth-error"></div>
       </div>
 
@@ -41,6 +42,16 @@
         </label>
         <button id="profile-save-btn" class="primary">Valider</button>
         <div class="auth-error" id="profile-error"></div>
+      </div>
+
+      <div id="password-reset" hidden>
+        <hr>
+        <p>Choisis un <strong>nouveau mot de passe</strong> :</p>
+        <label>Nouveau mot de passe
+          <input type="password" id="reset-password" autocomplete="new-password">
+        </label>
+        <button id="reset-save-btn" class="primary">Enregistrer le nouveau mot de passe</button>
+        <div class="auth-error" id="reset-error"></div>
       </div>
     </div>
   </section>
@@ -171,7 +182,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=42"></script>
-  <script src="auth.js?v=42"></script>
+  <script src="auth.js?v=43"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
   <script src="app.js?v=88"></script>
