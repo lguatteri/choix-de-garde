@@ -19,14 +19,17 @@ update public.voeux v
 -- 3) Supprimer d'éventuelles lignes orphelines (user_id sans profil correspondant)
 delete from public.voeux where doctor_name is null;
 
--- 4) user_id devient optionnel (un médecin sans compte n'en a pas)
+-- 4) Supprimer l'ANCIENNE clé primaire (user_id, date) AVANT de toucher à user_id
+--    (on ne peut pas retirer le NOT NULL d'une colonne encore dans la PK)
+alter table public.voeux drop constraint if exists voeux_pkey;
+
+-- 5) user_id devient optionnel (un médecin sans compte n'en a pas)
 alter table public.voeux alter column user_id drop not null;
 
--- 5) Clé primaire = (doctor_name, date)
-alter table public.voeux drop constraint if exists voeux_pkey;
+-- 6) Nouvelle clé primaire = (doctor_name, date)
 alter table public.voeux add primary key (doctor_name, date);
 
--- 6) RLS : lecture de ses propres vœux OU admin ; écriture pareil.
+-- 7) RLS : lecture de ses propres vœux OU admin ; écriture pareil.
 --    (L'affichage sur le planning reste filtré côté client : chaque choisisseur
 --     ne voit que les siens ; les admins peuvent lire tous les vœux pour l'édition.)
 drop policy if exists "voeux_select_own" on public.voeux;
