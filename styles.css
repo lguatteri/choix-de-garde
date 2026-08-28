@@ -918,6 +918,11 @@ body.neutral .picker-current-box::after {
 .read-only #planning .day .slot { pointer-events: none; opacity: 0.95; }
 .read-only #setup input { background: #f9fafb; }
 /* Bannière « lecture seule » du planning : masquée par défaut, visible pour les non-admins */
+/* Super admin éditant les vœux d'un autre médecin : masquer les encarts « moi » */
+#voeux.editing-voeux #me-badge,
+#voeux.editing-voeux #my-next-turn,
+#voeux.editing-voeux .declare-auto-box { display: none !important; }
+
 .readonly-banner { display: none; }
 .read-only .readonly-banner {
   display: block;

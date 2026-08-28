@@ -11,6 +11,7 @@ function defaultState() {
     history: [],              // pour undo en mémoire (snapshots)
     voeux: {},                // dateStr -> 'wishedHMN' | 'wishedACH' | 'wishedBoth' | 'blocked'
     myName: null,             // = currentProfile.doctor_name après login
+    voeuxEditTarget: null,    // local : super admin éditant les vœux d'un autre médecin (nom), sinon null
     firstPicker: null,
     pickerCursor: 0,
     currentTour: 1,           // tour de groupe (admin contrôle son avancement)
@@ -88,13 +89,14 @@ async function loadAllFromSupabase() {
   const profByUid = Object.fromEntries(state.allProfiles.map(p => [p.user_id, p.doctor_name]));
   state.allVoeux = {};
   (voeux.data || []).forEach(row => {
-    const dn = profByUid[row.user_id];
+    const dn = row.doctor_name || profByUid[row.user_id];   // vœux rattachés au médecin
     if (!dn) return;
     if (!inPeriod(row.date)) return;   // vœux/indispos hors quadrimestre courant ignorés
     if (!state.allVoeux[dn]) state.allVoeux[dn] = {};
     state.allVoeux[dn][row.date] = row.voeu;
   });
-  state.voeux = state.allVoeux[state.myName] || {};
+  state.allVoeux[state.myName] = state.allVoeux[state.myName] || {};
+  state.voeux = state.allVoeux[state.myName];
   computeMyMaxWished();
   // Suivi de tour : on repart de la progression PERSISTÉE dans session_state
   // (current_turn_slots), filtrée par les gardes réellement présentes. Ainsi la
@@ -144,14 +146,13 @@ async function syncSite(date, site) {
     updated_by: window.currentUser ? window.currentUser.id : null,
   });
 }
-async function syncVoeu(date, voeu) {
+async function syncVoeu(date, voeu, name = state.myName) {
+  // Vœux rattachés au médecin (doctor_name). On n'écrit pas user_id : l'upsert
+  // ne touche pas les colonnes omises, et un médecin sans compte n'en a pas.
   if (voeu) {
-    return sb().from('voeux').upsert({
-      user_id: window.currentUser.id,
-      date, voeu,
-    });
+    return sb().from('voeux').upsert({ doctor_name: name, date, voeu }, { onConflict: 'doctor_name,date' });
   }
-  return sb().from('voeux').delete().eq('user_id', window.currentUser.id).eq('date', date);
+  return sb().from('voeux').delete().eq('doctor_name', name).eq('date', date);
 }
 async function syncSession() {
   const { error } = await sb().from('session_state').update({
@@ -798,8 +799,9 @@ function buildDayCell(dateStr, mode) {
   else if (t === 'friday') el.classList.add('friday');
   if (dateStr === ymd(new Date())) el.classList.add('today');
 
-  // Migration: ancien 'wished' devient 'wishedBoth'
-  if (state.voeux[dateStr] === 'wished') state.voeux[dateStr] = 'wishedBoth';
+  // Migration: ancien 'wished' devient 'wishedBoth' (sur la carte de vœux concernée)
+  const _vmap = (mode === 'voeux') ? voeuxEditMap() : state.voeux;
+  if (_vmap[dateStr] === 'wished') _vmap[dateStr] = 'wishedBoth';
 
   const num = document.createElement('div');
   num.className = 'num';
@@ -827,8 +829,8 @@ function buildDayCell(dateStr, mode) {
   let refEligible = null; // null = afficher les 2 sites
   if (mode === 'planning' && curName) {
     refEligible = curEligible;
-  } else if (mode === 'voeux' && state.myName) {
-    const me = findDoctor(state.myName);
+  } else if (mode === 'voeux') {
+    const me = findDoctor(voeuxEditName());
     if (me) {
       const es = eligibleSites(me);
       if (es.length > 0) refEligible = es;
@@ -843,7 +845,7 @@ function buildDayCell(dateStr, mode) {
   // quand c'est MON tour (le choisisseur voit ses propres indispos/vœux).
   // L'admin et les lecteurs ne voient ni vœux ni indispos (juste gardes + suggestions).
   const showVoeux = (mode !== 'planning') || (curName === state.myName);
-  let voeu = state.voeux[dateStr];
+  let voeu = (mode === 'voeux') ? voeuxEditMap()[dateStr] : state.voeux[dateStr];
   if (showVoeux && voeu && mode === 'planning') {
     const HMNt = siteFull(a.HMN), ACHt = siteFull(a.ACH);
     if (voeu === 'wishedHMN' && HMNt) voeu = null;
@@ -897,7 +899,7 @@ function buildDayCell(dateStr, mode) {
     if (!siteIsEmpty(occ)) {
       const who = occ.split ? (occ.jour || occ.nuit) : occ.doctor;
       s.className = 'slot ' + site;
-      if (mode !== 'planning' && siteHasDoctor(occ, state.myName)) s.classList.add('mine');
+      if (mode !== 'planning' && siteHasDoctor(occ, voeuxEditName())) s.classList.add('mine');
       if (siteHasDoctor(occ, curName)) s.classList.add('mine-current');
       s.textContent = `${site}${longShift?' 24h':''} ${shortName(who)}`;
     } else {
@@ -911,7 +913,7 @@ function buildDayCell(dateStr, mode) {
   });
 
   // "Mine" : au moins un créneau pris par le picker courant (planning) ou par moi (perso)
-  const refDoctor = (mode === 'planning') ? curName : state.myName;
+  const refDoctor = (mode === 'planning') ? curName : voeuxEditName();
   const hasMine = refDoctor && ['HMN','ACH'].some(site => siteHasDoctor(a[site], refDoctor));
 
   if (curName) {
@@ -973,21 +975,29 @@ function shortName(name) {
 // ============================================================
 // Vœux
 // ============================================================
+// Cible d'édition dans l'onglet Perso : null = moi ; sinon un autre médecin
+// (super admin éditant les vœux/indispos de quelqu'un, ex. sans compte).
+function voeuxEditName() { return state.voeuxEditTarget || state.myName; }
+function voeuxEditMap() {
+  const n = voeuxEditName();
+  if (!state.allVoeux[n]) state.allVoeux[n] = {};
+  return state.allVoeux[n];
+}
 function setMyVoeu(dateStr, next) {
-  if (next) state.voeux[dateStr] = next; else delete state.voeux[dateStr];
-  if (!state.allVoeux[state.myName]) state.allVoeux[state.myName] = {};
-  if (next) state.allVoeux[state.myName][dateStr] = next;
-  else delete state.allVoeux[state.myName][dateStr];
-  syncVoeu(dateStr, next);
+  const name = voeuxEditName();
+  const map = voeuxEditMap();
+  if (next) map[dateStr] = next; else delete map[dateStr];
+  if (name === state.myName) state.voeux = map;   // garder state.voeux = mes vœux
+  syncVoeu(dateStr, next, name);
   render();
 }
 
 function toggleBlocked(dateStr) {
-  const next = state.voeux[dateStr] === 'blocked' ? null : 'blocked';
+  const next = voeuxEditMap()[dateStr] === 'blocked' ? null : 'blocked';
   setMyVoeu(dateStr, next);
 }
 function toggleWishSite(dateStr, site) {
-  const cur = state.voeux[dateStr];
+  const cur = voeuxEditMap()[dateStr];
   let hasHMN = (cur === 'wishedHMN' || cur === 'wishedBoth');
   let hasACH = (cur === 'wishedACH' || cur === 'wishedBoth');
   if (cur === 'blocked') { hasHMN = false; hasACH = false; }
@@ -1153,12 +1163,39 @@ function periodLabel() {
 function renderVoeuxHint() {
   const el = document.getElementById('voeux-hint');
   if (!el) return;
-  const me = findDoctor(state.myName);
+  const me = findDoctor(voeuxEditName());
   const es = me ? eligibleSites(me) : ['HMN', 'ACH'];
   const sitesLabel = (es.length === 1) ? es[0] : 'HMN ou ACH';
   el.innerHTML = `Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). ` +
     `Clic sur <strong>${sitesLabel}</strong> = 💙 vœu sur ce site (re-clic = annuler). ` +
     `Indispo et vœux sont exclusifs.`;
+}
+
+// Bannière « édition à la place de X » + masquage des encarts personnels.
+function renderVoeuxEditBanner() {
+  const banner = $('voeux-edit-banner');
+  if (!banner) return;
+  if (state.voeuxEditTarget && !isSuperAdmin()) state.voeuxEditTarget = null;   // sécurité
+  const editing = !!state.voeuxEditTarget;
+  banner.hidden = !editing;
+  const section = document.getElementById('voeux');
+  if (section) section.classList.toggle('editing-voeux', editing);
+  if (editing) {
+    const txt = $('voeux-edit-banner-text');
+    if (txt) txt.innerHTML = `✏️ Tu édites les <strong>vœux &amp; indispos de ${state.voeuxEditTarget}</strong> (à sa place).`;
+  }
+  const back = $('voeux-edit-back-btn');
+  if (back) back.onclick = stopEditVoeux;
+}
+function startEditVoeuxFor(name) {
+  if (!isSuperAdmin()) return;
+  state.voeuxEditTarget = name;
+  const tab = document.querySelector('.tab[data-tab="voeux"]');
+  if (tab) tab.click(); else render();
+}
+function stopEditVoeux() {
+  state.voeuxEditTarget = null;
+  render();
 }
 
 function render() {
@@ -1170,6 +1207,7 @@ function render() {
     renderCalendar('planning-calendar', 'planning');
     renderPickerInfo();
   } else if (activeTab === 'voeux') {
+    renderVoeuxEditBanner();
     renderVoeuxHint();
     renderMyNextTurn();
     renderCalendar('voeux-calendar', 'voeux');
@@ -1992,17 +2030,21 @@ function renderAccountsTable() {
   }
   const accounts = new Set((state.allProfiles || []).map(p => p.doctor_name));
   const withAcct = state.doctors.filter(d => accounts.has(d.name)).length;
-  let html = `<p class="hint">${withAcct}/${state.doctors.length} médecins ont créé leur compte.</p>`;
-  html += '<table><thead><tr><th>Médecin</th><th>Compte</th></tr></thead><tbody>';
+  let html = `<p class="hint">${withAcct}/${state.doctors.length} médecins ont créé leur compte. Tu peux éditer les vœux &amp; indispos de n'importe qui (utile si quelqu'un n'a pas de compte).</p>`;
+  html += '<table><thead><tr><th>Médecin</th><th>Compte</th><th></th></tr></thead><tbody>';
   state.doctors.forEach(d => {
     const has = accounts.has(d.name);
     const badge = has
       ? '<span style="color:#15803d;font-weight:600">✓ créé</span>'
       : '<span style="color:#b91c1c;font-weight:600">✗ pas de compte</span>';
-    html += `<tr><td>${d.name}</td><td>${badge}</td></tr>`;
+    html += `<tr><td>${d.name}</td><td>${badge}</td>` +
+      `<td><button data-edit-voeux="${d.name}">✏️ Éditer vœux/indispos</button></td></tr>`;
   });
   html += '</tbody></table>';
   t.innerHTML = html;
+  t.querySelectorAll('button[data-edit-voeux]').forEach(b => {
+    b.onclick = () => startEditVoeuxFor(b.dataset.editVoeux);
+  });
 }
 
 function isAdmin() {
@@ -2116,7 +2158,7 @@ function setupRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'voeux' }, payload => {
       const row = payload.new || payload.old;
       const profByUid = Object.fromEntries((state.allProfiles||[]).map(p => [p.user_id, p.doctor_name]));
-      const dn = profByUid[row.user_id];
+      const dn = row.doctor_name || profByUid[row.user_id];
       if (!dn) return;
       if (!state.allVoeux[dn]) state.allVoeux[dn] = {};
       if (payload.eventType === 'DELETE') delete state.allVoeux[dn][row.date];

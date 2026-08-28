@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=114">
+<link rel="stylesheet" href="styles.css?v=115">
 </head>
 <body>
 
@@ -94,6 +94,10 @@
       </section>
 
       <section id="voeux" class="view">
+        <div id="voeux-edit-banner" hidden style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px">
+          <span id="voeux-edit-banner-text"></span>
+          <button id="voeux-edit-back-btn" style="font-family:inherit;background:#fff;border:1px solid #fdba74;color:#9a3412;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">↩ Revenir à mes vœux</button>
+        </div>
         <div class="me-badge" id="me-badge"></div>
         <div class="my-next-turn" id="my-next-turn"></div>
         <div class="declare-auto-box" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin:8px 0 12px">
@@ -188,7 +192,7 @@
   <script src="auth.js?v=44"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=89"></script>
+  <script src="app.js?v=90"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
