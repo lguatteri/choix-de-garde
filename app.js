@@ -1741,6 +1741,7 @@ function renderSetup() {
   renderHolidaysEditor();
   renderObjectivesCoherence();
   renderAdminsTable();
+  renderAccountsTable();
   renderAccountInfo();
 }
 
@@ -1975,6 +1976,33 @@ async function renderAdminsTable() {
       renderAdminsTable();
     };
   });
+}
+
+function isSuperAdmin() {
+  return !!(window.currentProfile && window.currentProfile.is_super_admin);
+}
+
+// Suivi des comptes : qui s'est créé un compte (a un profil) ou non.
+function renderAccountsTable() {
+  const t = $('accounts-table');
+  if (!t) return;
+  if (!isSuperAdmin()) {
+    t.innerHTML = '<em style="font-size:12px;color:var(--ink-soft)">Réservé au super admin.</em>';
+    return;
+  }
+  const accounts = new Set((state.allProfiles || []).map(p => p.doctor_name));
+  const withAcct = state.doctors.filter(d => accounts.has(d.name)).length;
+  let html = `<p class="hint">${withAcct}/${state.doctors.length} médecins ont créé leur compte.</p>`;
+  html += '<table><thead><tr><th>Médecin</th><th>Compte</th></tr></thead><tbody>';
+  state.doctors.forEach(d => {
+    const has = accounts.has(d.name);
+    const badge = has
+      ? '<span style="color:#15803d;font-weight:600">✓ créé</span>'
+      : '<span style="color:#b91c1c;font-weight:600">✗ pas de compte</span>';
+    html += `<tr><td>${d.name}</td><td>${badge}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  t.innerHTML = html;
 }
 
 function isAdmin() {
