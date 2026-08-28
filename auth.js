@@ -4,6 +4,10 @@
 // Auth UI : login / inscription / sélection du nom de médecin
 // ============================================================
 
+// Capturer l'état « mot de passe oublié » AVANT que supabase-js ne parse et
+// n'efface le token de l'URL (sinon on ne verra plus `type=recovery` au boot).
+const _recoveryAtLoad = (window.location.hash || '').includes('type=recovery');
+
 const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 window.supabaseClient = sbClient; // accessible depuis app.js
 
@@ -120,7 +124,7 @@ async function logout() {
 // saisie d'un nouveau mot de passe au retour (événement PASSWORD_RECOVERY).
 // ============================================================
 function isRecoveryUrl() {
-  return (window.location.hash || '').includes('type=recovery');
+  return _recoveryAtLoad;
 }
 function showNewPasswordForm() {
   const f = document.getElementById('auth-form'); if (f) f.hidden = true;
