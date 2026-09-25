@@ -1116,14 +1116,7 @@ function renderPickerInfo() {
     tourEl.innerHTML = html;
   }
 
-  const r = objectivesRemaining(d);
-  // Ligne principale = ce qu'il reste à PRENDRE par type (déficit, jamais masqué
-  // par un excédent sur l'autre site).
-  const defSem = Math.max(0, r.ACH.sem) + Math.max(0, r.HMN.sem);
-  const defWE  = Math.max(0, r.ACH.we)  + Math.max(0, r.HMN.we);
-  objEl.innerHTML =
-    `Objectifs : <strong>${fmtHalf(defSem)} sem / ${fmtHalf(defWE)} WE+f</strong><br>` +
-    `<span style="opacity:0.8">ACH ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)} · HMN ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</span>`;
+  objEl.innerHTML = '';   // les objectifs totaux/restants ne sont plus affichés ici (source de confusion)
 
   if (!next) {
     nextEl.innerHTML = '<em>— fin de la séquence —</em>';
@@ -1133,13 +1126,9 @@ function renderPickerInfo() {
     const labels = { libre: 'libre', vendredi: 'vendredi', we: 'WE/f', semaine: 'semaine' };
     let quotaHtml = '';
     Object.keys(nq).forEach(k => { quotaHtml += `<span class="quota-item">${nq[k]} ${labels[k]||k}</span>`; });
-    const nr = objectivesRemaining(nd);
-    const nTotSem = nr.ACH.sem + nr.HMN.sem;
-    const nTotWE = nr.ACH.we + nr.HMN.we;
     nextEl.innerHTML =
       `<div class="next-line1"><span class="next-label">Suivant :</span> <span class="next-name">${next.name}</span></div>` +
-      `<div class="next-line2"><span class="next-tour">Tour ${next.tour}</span> — <span class="next-quota">${quotaHtml}</span></div>` +
-      `<div class="next-line3">Objectifs : <strong>${fmtHalf(nTotSem)} sem / ${fmtHalf(nTotWE)} WE+f</strong> &nbsp;(ACH ${fmtHalf(nr.ACH.sem)}/${fmtHalf(nr.ACH.we)} · HMN ${fmtHalf(nr.HMN.sem)}/${fmtHalf(nr.HMN.we)})</div>`;
+      `<div class="next-line2"><span class="next-tour">Tour ${next.tour}</span> — <span class="next-quota">${quotaHtml}</span></div>`;
   }
 }
 
