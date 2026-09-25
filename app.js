@@ -108,6 +108,25 @@ async function loadAllFromSupabase() {
   state.currentTurnPickCount = state.currentTurnSlots.length;
 }
 
+// Recopie de l'état de session (depuis realtime OU poll). On sépare la CONFIG
+// (période, réglages — toujours appliquée) du TOUR (progression — appliquée sauf
+// si je viens d'agir, pour ne pas écraser mon action par un écho).
+function applySessionConfig(data) {
+  if (data.period_start) PERIOD_START = data.period_start;
+  if (data.period_end)   PERIOD_END   = data.period_end;
+  if (data.wished_per_gardes != null) { state.wishedPerGardes = data.wished_per_gardes; computeMyMaxWished(); }
+  if (data.max_indispo != null) state.maxIndispo = data.max_indispo;
+}
+function applySessionTurn(data) {
+  state.firstPicker = data.first_picker;
+  state.pickerCursor = data.picker_cursor;
+  state.currentTurnPickCount = data.current_turn_pick_count || 0;
+  if (Array.isArray(data.current_turn_slots)) state.currentTurnSlots = data.current_turn_slots;
+  state.currentTour   = data.current_tour ?? state.currentTour;
+  state.tourStartIdx  = data.tour_start_idx ?? state.tourStartIdx;
+  state.tourDirection = data.tour_direction ?? state.tourDirection;
+}
+
 // Max de vœux pour MOI = round((sem + 2×WE) / N), minimum 2
 function computeMyMaxWished() {
   const me = findDoctor(state.myName);
@@ -131,8 +150,16 @@ function siteFull(s) {            // plus de place dispo sur ce site
   if (!s) return false;
   return s.split ? (!!s.jour && !!s.nuit) : !!s.doctor;
 }
+// « Je viens d'agir » : sert à ne PAS écraser mon état local par un écho realtime
+// ou un poll juste après une action (multi-admins = le dernier qui agit gagne).
+let _lastLocalWrite = 0;
+const ECHO_GUARD_MS = 4000;
+function markLocalWrite() { _lastLocalWrite = Date.now(); }
+function actedRecently() { return (Date.now() - _lastLocalWrite) < ECHO_GUARD_MS; }
+
 // Pousse l'état complet d'un site (date,site) vers Supabase, ou le supprime si vide
 async function syncSite(date, site) {
+  markLocalWrite();
   const s = (state.assignments[date] || {})[site];
   if (siteIsEmpty(s)) {
     return sb().from('assignments').delete().eq('date', date).eq('site', site);
@@ -155,6 +182,7 @@ async function syncVoeu(date, voeu, name = state.myName) {
   return sb().from('voeux').delete().eq('doctor_name', name).eq('date', date);
 }
 async function syncSession() {
+  markLocalWrite();
   const { error } = await sb().from('session_state').update({
     first_picker: state.firstPicker,
     picker_cursor: state.pickerCursor,
@@ -464,6 +492,7 @@ function currentTurnSlotsFor(name) {
 
 function setCurrentPickerManually(name) {
   if (!name) return;
+  if (state.neutralView) return;   // en mode libre, le tour est gelé (pas de déplacement du curseur)
   snapshotForUndo();
   const N = state.doctors.length;
   const docIdx = state.doctors.findIndex(d => d.name === name);
@@ -669,25 +698,29 @@ function setAssignment(date, site, doctorName, half) {
     tour: state.currentTour,   // tour de groupe où ce choix a été fait
   });
 
-  // Tracker les picks du tour en cours (chaque demi-garde = un pick distinct)
-  if (curBefore && !curBefore.forced) {
-    state.currentTurnSlots = state.currentTurnSlots || [];
-    const slotKey2 = isHalf ? `${date}:${site}:${half}` : `${date}:${site}`;
-    if (doctorName && doctorName === curBefore.name) {
-      if (!state.currentTurnSlots.includes(slotKey2)) state.currentTurnSlots.push(slotKey2);
-    } else if (!doctorName && prevDoctor === curBefore.name) {
-      const i = state.currentTurnSlots.indexOf(slotKey2);
-      if (i >= 0) state.currentTurnSlots.splice(i, 1);
+  // MODE LIBRE = édition libre : on gèle le tour (aucune modif du curseur ni de
+  // la progression, et on ne pousse PAS l'état de session — sinon on écraserait
+  // la progression d'un autre admin actif). Sert aux corrections a posteriori.
+  if (!state.neutralView) {
+    // Tracker les picks du tour en cours (chaque demi-garde = un pick distinct)
+    if (curBefore && !curBefore.forced) {
+      state.currentTurnSlots = state.currentTurnSlots || [];
+      const slotKey2 = isHalf ? `${date}:${site}:${half}` : `${date}:${site}`;
+      if (doctorName && doctorName === curBefore.name) {
+        if (!state.currentTurnSlots.includes(slotKey2)) state.currentTurnSlots.push(slotKey2);
+      } else if (!doctorName && prevDoctor === curBefore.name) {
+        const i = state.currentTurnSlots.indexOf(slotKey2);
+        if (i >= 0) state.currentTurnSlots.splice(i, 1);
+      }
+      state.currentTurnPickCount = state.currentTurnSlots.length;
     }
-    state.currentTurnPickCount = state.currentTurnSlots.length;
+    if (state.forcedNextPicker && doctorName === state.forcedNextPicker) {
+      state.forcedNextPicker = null;
+    }
+    advanceCursorIfNeeded();
   }
-
-  if (state.forcedNextPicker && doctorName === state.forcedNextPicker) {
-    state.forcedNextPicker = null;
-  }
-  advanceCursorIfNeeded();
   syncSite(date, site);
-  syncSession();
+  if (!state.neutralView) syncSession();
   render();
 }
 
@@ -1021,6 +1054,9 @@ function renderPickerInfo() {
   const objEl = document.getElementById('obj-remaining');
   const nextEl = document.getElementById('next-picker');
 
+  // En mode libre le tour est gelé → on désactive le sélecteur « au tour de ».
+  nameSel.disabled = state.neutralView;
+  nameSel.title = state.neutralView ? 'Mode libre : le tour est gelé (désactive le mode libre pour reprendre)' : '';
   // (re)remplir la liste déroulante
   nameSel.innerHTML = '';
   state.doctors.forEach(d => {
@@ -2125,23 +2161,10 @@ function setupRealtime() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'session_state' }, payload => {
       if (payload.new) {
-        state.firstPicker = payload.new.first_picker;
-        state.pickerCursor = payload.new.picker_cursor;
-        // Suivi de tour : piloté localement par l'admin (source de vérité) ;
-        // seul le lecteur le mirroir depuis la base (sinon un écho obsolète
-        // parasiterait la progression de l'admin en plein choix).
-        if (!isAdmin()) {
-          state.currentTurnPickCount = payload.new.current_turn_pick_count;
-          if (Array.isArray(payload.new.current_turn_slots)) state.currentTurnSlots = payload.new.current_turn_slots;
-        }
-        // « forcer un choix » retiré : on n'applique plus forced_next_picker.
-        state.currentTour = payload.new.current_tour ?? state.currentTour;
-        state.tourStartIdx = payload.new.tour_start_idx ?? state.tourStartIdx;
-        state.tourDirection = payload.new.tour_direction ?? state.tourDirection;
-        if (payload.new.period_start) PERIOD_START = payload.new.period_start;
-        if (payload.new.period_end)   PERIOD_END   = payload.new.period_end;
-        if (payload.new.wished_per_gardes != null) { state.wishedPerGardes = payload.new.wished_per_gardes; computeMyMaxWished(); }
-        if (payload.new.max_indispo != null) state.maxIndispo = payload.new.max_indispo;
+        applySessionConfig(payload.new);
+        // Progression du tour : on la recopie SAUF si c'est moi qui viens d'agir
+        // (multi-admins → le dernier qui agit fait foi ; on ignore ses propres échos).
+        if (!actedRecently()) applySessionTurn(payload.new);
         render();
       }
     })
@@ -2177,5 +2200,64 @@ function setupRealtime() {
       applyPermissions();
       render();
     });
-  ch.subscribe();
+  ch.subscribe((status) => {
+    console.log('[realtime] statut :', status);
+    // Reconnexion : si le canal tombe, on se ré-abonne + resync immédiate.
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      setTimeout(() => { try { sb().removeChannel(ch); } catch (_) {} setupRealtime(); pollRefresh(); }, 2000);
+    } else if (status === 'SUBSCRIBED') {
+      pollRefresh();   // resync de rattrapage à l'abonnement
+    }
+  });
+  startPolling();
+}
+
+// ============================================================
+// Filet de sécurité : re-lecture périodique des gardes + état du tour, au cas
+// où le temps réel ne délivre pas (connexion tombée, table hors publication…).
+// On n'écrase rien si je viens d'agir (ECHO_GUARD_MS).
+// ============================================================
+let _pollTimer = null;
+let _pollVisBound = false;
+function startPolling() {
+  if (_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(pollRefresh, 8000);
+  // Resync aussi quand l'onglet redevient visible (laptop réveillé, etc.) — 1 seul écouteur
+  if (!_pollVisBound) {
+    _pollVisBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') pollRefresh();
+    });
+  }
+}
+async function pollRefresh() {
+  if (actedRecently()) return;   // ne pas écraser une action locale en cours
+  try {
+    const [asg, sess] = await Promise.all([
+      sb().from('assignments').select('*'),
+      sb().from('session_state').select('*').eq('id', 1).maybeSingle(),
+    ]);
+    let dirty = false;
+    if (asg.data) {
+      const next = {};
+      asg.data.forEach(row => {
+        if (!inPeriod(row.date)) return;
+        if (!next[row.date]) next[row.date] = {};
+        next[row.date][row.site] = rowToSite(row);
+      });
+      if (JSON.stringify(next) !== JSON.stringify(state.assignments)) {
+        state.assignments = next;
+        dirty = true;
+      }
+    }
+    if (sess && sess.data) {
+      const before = JSON.stringify([state.pickerCursor, state.currentTour, state.tourStartIdx, state.tourDirection, state.currentTurnSlots]);
+      applySessionConfig(sess.data);
+      applySessionTurn(sess.data);
+      if (JSON.stringify([state.pickerCursor, state.currentTour, state.tourStartIdx, state.tourDirection, state.currentTurnSlots]) !== before) dirty = true;
+    }
+    if (dirty) render();
+  } catch (e) {
+    console.warn('pollRefresh échec (on réessaiera) :', e.message || e);
+  }
 }
