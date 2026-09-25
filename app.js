@@ -12,6 +12,7 @@ function defaultState() {
     voeux: {},                // dateStr -> 'wishedHMN' | 'wishedACH' | 'wishedBoth' | 'blocked'
     myName: null,             // = currentProfile.doctor_name après login
     voeuxEditTarget: null,    // local : super admin éditant les vœux d'un autre médecin (nom), sinon null
+    persoEpure: true,         // local : Perso, affichage des jours pleins « épuré » (true) ou « avec les noms » (false)
     firstPicker: null,
     pickerCursor: 0,
     currentTour: 1,           // tour de groupe (admin contrôle son avancement)
@@ -924,6 +925,10 @@ function buildDayCell(dateStr, mode) {
   const tourTypeDone = !!(turnRem && (turnRem[slotType] || 0) <= 0 && (turnRem.libre || 0) <= 0);
   const refDoctor = (mode === 'planning') ? curName : voeuxEditName();
   const dayHasMine = refDoctor && ['HMN','ACH'].some(s => siteHasDoctor(a[s], refDoctor));
+  // Mode « épuré » : UNIQUEMENT dans Perso quand le curseur est sur « épuré ».
+  // Le Planning affiche toujours les noms (comme avant).
+  const declutter = (mode === 'voeux') && state.persoEpure;
+  if (declutter) el.classList.add('declutter');
   ['HMN','ACH'].forEach(site => {
     // Médecin mono-site : masquer l'autre site (planning = picker ; Perso = moi)
     if (refEligible && !refEligible.includes(site)) return;
@@ -931,37 +936,34 @@ function buildDayCell(dateStr, mode) {
     const greyed = !extraPick && !!((curRem && curRem[site][bucket] <= 0) || tourTypeDone);
     const mineHere = siteHasDoctor(occ, refDoctor);
 
-    // Jour 24h divisé → 2 demi-gardes Jour / Nuit ; on MASQUE les demis prises
-    // par quelqu'un d'autre (la garde d'un autre écrase l'affichage).
+    // Jour 24h divisé (Planning) → 2 demi-gardes Jour / Nuit, avec les noms.
     if (mode === 'planning' && longShift && occ && occ.split) {
       ['jour','nuit'].forEach(half => {
         const who = occ[half];
-        if (who && who !== refDoctor) return;   // demi prise par un autre → non affichée
         const s = document.createElement('div');
         s.className = 'slot ' + site + (who ? '' : ' empty-slot');
         if (who && who === curName) s.classList.add('mine-current');
-        if (greyed && !who) s.classList.add('slot-greyed');
-        s.textContent = `${site} ${half === 'jour' ? 'Jour' : 'Nuit'}`;
+        if (greyed) s.classList.add('slot-greyed');
+        s.textContent = `${site} ${half === 'jour' ? 'Jour' : 'Nuit'}${who ? ' ' + shortName(who) : ''}`;
         s.dataset.slotKey = site; s.dataset.half = half;
         el.appendChild(s); slotEls.push(s);
       });
       return;
     }
 
-    // Site pris par QUELQU'UN D'AUTRE → on n'affiche plus la ligne (déclutter) :
-    // la date « remplie » se réduit à son numéro en filigrane (cf. .day-unavailable).
-    if (!siteIsEmpty(occ) && !mineHere) return;
-    // Sur un jour où le médecin de réf. a déjà SA garde, on n'affiche pas l'autre
-    // site (juste le site de sa garde, en gros).
-    if (siteIsEmpty(occ) && dayHasMine) return;
+    // Mode épuré : garde d'un AUTRE → ligne masquée ; et sur mon jour de garde,
+    // on n'affiche pas l'autre site. (En mode noms / Planning, on affiche tout.)
+    if (declutter && !siteIsEmpty(occ) && !mineHere) return;
+    if (declutter && siteIsEmpty(occ) && dayHasMine) return;
 
     const s = document.createElement('div');
-    if (!siteIsEmpty(occ)) {   // pris par le médecin de référence → on garde la ligne (vert)
+    if (!siteIsEmpty(occ)) {
+      const who = occ.split ? (occ.jour || occ.nuit) : occ.doctor;
       s.className = 'slot ' + site;
       if (mode !== 'planning' && siteHasDoctor(occ, voeuxEditName())) s.classList.add('mine');
       if (siteHasDoctor(occ, curName)) s.classList.add('mine-current');
-      // Sur SA garde on n'écrit plus le nom : juste le site (HMN/ACH), plus gros et centré.
-      s.textContent = site;
+      // Épuré sur MA garde : juste le site (gros, centré). Sinon : site + nom.
+      s.textContent = (declutter && mineHere) ? site : `${site}${longShift?' 24h':''} ${shortName(who)}`;
     } else {                   // libre → choisissable
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
@@ -1248,6 +1250,18 @@ function stopEditVoeux() {
   render();
 }
 
+// Curseur Perso « jours pleins : épuré / avec les noms »
+function updatePersoFillToggle() {
+  const e = document.getElementById('perso-epure-btn'), n = document.getElementById('perso-noms-btn');
+  if (e) e.classList.toggle('active', !!state.persoEpure);
+  if (n) n.classList.toggle('active', !state.persoEpure);
+}
+{
+  const e = document.getElementById('perso-epure-btn'), n = document.getElementById('perso-noms-btn');
+  if (e) e.onclick = () => { state.persoEpure = true;  updatePersoFillToggle(); render(); };
+  if (n) n.onclick = () => { state.persoEpure = false; updatePersoFillToggle(); render(); };
+}
+
 // ============================================================
 // Simulation « à blanc » (dry-run) du choix assisté : l'app joue le draft
 // toute seule (admin) SANS rien écrire en base, pour tester le déroulé du tour
@@ -1345,6 +1359,7 @@ function render() {
     renderPickerInfo();
   } else if (activeTab === 'voeux') {
     renderVoeuxEditBanner();
+    updatePersoFillToggle();
     renderVoeuxHint();
     renderMyNextTurn();
     renderCalendar('voeux-calendar', 'voeux');

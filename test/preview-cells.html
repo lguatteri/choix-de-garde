@@ -54,7 +54,7 @@ function emptySlot(site, greyed){ return slot('empty-slot '+site+(greyed?' slot-
 
 function buildDay(day, state, mono) {
   const dt = new Date(YEAR, MONTH, day), dow = dt.getDay();
-  const el = document.createElement('div'); el.className='day';
+  const el = document.createElement('div'); el.className='day declutter';  /* preview = Perso mode épuré */
   const holiday = HOLIDAYS.has(day);
   if (holiday) el.classList.add('holiday');
   else if (dow===0||dow===6) el.classList.add('weekend'); else if (dow===5) el.classList.add('friday');

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=121">
+<link rel="stylesheet" href="styles.css?v=122">
 </head>
 <body>
 
@@ -105,6 +105,11 @@
           <button id="declare-auto-btn" style="font-family:inherit;background:#7c3aed;color:#fff;border:1px solid #6d28d9;border-radius:999px;padding:9px 20px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(124,58,237,0.3)">Déclarer pour le planning auto</button>
         </div>
         <p class="hint" id="voeux-hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💙 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
+        <div class="perso-fill-toggle">
+          <span class="pft-label">Jours pleins :</span>
+          <button id="perso-epure-btn" class="pft-btn active" type="button">Épuré</button>
+          <button id="perso-noms-btn" class="pft-btn" type="button">Avec les noms</button>
+        </div>
         <div class="calendar focus-cal" id="voeux-calendar"></div>
       </section>
 
@@ -193,7 +198,7 @@
   <script src="auth.js?v=44"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=98"></script>
+  <script src="app.js?v=99"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
