@@ -960,14 +960,19 @@ body.neutral .picker-current-box::after {
 
 .me-over { color: #b45309; font-weight: 700; font-size: 0.82em; }
 
-/* Curseur d'affichage des jours pleins (épuré / noms grisé / noms filigrane) */
-.fill-mode-toggle { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 13px; flex-wrap: wrap; }
-.fill-mode-toggle .fmt-label { color: #64748b; font-weight: 600; }
+/* Curseur d'affichage des jours pleins (Mode 1/2/3) — compact */
+.fill-mode-toggle { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 11px; flex-wrap: wrap; }
+.fill-mode-toggle .fmt-label { color: #64748b; font-weight: 600; font-size: 11px; }
 .fill-mode-toggle .fmt-btn {
   font-family: inherit; border: 1px solid #cbd5e1; background: #fff; color: #475569;
-  border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+  border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; cursor: pointer;
+  box-shadow: none;
 }
 .fill-mode-toggle .fmt-btn.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+/* Dans la barre d'actions (Planning) : poussé tout à droite */
+.actions .fill-mode-toggle { margin-left: auto; }
+/* Dans Perso (pas de barre d'actions) : aligné à droite, avec un peu d'air au-dessus */
+.fill-mode-toggle--right { justify-content: flex-end; margin-top: 10px; }
 /* Le wrapper prend la zone « calendar » de la grille Planning (curseur au-dessus) */
 #planning .planning-cal-wrap { grid-area: calendar; }
 

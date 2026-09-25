@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=127">
+<link rel="stylesheet" href="styles.css?v=128">
 </head>
 <body>
 
@@ -88,12 +88,6 @@
         </div>
         <div class="planning-cal-wrap">
           <div class="calendar focus-cal" id="planning-calendar"></div>
-          <div class="fill-mode-toggle" data-scope="planning">
-            <span class="fmt-label">Jours pleins :</span>
-            <button class="fmt-btn" data-fill="epure" type="button">Épuré</button>
-            <button class="fmt-btn" data-fill="nomsGris" type="button">Noms grisé</button>
-            <button class="fmt-btn" data-fill="nomsFilig" type="button">Noms filigrane</button>
-          </div>
         </div>
         <div class="actions">
           <button id="neutral-toggle">👁 Mode libre</button>
@@ -101,6 +95,12 @@
           <button id="skip-picker-btn">⏭ Passer au choisisseur suivant</button>
           <button id="undo-btn">↶ Annuler dernier choix</button>
           <button id="export-btn">⇣ Exporter CSV</button>
+          <div class="fill-mode-toggle" data-scope="planning">
+            <span class="fmt-label">Affichage :</span>
+            <button class="fmt-btn" data-fill="epure" type="button" title="Épuré (filigrane, sans noms)">Mode 1</button>
+            <button class="fmt-btn" data-fill="nomsGris" type="button" title="Noms sur fond grisé">Mode 2</button>
+            <button class="fmt-btn" data-fill="nomsFilig" type="button" title="Noms sur fond filigrane">Mode 3</button>
+          </div>
         </div>
       </section>
 
@@ -117,11 +117,11 @@
         </div>
         <p class="hint" id="voeux-hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💙 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
         <div class="calendar focus-cal" id="voeux-calendar"></div>
-        <div class="fill-mode-toggle" data-scope="perso">
-          <span class="fmt-label">Jours pleins :</span>
-          <button class="fmt-btn" data-fill="epure" type="button">Épuré</button>
-          <button class="fmt-btn" data-fill="nomsGris" type="button">Noms grisé</button>
-          <button class="fmt-btn" data-fill="nomsFilig" type="button">Noms filigrane</button>
+        <div class="fill-mode-toggle fill-mode-toggle--right" data-scope="perso">
+          <span class="fmt-label">Affichage :</span>
+          <button class="fmt-btn" data-fill="epure" type="button" title="Épuré (filigrane, sans noms)">Mode 1</button>
+          <button class="fmt-btn" data-fill="nomsGris" type="button" title="Noms sur fond grisé">Mode 2</button>
+          <button class="fmt-btn" data-fill="nomsFilig" type="button" title="Noms sur fond filigrane">Mode 3</button>
         </div>
       </section>
 
