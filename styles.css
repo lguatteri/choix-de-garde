@@ -515,10 +515,10 @@ main {
    des vendredis/week-ends. */
 /* Jour PLEIN — mode ÉPURÉ (Perso, curseur « épuré ») : fond conservé, plus de
    lignes HMN/ACH, numéro en filigrane très pâle. */
-.focus-cal .day.day-unavailable.declutter { background: var(--surface); box-shadow: none; border-color: #f1f4f8; }
-.focus-cal .day.day-unavailable.declutter.weekend { background: var(--weekend); }
-.focus-cal .day.day-unavailable.declutter.friday  { background: var(--friday); }
-.focus-cal .day.day-unavailable.declutter.holiday { background: var(--holiday); }
+.focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine) { background: var(--surface); box-shadow: none; border-color: #f1f4f8; }
+.focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine).weekend { background: var(--weekend); }
+.focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine).friday  { background: var(--friday); }
+.focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine).holiday { background: var(--holiday); }
 .focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine) .num {
   opacity: 1; color: #e8ecf1; font-weight: 700; text-decoration: none;
 }
@@ -526,7 +526,7 @@ main {
 .focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine):hover { box-shadow: none; transform: none; }
 /* Jour PLEIN — mode NOMS (Planning + Perso « avec les noms ») : cases GRISÉES
    (comme avant), site + Dr estompés. */
-.focus-cal .day.day-unavailable:not(.declutter) { background: #eef1f6; }
+.focus-cal .day.day-unavailable:not(.declutter):not(.day-unavailable-mine) { background: #eef1f6; }
 .focus-cal .day.day-unavailable:not(.declutter):not(.day-unavailable-mine) .num { opacity: 0.6; text-decoration: none; }
 .focus-cal .day.day-unavailable:not(.declutter):not(.day-unavailable-mine) .slot { background: transparent; color: #64748b; }
 /* Le sien, plein, garde son numéro visible */

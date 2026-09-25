@@ -47,7 +47,7 @@
 const STATE = {
   1:'full', 2:'mine', 3:'full', 4:'sugg', 5:'grey', 6:'full', 7:'sugg',
   8:'block', 9:'full', 10:'mine', 11:'full', 12:'voeuH', 13:'grey', 14:'full',
-  15:'sugg', 16:'full', 17:'full', 18:'half', 19:'free', 20:'full', 21:'sugg',
+  15:'sugg', 16:'full', 17:'full', 18:'half', 19:'minefull', 20:'full', 21:'sugg',
   22:'full', 23:'mine', 24:'full', 25:'full', 26:'grey', 27:'block', 28:'full',
   29:'sugg', 30:'full', 31:'full',
 };
@@ -77,6 +77,8 @@ function buildDay(day, state, mono) {
                   if (MODE==='noms') sites.forEach(s=>el.appendChild(takenSlot(s, day)));   // filigrane + noms
                   break;
     case 'mine':  el.classList.add('day-mine'); el.appendChild(mineSlot('HMN', day)); break;
+    case 'minefull': el.classList.add('day-mine','day-unavailable','day-unavailable-mine'); el.appendChild(mineSlot('HMN', day)); break; // ma garde + jour plein
+
     case 'sugg':  el.classList.add('day-suggested'); sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
     case 'grey':  sites.forEach(s=>el.appendChild(emptySlot(s,true))); break;
     case 'voeuH': el.dataset.voeu='wishedHMN'; sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
