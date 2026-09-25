@@ -892,7 +892,11 @@ function buildDayCell(dateStr, mode) {
   // L'admin et les lecteurs ne voient ni vœux ni indispos (juste gardes + suggestions).
   const showVoeux = (mode !== 'planning') || (curName === state.myName);
   let voeu = (mode === 'voeux') ? voeuxEditMap()[dateStr] : state.voeux[dateStr];
-  if (showVoeux && voeu && mode === 'planning') {
+  // Une garde attribuée (à qqn d'autre) écrase l'affichage indispo/vœu — dans le
+  // Perso ET dans le Planning quand c'est mon tour : un vœu sur un site déjà pris
+  // disparaît, « les 2 » se réduit au site restant, une indispo disparaît si la
+  // journée est pleine.
+  if (showVoeux && voeu) {
     const HMNt = siteFull(a.HMN), ACHt = siteFull(a.ACH);
     if (voeu === 'wishedHMN' && HMNt) voeu = null;
     else if (voeu === 'wishedACH' && ACHt) voeu = null;
