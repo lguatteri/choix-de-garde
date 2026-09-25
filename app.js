@@ -852,7 +852,7 @@ function buildDayCell(dateStr, mode) {
   const num = document.createElement('div');
   num.className = 'num';
   const d = parseYMD(dateStr);
-  num.textContent = d.getDate() + (t === 'holiday' ? ' 🎉' : '');
+  num.textContent = (t === 'holiday') ? `${d.getDate()} 🎉` : d.getDate();
   el.appendChild(num);
 
   const a = state.assignments[dateStr] || {};
@@ -923,6 +923,7 @@ function buildDayCell(dateStr, mode) {
   const slotType = tourSlotType(dateStr);
   const tourTypeDone = !!(turnRem && (turnRem[slotType] || 0) <= 0 && (turnRem.libre || 0) <= 0);
   const refDoctor = (mode === 'planning') ? curName : voeuxEditName();
+  const dayHasMine = refDoctor && ['HMN','ACH'].some(s => siteHasDoctor(a[s], refDoctor));
   ['HMN','ACH'].forEach(site => {
     // Médecin mono-site : masquer l'autre site (planning = picker ; Perso = moi)
     if (refEligible && !refEligible.includes(site)) return;
@@ -940,7 +941,7 @@ function buildDayCell(dateStr, mode) {
         s.className = 'slot ' + site + (who ? '' : ' empty-slot');
         if (who && who === curName) s.classList.add('mine-current');
         if (greyed && !who) s.classList.add('slot-greyed');
-        s.textContent = `${site} ${half === 'jour' ? 'Jour' : 'Nuit'}${who ? ' ' + shortName(who) : ''}`;
+        s.textContent = `${site} ${half === 'jour' ? 'Jour' : 'Nuit'}`;
         s.dataset.slotKey = site; s.dataset.half = half;
         el.appendChild(s); slotEls.push(s);
       });
@@ -950,14 +951,17 @@ function buildDayCell(dateStr, mode) {
     // Site pris par QUELQU'UN D'AUTRE → on n'affiche plus la ligne (déclutter) :
     // la date « remplie » se réduit à son numéro en filigrane (cf. .day-unavailable).
     if (!siteIsEmpty(occ) && !mineHere) return;
+    // Sur un jour où le médecin de réf. a déjà SA garde, on n'affiche pas l'autre
+    // site (juste le site de sa garde, en gros).
+    if (siteIsEmpty(occ) && dayHasMine) return;
 
     const s = document.createElement('div');
     if (!siteIsEmpty(occ)) {   // pris par le médecin de référence → on garde la ligne (vert)
-      const who = occ.split ? (occ.jour || occ.nuit) : occ.doctor;
       s.className = 'slot ' + site;
       if (mode !== 'planning' && siteHasDoctor(occ, voeuxEditName())) s.classList.add('mine');
       if (siteHasDoctor(occ, curName)) s.classList.add('mine-current');
-      s.textContent = `${site}${longShift?' 24h':''} ${shortName(who)}`;
+      // Sur SA garde on n'écrit plus le nom : juste le site (HMN/ACH), plus gros et centré.
+      s.textContent = site;
     } else {                   // libre → choisissable
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;

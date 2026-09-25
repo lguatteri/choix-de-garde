@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview mois — choix-de-garde</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { font-family:'Inter',sans-serif; padding:20px; background:#f1f5f9; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .legend { font-size:12px; color:#475569; margin:0 0 18px; line-height:1.6; }
+  .legend b { color:#0f172a; }
+  .cols { display:flex; gap:28px; flex-wrap:wrap; }
+  .col { flex:1; min-width:360px; max-width:560px; }
+  .col > h2 { font-size:14px; margin:0 0 10px; color:#1e293b; }
+  .col .calendar { display:block; }
+</style>
+</head>
+<body>
+  <h1>Preview — octobre 2026 (exemple en cours de simulation)</h1>
+  <p class="legend">
+    <b>vert</b> = ma garde (site seul, centré) · <b>bleu</b> = choisissable ce tour · <b>numéro pâle</b> = jour plein (pris) ·
+    <b>HMN/ACH gris</b> = non choisissable ce tour · <b>💙</b> = mon vœu · <b>🚫</b> = mon indispo.<br>
+    Rafraîchis (Cmd+R) après chaque changement de CSS.
+  </p>
+
+  <div class="cols">
+    <div class="col">
+      <h2>Vue MONO-SITE (HMN)</h2>
+      <div class="calendar focus-cal"><div class="month"><div class="month-content" id="mMono"></div></div></div>
+    </div>
+    <div class="col">
+      <h2>Vue DOUBLE-SITE (HMN + ACH)</h2>
+      <div class="calendar focus-cal"><div class="month"><div class="month-content" id="mDouble"></div></div></div>
+    </div>
+  </div>
+
+<script>
+// Scénario réaliste d'octobre 2026 (1er oct = jeudi). État par jour.
+const STATE = {
+  1:'full', 2:'mine', 3:'full', 4:'sugg', 5:'grey', 6:'full', 7:'sugg',
+  8:'block', 9:'full', 10:'mine', 11:'full', 12:'voeuH', 13:'grey', 14:'full',
+  15:'sugg', 16:'full', 17:'full', 18:'half', 19:'free', 20:'full', 21:'sugg',
+  22:'full', 23:'mine', 24:'full', 25:'full', 26:'grey', 27:'block', 28:'full',
+  29:'sugg', 30:'full', 31:'full',
+};
+const YEAR=2026, MONTH=9;
+const HOLIDAYS = new Set([15]);   // un jour férié dans le mois (affiché avec 🎉)
+const WK = ['L','M','M','J','V','S','D'];
+
+function slot(cls, txt){ const e=document.createElement('div'); e.className='slot '+cls; e.textContent=txt; return e; }
+function emptySlot(site, greyed){ return slot('empty-slot '+site+(greyed?' slot-greyed':''), site); }
+
+function buildDay(day, state, mono) {
+  const dt = new Date(YEAR, MONTH, day), dow = dt.getDay();
+  const el = document.createElement('div'); el.className='day';
+  const holiday = HOLIDAYS.has(day);
+  if (holiday) el.classList.add('holiday');
+  else if (dow===0||dow===6) el.classList.add('weekend'); else if (dow===5) el.classList.add('friday');
+  const num = document.createElement('div'); num.className='num'; num.textContent = holiday ? (day+' 🎉') : day; el.appendChild(num);
+  const sites = mono ? ['HMN'] : ['HMN','ACH'];
+  switch(state){
+    case 'full':  el.classList.add('day-unavailable'); break;
+    case 'mine':  el.classList.add('day-mine'); el.appendChild(slot('HMN mine-current','HMN')); break;
+    case 'sugg':  el.classList.add('day-suggested'); sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
+    case 'grey':  sites.forEach(s=>el.appendChild(emptySlot(s,true))); break;
+    case 'voeuH': el.dataset.voeu='wishedHMN'; sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
+    case 'block': el.dataset.voeu='blocked'; sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
+    case 'half':  el.appendChild(emptySlot(mono?'HMN':'ACH', false)); break; // 1 site pris (caché), l'autre libre
+    default:      sites.forEach(s=>el.appendChild(emptySlot(s,false)));
+  }
+  return el;
+}
+function renderMonth(container, mono) {
+  container.innerHTML = '';
+  const wk = document.createElement('div'); wk.className='weekdays';
+  WK.forEach(w=>{ const s=document.createElement('div'); s.textContent=w; wk.appendChild(s); });
+  container.appendChild(wk);
+  const days = document.createElement('div'); days.className='days';
+  const firstDow = (new Date(YEAR,MONTH,1).getDay()+6)%7;
+  for(let i=0;i<firstDow;i++){ const e=document.createElement('div'); e.className='day empty'; days.appendChild(e); }
+  for(let d=1; d<=31; d++){ days.appendChild(buildDay(d, STATE[d]||'free', mono)); }
+  container.appendChild(days);
+}
+renderMonth(document.getElementById('mMono'), true);
+renderMonth(document.getElementById('mDouble'), false);
+</script>
+</body>
+</html>

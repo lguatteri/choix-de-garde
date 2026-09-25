@@ -10,9 +10,9 @@
   --ok: #15803d;
   --warn: #f59e0b;
   --danger: #b91c1c;
-  --friday:  #f8fafc;  /* presque blanc */
-  --weekend: #f1f5f9;  /* gris très léger */
-  --holiday: #f1f5f9;
+  --friday:  #ffffff;  /* plus de différenciation : vendredi/WE/férié = comme semaine */
+  --weekend: #ffffff;
+  --holiday: #ffffff;
   --border: #e2e8f0;
   --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
   --shadow:    0 1px 3px rgba(15,23,42,0.06), 0 8px 20px -8px rgba(15,23,42,0.10);
@@ -482,10 +482,10 @@ main {
 
 /* Site où l'objectif du picker courant (sur ce type de jour) est rempli */
 .day .slot.slot-greyed {
-  color: #9ca3af !important;
+  color: #737c8a !important;
 }
 .day .slot.empty-slot.slot-greyed {
-  color: #9ca3af !important;
+  color: #737c8a !important;
 }
 
 /* Date suggérée pour le picker courant : cadre bleu */
@@ -517,32 +517,40 @@ main {
    lignes HMN/ACH, et le NUMÉRO est BARRÉ en gris clair → « date prise, terminée ».
    À distinguer d'un jour simplement non choisissable ce tour (case normale avec
    HMN/ACH en gris, cf. .slot-greyed). */
-.focus-cal .day.day-unavailable { background: var(--surface); box-shadow: none; border-color: #eaeef3; }
+.focus-cal .day.day-unavailable { background: var(--surface); box-shadow: none; border-color: #f1f4f8; }
 .focus-cal .day.day-unavailable.weekend { background: var(--weekend); }
 .focus-cal .day.day-unavailable.friday  { background: var(--friday); }
 .focus-cal .day.day-unavailable.holiday { background: var(--holiday); }
 .focus-cal .day.day-unavailable:not(.day-unavailable-mine) .num {
-  opacity: 1; color: #b7c0cc; font-weight: 700;
-  text-decoration: line-through; text-decoration-color: #cbd3dd; text-decoration-thickness: 1.5px;
+  opacity: 1; color: #e8ecf1; font-weight: 700; text-decoration: none;   /* chiffre en filigrane encore plus pâle */
 }
 .focus-cal .day.day-unavailable:not(.day-unavailable-mine) .slot { display: none; }
 .focus-cal .day.day-unavailable:not(.day-unavailable-mine):hover { box-shadow: none; transform: none; }
 /* Le sien, plein, garde son numéro visible (non barré) */
 .focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
-.focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #2563eb; background: #eff6ff; }
+.focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #5b8def; }  /* liséré bleu radouci, fond normal (V1) */
+/* Date NON choisissable ce tour (créneaux en gris) : contour légèrement plus
+   foncé qu'un jour plein (en filigrane), pour bien les distinguer. */
+.focus-cal .day:not(.day-mine):not(.day-unavailable):not(.day-suggested):has(.slot.slot-greyed) {
+  border-color: #94a3b8; border-width: 1px;
+}
 .focus-cal .day.day-suggested .slot.empty-slot { color: #1d4ed8; font-weight: 800; }
 .focus-cal .day.day-suggested .slot.HMN,
 .focus-cal .day.day-suggested .slot.ACH { color: #64748b; }
 /* Mes gardes (choisisseur courant) : case VERT CLAIR — même si le jour est plein
    (rétablit le vert écrasé par la règle « jour plein = gris » ci-dessus). */
 .focus-cal .day.day-mine,
-.focus-cal .day.day-unavailable-mine { background: #dcfce7; box-shadow: inset 0 0 0 2px var(--ok); }
+.focus-cal .day.day-unavailable-mine { background: #dcfce7; box-shadow: inset 0 0 0 1.5px #7ecaa1; }
 .focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
 /* Mes gardes : le SITE où la garde m'est attribuée est surligné en vert un peu
    plus foncé (utile surtout pour les bi-sites, pour voir HMN vs ACH). */
 .focus-cal .day .slot.mine,
-.focus-cal .day .slot.mine-current { box-shadow: none; color: #14532d; background: #a7d8b9; font-weight: 700; }
+.focus-cal .day .slot.mine-current {
+  box-shadow: none; color: #14532d; background: transparent; font-weight: 800;
+  font-size: 12.5px; text-align: center; letter-spacing: 0.5px; padding: 2px 4px;
+  margin-top: auto; margin-bottom: auto;   /* centré verticalement dans l'espace sous le numéro */
+}
 /* Vœu : fond bleu clair + marqueur 💙+site (pas de cadre sur le site) */
 .focus-cal .day[data-voeu^="wished"] { box-shadow: inset 0 0 0 2px #2563eb; background: #bfdbfe; }
 .focus-cal .day[data-voeu^="wished"] .slot { outline: none !important; }
@@ -554,11 +562,11 @@ main {
    dès qu'un vœu tombe sur un jour où j'ai une garde, la case reste verte
    et le marqueur 💙 disparaît. */
 .focus-cal .day.day-mine[data-voeu^="wished"],
-.focus-cal .day.day-unavailable-mine[data-voeu^="wished"] { background: #dcfce7; box-shadow: inset 0 0 0 2px var(--ok); }
+.focus-cal .day.day-unavailable-mine[data-voeu^="wished"] { background: #dcfce7; box-shadow: inset 0 0 0 1.5px #7ecaa1; }
 .focus-cal .day.day-mine[data-voeu^="wished"]::before,
 .focus-cal .day.day-unavailable-mine[data-voeu^="wished"]::before { content: ""; }
 /* Indispo (affichée seulement au choisisseur lui-même) : rouge léger + 🚫 */
-.focus-cal .day[data-voeu="blocked"] { background: #fef2f2; box-shadow: inset 0 0 0 1.5px #fca5a5; }
+.focus-cal .day[data-voeu="blocked"] { background: #fef2f2; box-shadow: inset 0 0 0 1.5px #fecaca; }
 .focus-cal .day[data-voeu="blocked"] .slot { background: transparent; color: #b0b8c4; }
 
 /* Modal */
