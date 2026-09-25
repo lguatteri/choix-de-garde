@@ -1243,18 +1243,21 @@ function stopEditVoeux() {
 // toute seule (admin) SANS rien écrire en base, pour tester le déroulé du tour
 // et les dates suggérées en solo. « Quitter » restaure l'état réel.
 // ============================================================
-let _simSnapshot = null, _simTimer = null, _simDates = null;
+let _simSnapshot = null, _simDates = null;
 function ensureSimBanner() {
   let el = document.getElementById('sim-banner');
   if (!el) {
     el = document.createElement('div');
     el.id = 'sim-banner';
-    el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;display:flex;align-items:center;justify-content:center;gap:16px;background:#7c3aed;color:#fff;padding:8px 14px;font-weight:700;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25)';
-    const txt = document.createElement('span'); txt.id = 'sim-banner-text';
-    const btn = document.createElement('button'); btn.textContent = '✕ Quitter la simulation';
-    btn.style.cssText = 'font-family:inherit;background:#fff;color:#5b21b6;border:none;border-radius:8px;padding:6px 14px;font-weight:700;cursor:pointer';
-    btn.onclick = simExit;
-    el.appendChild(txt); el.appendChild(btn);
+    el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#7c3aed;color:#fff;padding:8px 14px;font-weight:700;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+    const txt = document.createElement('span'); txt.id = 'sim-banner-text'; txt.style.cssText = 'flex:1;min-width:200px';
+    const nextBtn = document.createElement('button'); nextBtn.textContent = '▶ Étape suivante (→)';
+    nextBtn.style.cssText = 'font-family:inherit;background:#fff;color:#5b21b6;border:none;border-radius:8px;padding:6px 14px;font-weight:700;cursor:pointer;white-space:nowrap';
+    nextBtn.onclick = simNext;
+    const exitBtn = document.createElement('button'); exitBtn.textContent = '✕ Quitter';
+    exitBtn.style.cssText = 'font-family:inherit;background:transparent;color:#fff;border:1px solid #fff;border-radius:8px;padding:6px 14px;font-weight:700;cursor:pointer;white-space:nowrap';
+    exitBtn.onclick = simExit;
+    el.appendChild(txt); el.appendChild(nextBtn); el.appendChild(exitBtn);
     document.body.appendChild(el);
   }
   el.hidden = false;
@@ -1263,7 +1266,7 @@ function ensureSimBanner() {
 function simBannerText(s) { const t = document.getElementById('sim-banner-text'); if (t) t.textContent = s; }
 function simEnter() {
   if (!isAdmin() || state.dryRun) return;
-  if (!confirm('Lancer une SIMULATION à blanc du choix assisté ?\n\nL\'app va jouer le tour toute seule, SANS rien enregistrer (le vrai planning n\'est pas touché). Tu pourras « Quitter la simulation » pour revenir à l\'état réel.')) return;
+  if (!confirm('Lancer une SIMULATION à blanc du choix assisté ?\n\nL\'app jouera le tour PAS À PAS (flèche → ou bouton), SANS rien enregistrer (le vrai planning n\'est pas touché). « Quitter » revient à l\'état réel.')) return;
   _simSnapshot = JSON.stringify({
     assignments: state.assignments, history: state.history,
     pickerCursor: state.pickerCursor, currentTour: state.currentTour,
@@ -1280,40 +1283,47 @@ function simEnter() {
   state.tourDirection = 1; state.pickerCursor = 0; state.currentTurnSlots = []; state.currentTurnPickCount = 0;
   ensureSimBanner();
   const pt = document.querySelector('.tab[data-tab="planning"]'); if (pt) pt.click(); else render();
-  simStep();
+  simBannerText('🧪 Simulation prête — appuie sur → (ou « Étape suivante ») pour dérouler.');
 }
-function simStep() {
+// UNE seule action par appel (déclenchée par la flèche → ou le bouton).
+function simNext() {
   if (!state.dryRun) return;
   const cur = currentPickerInfo();
   if (!cur) {
     const anyLeft = state.doctors.some(d => objectivesRemaining(d).total > 0);
-    if (!anyLeft || state.currentTour > 40) {
-      simBannerText('🧪 Simulation terminée — inspecte le planning, puis « Quitter la simulation ».');
-      render(); return;
-    }
-    advanceTour();
-    _simTimer = setTimeout(simStep, 150);
+    if (!anyLeft || state.currentTour > 40) { simBannerText('🧪 Simulation terminée — inspecte le planning, puis « Quitter ».'); render(); return; }
+    advanceTour(); render();
+    simBannerText(`🧪 ➡ Nouveau tour ${state.currentTour}. Appuie sur → pour continuer.`);
     return;
   }
-  simBannerText(`🧪 Simulation (à blanc) — Tour ${state.currentTour}, au tour de ${cur.name}`);
   const sugg = _simDates.filter(dt => isDateSuggestedFor(cur.name, dt));
-  if (!sugg.length) {   // ce choisisseur ne peut rien prendre ce tour → passer
+  if (!sugg.length) {
     state.pickerCursor = cur.cursor + 1; state.currentTurnSlots = []; state.currentTurnPickCount = 0; state.manualPick = null;
-    render(); _simTimer = setTimeout(simStep, 60); return;
+    render();
+    simBannerText(`🧪 Tour ${state.currentTour} — ${cur.name} n'a rien à prendre ce tour → passé au suivant.`);
+    return;
   }
   const dt = sugg[0], d = findDoctor(cur.name), a = state.assignments[dt] || {}, b = objectiveBucket(dt), r = objectivesRemaining(d);
   const site = eligibleSites(d).find(s => !a[s] && r[s][b] > 0);
-  if (!site) { state.pickerCursor = cur.cursor + 1; state.currentTurnSlots = []; state.currentTurnPickCount = 0; render(); _simTimer = setTimeout(simStep, 60); return; }
+  if (!site) { state.pickerCursor = cur.cursor + 1; state.currentTurnSlots = []; state.currentTurnPickCount = 0; render(); simBannerText(`🧪 ${cur.name} passé (aucun site libre).`); return; }
+  const pd = parseYMD(dt), ds = pd.getDate() + '/' + (pd.getMonth() + 1);
   setAssignment(dt, site, cur.name, null);   // dryRun → aucune écriture DB
-  _simTimer = setTimeout(simStep, 150);
+  simBannerText(`🧪 Tour ${state.currentTour} — ${cur.name} prend ${site} le ${ds}. → pour la suite.`);
 }
 function simExit() {
-  if (_simTimer) { clearTimeout(_simTimer); _simTimer = null; }
   if (_simSnapshot) { Object.assign(state, JSON.parse(_simSnapshot)); _simSnapshot = null; }
   state.dryRun = false;
   const el = document.getElementById('sim-banner'); if (el) el.hidden = true;
   render();
 }
+// Clavier : en simulation, flèche → / Espace / Entrée = étape suivante ; Échap = quitter.
+document.addEventListener('keydown', (e) => {
+  if (!state.dryRun) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); simNext(); }
+  else if (e.key === 'Escape') { e.preventDefault(); simExit(); }
+});
 
 function render() {
   const pl = $('period-label');
