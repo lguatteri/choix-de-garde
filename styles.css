@@ -956,7 +956,7 @@ body.neutral .picker-current-box::after {
 .me-over { color: #b45309; font-weight: 700; font-size: 0.82em; }
 
 /* Curseur d'affichage des jours pleins (épuré / noms grisé / noms filigrane) */
-.fill-mode-toggle { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; flex-wrap: wrap; }
+.fill-mode-toggle { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 13px; flex-wrap: wrap; }
 .fill-mode-toggle .fmt-label { color: #64748b; font-weight: 600; }
 .fill-mode-toggle .fmt-btn {
   font-family: inherit; border: 1px solid #cbd5e1; background: #fff; color: #475569;
