@@ -138,6 +138,7 @@
         <button id="export-btn-2">⇣ Exporter planning CSV</button>
         <button id="export-xlsx-btn">⇣ Exporter planning Excel (.xlsx)</button>
         <button id="reset-btn" class="danger">⚠ Réinitialiser les choix (planning vide, vœux conservés)</button>
+        <button id="sim-assisted-btn">🧪 Simuler le tour (à blanc, rien n'est enregistré)</button>
 
         <h2>Médecins &amp; objectifs (modifiable) <span class="admin-only-tag">admin</span></h2>
         <div id="doctors-table"></div>
@@ -192,7 +193,7 @@
   <script src="auth.js?v=44"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=91"></script>
+  <script src="app.js?v=92"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

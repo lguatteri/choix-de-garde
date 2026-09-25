@@ -24,6 +24,7 @@ function defaultState() {
     forcedNextPicker: null,
     allVoeux: {},             // doctorName -> { date -> voeu }, chargé depuis Supabase
     neutralView: false,       // local : masque la coloration liée au picker courant
+    dryRun: false,            // local : simulation « à blanc » (aucune écriture DB, temps réel gelé)
     maxWished: 2,             // calculé selon mes gardes (proportionnel, réglé par l'admin)
     wishedPerGardes: 3,
     maxIndispo: 30,
@@ -159,6 +160,7 @@ function actedRecently() { return (Date.now() - _lastLocalWrite) < ECHO_GUARD_MS
 
 // Pousse l'état complet d'un site (date,site) vers Supabase, ou le supprime si vide
 async function syncSite(date, site) {
+  if (state.dryRun) return;   // simulation à blanc : aucune écriture
   markLocalWrite();
   const s = (state.assignments[date] || {})[site];
   if (siteIsEmpty(s)) {
@@ -174,6 +176,7 @@ async function syncSite(date, site) {
   });
 }
 async function syncVoeu(date, voeu, name = state.myName) {
+  if (state.dryRun) return;   // simulation à blanc : aucune écriture
   // Vœux rattachés au médecin (doctor_name). On n'écrit pas user_id : l'upsert
   // ne touche pas les colonnes omises, et un médecin sans compte n'en a pas.
   if (voeu) {
@@ -182,6 +185,7 @@ async function syncVoeu(date, voeu, name = state.myName) {
   return sb().from('voeux').delete().eq('doctor_name', name).eq('date', date);
 }
 async function syncSession() {
+  if (state.dryRun) return;   // simulation à blanc : aucune écriture
   markLocalWrite();
   const { error } = await sb().from('session_state').update({
     first_picker: state.firstPicker,
@@ -1234,6 +1238,83 @@ function stopEditVoeux() {
   render();
 }
 
+// ============================================================
+// Simulation « à blanc » (dry-run) du choix assisté : l'app joue le draft
+// toute seule (admin) SANS rien écrire en base, pour tester le déroulé du tour
+// et les dates suggérées en solo. « Quitter » restaure l'état réel.
+// ============================================================
+let _simSnapshot = null, _simTimer = null, _simDates = null;
+function ensureSimBanner() {
+  let el = document.getElementById('sim-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sim-banner';
+    el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;display:flex;align-items:center;justify-content:center;gap:16px;background:#7c3aed;color:#fff;padding:8px 14px;font-weight:700;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+    const txt = document.createElement('span'); txt.id = 'sim-banner-text';
+    const btn = document.createElement('button'); btn.textContent = '✕ Quitter la simulation';
+    btn.style.cssText = 'font-family:inherit;background:#fff;color:#5b21b6;border:none;border-radius:8px;padding:6px 14px;font-weight:700;cursor:pointer';
+    btn.onclick = simExit;
+    el.appendChild(txt); el.appendChild(btn);
+    document.body.appendChild(el);
+  }
+  el.hidden = false;
+  return el;
+}
+function simBannerText(s) { const t = document.getElementById('sim-banner-text'); if (t) t.textContent = s; }
+function simEnter() {
+  if (!isAdmin() || state.dryRun) return;
+  if (!confirm('Lancer une SIMULATION à blanc du choix assisté ?\n\nL\'app va jouer le tour toute seule, SANS rien enregistrer (le vrai planning n\'est pas touché). Tu pourras « Quitter la simulation » pour revenir à l\'état réel.')) return;
+  _simSnapshot = JSON.stringify({
+    assignments: state.assignments, history: state.history,
+    pickerCursor: state.pickerCursor, currentTour: state.currentTour,
+    tourStartIdx: state.tourStartIdx, tourDirection: state.tourDirection,
+    currentTurnSlots: state.currentTurnSlots, currentTurnPickCount: state.currentTurnPickCount,
+    returnCursor: state.returnCursor, manualPick: state.manualPick,
+    forcedNextPicker: state.forcedNextPicker, neutralView: state.neutralView, firstPicker: state.firstPicker,
+  });
+  state.dryRun = true;
+  _simDates = [...iterDates(PERIOD_START, PERIOD_END)];
+  state.assignments = {}; state.history = [];
+  state.neutralView = false; state.manualPick = null; state.forcedNextPicker = null; state.returnCursor = null;
+  state.currentTour = 1; state.tourStartIdx = Math.floor(Math.random() * state.doctors.length);
+  state.tourDirection = 1; state.pickerCursor = 0; state.currentTurnSlots = []; state.currentTurnPickCount = 0;
+  ensureSimBanner();
+  const pt = document.querySelector('.tab[data-tab="planning"]'); if (pt) pt.click(); else render();
+  simStep();
+}
+function simStep() {
+  if (!state.dryRun) return;
+  const cur = currentPickerInfo();
+  if (!cur) {
+    const anyLeft = state.doctors.some(d => objectivesRemaining(d).total > 0);
+    if (!anyLeft || state.currentTour > 40) {
+      simBannerText('🧪 Simulation terminée — inspecte le planning, puis « Quitter la simulation ».');
+      render(); return;
+    }
+    advanceTour();
+    _simTimer = setTimeout(simStep, 150);
+    return;
+  }
+  simBannerText(`🧪 Simulation (à blanc) — Tour ${state.currentTour}, au tour de ${cur.name}`);
+  const sugg = _simDates.filter(dt => isDateSuggestedFor(cur.name, dt));
+  if (!sugg.length) {   // ce choisisseur ne peut rien prendre ce tour → passer
+    state.pickerCursor = cur.cursor + 1; state.currentTurnSlots = []; state.currentTurnPickCount = 0; state.manualPick = null;
+    render(); _simTimer = setTimeout(simStep, 60); return;
+  }
+  const dt = sugg[0], d = findDoctor(cur.name), a = state.assignments[dt] || {}, b = objectiveBucket(dt), r = objectivesRemaining(d);
+  const site = eligibleSites(d).find(s => !a[s] && r[s][b] > 0);
+  if (!site) { state.pickerCursor = cur.cursor + 1; state.currentTurnSlots = []; state.currentTurnPickCount = 0; render(); _simTimer = setTimeout(simStep, 60); return; }
+  setAssignment(dt, site, cur.name, null);   // dryRun → aucune écriture DB
+  _simTimer = setTimeout(simStep, 150);
+}
+function simExit() {
+  if (_simTimer) { clearTimeout(_simTimer); _simTimer = null; }
+  if (_simSnapshot) { Object.assign(state, JSON.parse(_simSnapshot)); _simSnapshot = null; }
+  state.dryRun = false;
+  const el = document.getElementById('sim-banner'); if (el) el.hidden = true;
+  render();
+}
+
 function render() {
   const pl = $('period-label');
   if (pl) pl.textContent = periodLabel();
@@ -1716,6 +1797,7 @@ function parseCSVLine(line) {
 // ============================================================
 // Reset
 // ============================================================
+{ const _sb = document.getElementById('sim-assisted-btn'); if (_sb) _sb.onclick = simEnter; }
 $('reset-btn').onclick = async () => {
   if (!isAdmin()) { alert('Seul un admin peut réinitialiser.'); return; }
   if (!confirm('Réinitialiser tous les choix de garde ?\n\n— Le planning sera VIDÉ\n— Le tour repart à 1\n— Les vœux/indispos perso de chacun sont CONSERVÉS')) return;
@@ -2142,6 +2224,7 @@ window.initApp = initApp;
 function setupRealtime() {
   const ch = sb().channel('garde-room')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, payload => {
+      if (state.dryRun) return;   // simulation à blanc : ignorer le temps réel
       if (payload.eventType === 'DELETE') {
         const r = payload.old;
         if (state.assignments[r.date]) {
@@ -2160,6 +2243,7 @@ function setupRealtime() {
       render();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'session_state' }, payload => {
+      if (state.dryRun) return;   // simulation à blanc : ignorer le temps réel
       if (payload.new) {
         applySessionConfig(payload.new);
         // Progression du tour : on la recopie SAUF si c'est moi qui viens d'agir
@@ -2231,6 +2315,7 @@ function startPolling() {
   }
 }
 async function pollRefresh() {
+  if (state.dryRun) return;      // simulation à blanc : ne pas resynchroniser
   if (actedRecently()) return;   // ne pas écraser une action locale en cours
   try {
     const [asg, sess] = await Promise.all([
