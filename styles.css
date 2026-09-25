@@ -513,9 +513,12 @@ main {
 .focus-cal .day .slot.empty-slot { color: #94a3b8; }
 /* Jour plein : gris nettement plus foncé, pour se distinguer du gris léger
    des vendredis/week-ends. */
-.focus-cal .day.day-unavailable { background: #dde3eb; }
-.focus-cal .day.day-unavailable .num { text-decoration: none; opacity: 0.6; }
-.focus-cal .day.day-unavailable .slot { background: transparent; color: #64748b; }
+/* Jour plein (tous les sites pris par d'autres) : plus de lignes HMN/ACH, juste
+   le numéro « en filigrane » — case un peu plus foncée que le fond + numéro
+   légèrement plus foncé que la case (effet de transparence, la date s'efface). */
+.focus-cal .day.day-unavailable { background: #eaeef3; box-shadow: none; }
+.focus-cal .day.day-unavailable .num { text-decoration: none; opacity: 1; color: #b3bdca; font-weight: 700; }
+.focus-cal .day.day-unavailable:not(.day-unavailable-mine) .slot { display: none; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
 .focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #2563eb; background: #eff6ff; }
 .focus-cal .day.day-suggested .slot.empty-slot { color: #1d4ed8; font-weight: 800; }

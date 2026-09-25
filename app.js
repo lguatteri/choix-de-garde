@@ -922,65 +922,62 @@ function buildDayCell(dateStr, mode) {
   const turnRem = (mode === 'planning' && curName && !state.forcedNextPicker) ? getRemainingTurnQuota(curName).remaining : null;
   const slotType = tourSlotType(dateStr);
   const tourTypeDone = !!(turnRem && (turnRem[slotType] || 0) <= 0 && (turnRem.libre || 0) <= 0);
+  const refDoctor = (mode === 'planning') ? curName : voeuxEditName();
   ['HMN','ACH'].forEach(site => {
     // Médecin mono-site : masquer l'autre site (planning = picker ; Perso = moi)
     if (refEligible && !refEligible.includes(site)) return;
     const occ = a[site];
     const greyed = !extraPick && !!((curRem && curRem[site][bucket] <= 0) || tourTypeDone);
+    const mineHere = siteHasDoctor(occ, refDoctor);
 
-    // Jour 24h divisé (mode planning) → 2 demi-gardes Jour / Nuit
+    // Jour 24h divisé → 2 demi-gardes Jour / Nuit ; on MASQUE les demis prises
+    // par quelqu'un d'autre (la garde d'un autre écrase l'affichage).
     if (mode === 'planning' && longShift && occ && occ.split) {
       ['jour','nuit'].forEach(half => {
         const who = occ[half];
+        if (who && who !== refDoctor) return;   // demi prise par un autre → non affichée
         const s = document.createElement('div');
         s.className = 'slot ' + site + (who ? '' : ' empty-slot');
         if (who && who === curName) s.classList.add('mine-current');
-        if (greyed) s.classList.add('slot-greyed');
+        if (greyed && !who) s.classList.add('slot-greyed');
         s.textContent = `${site} ${half === 'jour' ? 'Jour' : 'Nuit'}${who ? ' ' + shortName(who) : ''}`;
         s.dataset.slotKey = site; s.dataset.half = half;
         el.appendChild(s); slotEls.push(s);
       });
-      // (diviser / re-fusionner se fait désormais depuis la modale d'assignation)
       return;
     }
 
-    // Rendu plein (12h, ou 24h non divisé)
+    // Site pris par QUELQU'UN D'AUTRE → on n'affiche plus la ligne (déclutter) :
+    // la date « remplie » se réduit à son numéro en filigrane (cf. .day-unavailable).
+    if (!siteIsEmpty(occ) && !mineHere) return;
+
     const s = document.createElement('div');
-    if (!siteIsEmpty(occ)) {
+    if (!siteIsEmpty(occ)) {   // pris par le médecin de référence → on garde la ligne (vert)
       const who = occ.split ? (occ.jour || occ.nuit) : occ.doctor;
       s.className = 'slot ' + site;
       if (mode !== 'planning' && siteHasDoctor(occ, voeuxEditName())) s.classList.add('mine');
       if (siteHasDoctor(occ, curName)) s.classList.add('mine-current');
       s.textContent = `${site}${longShift?' 24h':''} ${shortName(who)}`;
-    } else {
+    } else {                   // libre → choisissable
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
+      if (greyed) s.classList.add('slot-greyed');
     }
-    if (greyed) s.classList.add('slot-greyed');
     s.dataset.slotKey = site;
     slotEls.push(s);
-    el.appendChild(s);   // diviser en 2 se fait depuis la modale d'assignation
+    el.appendChild(s);
   });
 
-  // "Mine" : au moins un créneau pris par le picker courant (planning) ou par moi (perso)
-  const refDoctor = (mode === 'planning') ? curName : voeuxEditName();
+  // "Mine" : au moins un créneau pris par le médecin de référence.
   const hasMine = refDoctor && ['HMN','ACH'].some(site => siteHasDoctor(a[site], refDoctor));
-
-  if (curName) {
-    const allTaken = curEligible.every(site => siteFull(a[site]));
-    if (allTaken) {
-      el.classList.add('day-unavailable');
-      if (hasMine) el.classList.add('day-unavailable-mine');
-    } else if (hasMine) {
-      el.classList.add('day-mine');
-    }
-  } else {
-    if (siteFull(a.HMN) && siteFull(a.ACH)) {
-      el.classList.add('day-unavailable');
-      if (hasMine) el.classList.add('day-unavailable-mine');
-    } else if (hasMine) {
-      el.classList.add('day-mine');
-    }
+  // Jour « plein » = tous les sites PERTINENTS (du médecin de réf.) sont pris.
+  const refSites = refEligible || ['HMN','ACH'];
+  const allTaken = refSites.every(site => siteFull(a[site]));
+  if (allTaken) {
+    el.classList.add('day-unavailable');
+    if (hasMine) el.classList.add('day-unavailable-mine');
+  } else if (hasMine) {
+    el.classList.add('day-mine');
   }
 
   // Suggestion bleue : le picker courant pourrait prendre ce jour
