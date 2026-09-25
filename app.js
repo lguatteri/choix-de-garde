@@ -923,6 +923,12 @@ function buildDayCell(dateStr, mode) {
   const turnRem = (mode === 'planning' && curName && !state.forcedNextPicker) ? getRemainingTurnQuota(curName).remaining : null;
   const slotType = tourSlotType(dateStr);
   const tourTypeDone = !!(turnRem && (turnRem[slotType] || 0) <= 0 && (turnRem.libre || 0) <= 0);
+  // Date suggérée (choisissable) pour le picker courant — calculée une fois.
+  const isSugg = (mode === 'planning' && !!curName && !state.neutralView) ? isDateSuggestedFor(curName, dateStr) : false;
+  // Non choisissable ce tour, QUELLE QUE SOIT la raison (indispo, adjacence,
+  // type de jour déjà fait, plus d'objectif…) → on grise les créneaux libres
+  // de la même façon (cohérence d'affichage).
+  const dateNotChoosable = !extraPick && mode === 'planning' && !!curName && !state.neutralView && !isSugg;
   const refDoctor = (mode === 'planning') ? curName : voeuxEditName();
   const dayHasMine = refDoctor && ['HMN','ACH'].some(s => siteHasDoctor(a[s], refDoctor));
   // Mode « épuré » : UNIQUEMENT dans Perso quand le curseur est sur « épuré ».
@@ -967,7 +973,7 @@ function buildDayCell(dateStr, mode) {
     } else {                   // libre → choisissable
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
-      if (greyed) s.classList.add('slot-greyed');
+      if (greyed || dateNotChoosable) s.classList.add('slot-greyed');
     }
     s.dataset.slotKey = site;
     slotEls.push(s);
@@ -987,9 +993,8 @@ function buildDayCell(dateStr, mode) {
   }
 
   // Suggestion bleue : le picker courant pourrait prendre ce jour
-  if (mode === 'planning' && curName && !el.classList.contains('day-mine')
-      && !el.classList.contains('day-unavailable')
-      && isDateSuggestedFor(curName, dateStr)) {
+  if (isSugg && !el.classList.contains('day-mine')
+      && !el.classList.contains('day-unavailable')) {
     el.classList.add('day-suggested');
   }
 
