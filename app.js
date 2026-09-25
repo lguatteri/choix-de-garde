@@ -1367,6 +1367,28 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape') { e.preventDefault(); simExit(); }
 });
 
+// Pourcentage de remplissage du planning (créneaux HMN/ACH pourvus sur la période).
+function computeFillPercent() {
+  let total = 0, filled = 0;
+  for (const d of iterDates(PERIOD_START, PERIOD_END)) {
+    for (const site of ['HMN', 'ACH']) {
+      total++;
+      const s = (state.assignments[d] || {})[site];
+      if (!s) continue;
+      if (s.split) filled += (s.jour ? 0.5 : 0) + (s.nuit ? 0.5 : 0);
+      else if (s.doctor) filled += 1;
+    }
+  }
+  return total ? Math.round(filled / total * 100) : 0;
+}
+function renderFillGauge() {
+  const el = document.getElementById('fill-gauge');
+  if (!el) return;
+  const pct = computeFillPercent();
+  el.innerHTML = `<div class="fg-label">Planning rempli — <strong>${pct}%</strong></div>` +
+    `<div class="fg-bar"><div class="fg-fill" style="width:${pct}%"></div></div>`;
+}
+
 function render() {
   const pl = $('period-label');
   if (pl) pl.textContent = periodLabel();
@@ -1376,6 +1398,7 @@ function render() {
     updateFillToggles();
     renderCalendar('planning-calendar', 'planning');
     renderPickerInfo();
+    renderFillGauge();
   } else if (activeTab === 'voeux') {
     renderVoeuxEditBanner();
     updateFillToggles();

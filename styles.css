@@ -186,7 +186,12 @@ main {
   align-items: start;
 }
 #planning .picker-current-box { grid-area: current; }
-#planning .picker-next-box { grid-area: next; }
+#planning .next-gauge-wrap { grid-area: next; display: flex; flex-direction: column; gap: 8px; }
+/* Jauge de remplissage du planning, sous la case « Suivant » */
+.fill-gauge { font-size: 11px; color: var(--ink-soft); }
+.fill-gauge .fg-label { margin-bottom: 4px; font-weight: 700; }
+.fill-gauge .fg-bar { height: 9px; background: #e5e9f0; border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(15,23,42,0.06); }
+.fill-gauge .fg-fill { height: 100%; background: linear-gradient(90deg, #34d399, #16a34a); border-radius: 999px; transition: width 0.35s ease; }
 #planning .calendar { grid-area: calendar; }
 #planning .actions { grid-area: actions; margin-top: 0; align-self: end; }
 @media (max-width: 900px) {

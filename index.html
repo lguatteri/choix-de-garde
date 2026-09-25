@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=126">
+<link rel="stylesheet" href="styles.css?v=127">
 </head>
 <body>
 
@@ -82,7 +82,10 @@
           <div class="tour-info" id="tour-info"></div>
           <div class="objectives-remaining" id="obj-remaining"></div>
         </div>
-        <div class="picker-box picker-next-box" id="next-picker"></div>
+        <div class="next-gauge-wrap">
+          <div class="picker-box picker-next-box" id="next-picker"></div>
+          <div class="fill-gauge" id="fill-gauge"></div>
+        </div>
         <div class="planning-cal-wrap">
           <div class="calendar focus-cal" id="planning-calendar"></div>
           <div class="fill-mode-toggle" data-scope="planning">
@@ -207,7 +210,7 @@
   <script src="auth.js?v=44"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=101"></script>
+  <script src="app.js?v=102"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
