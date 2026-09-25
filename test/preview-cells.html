@@ -25,6 +25,12 @@
     Rafraîchis (Cmd+R) après chaque changement de CSS.
   </p>
 
+  <div style="margin:0 0 16px">
+    <span style="font-size:13px;color:#475569;font-weight:600;margin-right:8px">Mode :</span>
+    <button id="mode-epure" style="font-family:inherit;border:1px solid #cbd5e1;background:#1d4ed8;color:#fff;border-radius:999px;padding:6px 14px;font-weight:700;font-size:12px;cursor:pointer">Perso (épuré = filigrane)</button>
+    <button id="mode-noms"  style="font-family:inherit;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:999px;padding:6px 14px;font-weight:700;font-size:12px;cursor:pointer">Planning (avec les noms = grisé)</button>
+  </div>
+
   <div class="cols">
     <div class="col">
       <h2>Vue MONO-SITE (HMN)</h2>
@@ -49,25 +55,34 @@ const YEAR=2026, MONTH=9;
 const HOLIDAYS = new Set([15]);   // un jour férié dans le mois (affiché avec 🎉)
 const WK = ['L','M','M','J','V','S','D'];
 
+let MODE = 'epure';   // 'epure' (Perso = filigrane) | 'noms' (Planning = grisé)
+const NAMES = ['Dupo.M','Sayo.R','Benm.S','Ferc.A','Gere.M','Laid.C','Nkam.I','Pign.B'];
+function nameFor(day, site){ return NAMES[(day + (site==='ACH'?3:0)) % NAMES.length]; }
+
 function slot(cls, txt){ const e=document.createElement('div'); e.className='slot '+cls; e.textContent=txt; return e; }
 function emptySlot(site, greyed){ return slot('empty-slot '+site+(greyed?' slot-greyed':''), site); }
+function takenSlot(site, day){ return slot(site, site+' '+nameFor(day,site)); }        // pris par un autre (nom)
+function mineSlot(site, day){ return slot(site+' mine-current', MODE==='noms' ? (site+' '+nameFor(day,site)) : site); }
 
 function buildDay(day, state, mono) {
   const dt = new Date(YEAR, MONTH, day), dow = dt.getDay();
-  const el = document.createElement('div'); el.className='day declutter';  /* preview = Perso mode épuré */
+  const el = document.createElement('div'); el.className = 'day' + (MODE==='epure' ? ' declutter' : '');
   const holiday = HOLIDAYS.has(day);
   if (holiday) el.classList.add('holiday');
   else if (dow===0||dow===6) el.classList.add('weekend'); else if (dow===5) el.classList.add('friday');
   const num = document.createElement('div'); num.className='num'; num.textContent = holiday ? (day+' 🎉') : day; el.appendChild(num);
   const sites = mono ? ['HMN'] : ['HMN','ACH'];
   switch(state){
-    case 'full':  el.classList.add('day-unavailable'); break;
-    case 'mine':  el.classList.add('day-mine'); el.appendChild(slot('HMN mine-current','HMN')); break;
+    case 'full':  el.classList.add('day-unavailable');
+                  if (MODE==='noms') sites.forEach(s=>el.appendChild(takenSlot(s, day)));   // filigrane + noms
+                  break;
+    case 'mine':  el.classList.add('day-mine'); el.appendChild(mineSlot('HMN', day)); break;
     case 'sugg':  el.classList.add('day-suggested'); sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
     case 'grey':  sites.forEach(s=>el.appendChild(emptySlot(s,true))); break;
     case 'voeuH': el.dataset.voeu='wishedHMN'; sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
     case 'block': el.dataset.voeu='blocked'; sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
-    case 'half':  el.appendChild(emptySlot(mono?'HMN':'ACH', false)); break; // 1 site pris (caché), l'autre libre
+    case 'half':  if (MODE==='noms' && !mono) el.appendChild(takenSlot('HMN', day));   // HMN pris (nom) en mode noms
+                  el.appendChild(emptySlot(mono?'HMN':'ACH', false)); break;
     default:      sites.forEach(s=>el.appendChild(emptySlot(s,false)));
   }
   return el;
@@ -83,8 +98,17 @@ function renderMonth(container, mono) {
   for(let d=1; d<=31; d++){ days.appendChild(buildDay(d, STATE[d]||'free', mono)); }
   container.appendChild(days);
 }
-renderMonth(document.getElementById('mMono'), true);
-renderMonth(document.getElementById('mDouble'), false);
+function renderAll(){ renderMonth(document.getElementById('mMono'), true); renderMonth(document.getElementById('mDouble'), false); }
+function setMode(m){
+  MODE = m;
+  const e=document.getElementById('mode-epure'), n=document.getElementById('mode-noms');
+  e.style.background = m==='epure'?'#1d4ed8':'#fff'; e.style.color = m==='epure'?'#fff':'#475569';
+  n.style.background = m==='noms'?'#1d4ed8':'#fff';  n.style.color = m==='noms'?'#fff':'#475569';
+  renderAll();
+}
+document.getElementById('mode-epure').onclick = ()=>setMode('epure');
+document.getElementById('mode-noms').onclick  = ()=>setMode('noms');
+renderAll();
 </script>
 </body>
 </html>

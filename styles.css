@@ -524,8 +524,8 @@ main {
 }
 .focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine) .slot { display: none; }
 .focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine):hover { box-shadow: none; transform: none; }
-/* Jour PLEIN — mode NOMS (Planning + Perso « avec les noms ») : gris clair,
-   site + Dr estompés. */
+/* Jour PLEIN — mode NOMS (Planning + Perso « avec les noms ») : cases GRISÉES
+   (comme avant), site + Dr estompés. */
 .focus-cal .day.day-unavailable:not(.declutter) { background: #eef1f6; }
 .focus-cal .day.day-unavailable:not(.declutter):not(.day-unavailable-mine) .num { opacity: 0.6; text-decoration: none; }
 .focus-cal .day.day-unavailable:not(.declutter):not(.day-unavailable-mine) .slot { background: transparent; color: #64748b; }
@@ -533,11 +533,6 @@ main {
 .focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
 .focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #5b8def; }  /* liséré bleu radouci, fond normal (V1) */
-/* Date NON choisissable ce tour (créneaux en gris) : contour légèrement plus
-   foncé qu'un jour plein (en filigrane), pour bien les distinguer. */
-.focus-cal .day:not(.day-mine):not(.day-unavailable):not(.day-suggested):has(.slot.slot-greyed) {
-  border-color: #94a3b8; border-width: 1px;
-}
 .focus-cal .day.day-suggested .slot.empty-slot { color: #1d4ed8; font-weight: 800; }
 .focus-cal .day.day-suggested .slot.HMN,
 .focus-cal .day.day-suggested .slot.ACH { color: #64748b; }
