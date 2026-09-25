@@ -25,10 +25,11 @@
     Rafraîchis (Cmd+R) après chaque changement de CSS.
   </p>
 
-  <div style="margin:0 0 16px">
-    <span style="font-size:13px;color:#475569;font-weight:600;margin-right:8px">Mode :</span>
-    <button id="mode-epure" style="font-family:inherit;border:1px solid #cbd5e1;background:#1d4ed8;color:#fff;border-radius:999px;padding:6px 14px;font-weight:700;font-size:12px;cursor:pointer">Perso (épuré = filigrane)</button>
-    <button id="mode-noms"  style="font-family:inherit;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:999px;padding:6px 14px;font-weight:700;font-size:12px;cursor:pointer">Planning (avec les noms = grisé)</button>
+  <div id="modebar" style="margin:0 0 16px">
+    <span style="font-size:13px;color:#475569;font-weight:600;margin-right:8px">Jours pleins :</span>
+    <button data-m="epure"     style="font-family:inherit;border:1px solid #cbd5e1;border-radius:999px;padding:6px 14px;font-weight:700;font-size:12px;cursor:pointer">Épuré</button>
+    <button data-m="nomsGris"  style="font-family:inherit;border:1px solid #cbd5e1;border-radius:999px;padding:6px 14px;font-weight:700;font-size:12px;cursor:pointer">Noms grisé</button>
+    <button data-m="nomsFilig" style="font-family:inherit;border:1px solid #cbd5e1;border-radius:999px;padding:6px 14px;font-weight:700;font-size:12px;cursor:pointer">Noms filigrane</button>
   </div>
 
   <div class="cols">
@@ -55,18 +56,20 @@ const YEAR=2026, MONTH=9;
 const HOLIDAYS = new Set([15]);   // un jour férié dans le mois (affiché avec 🎉)
 const WK = ['L','M','M','J','V','S','D'];
 
-let MODE = 'epure';   // 'epure' (Perso = filigrane) | 'noms' (Planning = grisé)
+let MODE = 'epure';   // 'epure' | 'nomsGris' | 'nomsFilig'
+const WITHNAMES = () => MODE !== 'epure';
 const NAMES = ['Dupo.M','Sayo.R','Benm.S','Ferc.A','Gere.M','Laid.C','Nkam.I','Pign.B'];
 function nameFor(day, site){ return NAMES[(day + (site==='ACH'?3:0)) % NAMES.length]; }
 
 function slot(cls, txt){ const e=document.createElement('div'); e.className='slot '+cls; e.textContent=txt; return e; }
 function emptySlot(site, greyed){ return slot('empty-slot '+site+(greyed?' slot-greyed':''), site); }
 function takenSlot(site, day){ return slot(site, site+' '+nameFor(day,site)); }        // pris par un autre (nom)
-function mineSlot(site, day){ return slot(site+' mine-current', MODE==='noms' ? (site+' '+nameFor(day,site)) : site); }
+function mineSlot(site, day){ return slot(site+' mine-current', WITHNAMES() ? (site+' '+nameFor(day,site)) : site); }
 
 function buildDay(day, state, mono) {
   const dt = new Date(YEAR, MONTH, day), dow = dt.getDay();
-  const el = document.createElement('div'); el.className = 'day' + (MODE==='epure' ? ' declutter' : '');
+  const cls = MODE==='epure' ? ' declutter' : MODE==='nomsFilig' ? ' filig' : '';
+  const el = document.createElement('div'); el.className = 'day' + cls;
   const holiday = HOLIDAYS.has(day);
   if (holiday) el.classList.add('holiday');
   else if (dow===0||dow===6) el.classList.add('weekend'); else if (dow===5) el.classList.add('friday');
@@ -74,7 +77,7 @@ function buildDay(day, state, mono) {
   const sites = mono ? ['HMN'] : ['HMN','ACH'];
   switch(state){
     case 'full':  el.classList.add('day-unavailable');
-                  if (MODE==='noms') sites.forEach(s=>el.appendChild(takenSlot(s, day)));   // filigrane + noms
+                  if (WITHNAMES()) sites.forEach(s=>el.appendChild(takenSlot(s, day)));
                   break;
     case 'mine':  el.classList.add('day-mine'); el.appendChild(mineSlot('HMN', day)); break;
     case 'minefull': el.classList.add('day-mine','day-unavailable','day-unavailable-mine'); el.appendChild(mineSlot('HMN', day)); break; // ma garde + jour plein
@@ -83,7 +86,7 @@ function buildDay(day, state, mono) {
     case 'grey':  sites.forEach(s=>el.appendChild(emptySlot(s,true))); break;
     case 'voeuH': el.dataset.voeu='wishedHMN'; sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
     case 'block': el.dataset.voeu='blocked'; sites.forEach(s=>el.appendChild(emptySlot(s,false))); break;
-    case 'half':  if (MODE==='noms' && !mono) el.appendChild(takenSlot('HMN', day));   // HMN pris (nom) en mode noms
+    case 'half':  if (WITHNAMES() && !mono) el.appendChild(takenSlot('HMN', day));
                   el.appendChild(emptySlot(mono?'HMN':'ACH', false)); break;
     default:      sites.forEach(s=>el.appendChild(emptySlot(s,false)));
   }
@@ -103,14 +106,14 @@ function renderMonth(container, mono) {
 function renderAll(){ renderMonth(document.getElementById('mMono'), true); renderMonth(document.getElementById('mDouble'), false); }
 function setMode(m){
   MODE = m;
-  const e=document.getElementById('mode-epure'), n=document.getElementById('mode-noms');
-  e.style.background = m==='epure'?'#1d4ed8':'#fff'; e.style.color = m==='epure'?'#fff':'#475569';
-  n.style.background = m==='noms'?'#1d4ed8':'#fff';  n.style.color = m==='noms'?'#fff':'#475569';
+  document.querySelectorAll('#modebar button').forEach(b=>{
+    const on = b.dataset.m===m;
+    b.style.background = on?'#1d4ed8':'#fff'; b.style.color = on?'#fff':'#475569';
+  });
   renderAll();
 }
-document.getElementById('mode-epure').onclick = ()=>setMode('epure');
-document.getElementById('mode-noms').onclick  = ()=>setMode('noms');
-renderAll();
+document.querySelectorAll('#modebar button').forEach(b=> b.onclick = ()=>setMode(b.dataset.m));
+setMode('epure');
 </script>
 </body>
 </html>

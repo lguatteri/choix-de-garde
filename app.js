@@ -12,7 +12,10 @@ function defaultState() {
     voeux: {},                // dateStr -> 'wishedHMN' | 'wishedACH' | 'wishedBoth' | 'blocked'
     myName: null,             // = currentProfile.doctor_name après login
     voeuxEditTarget: null,    // local : super admin éditant les vœux d'un autre médecin (nom), sinon null
-    persoEpure: true,         // local : Perso, affichage des jours pleins « épuré » (true) ou « avec les noms » (false)
+    // Affichage des jours pleins, par onglet : 'epure' (filigrane sans noms) |
+    // 'nomsGris' (grisé + noms) | 'nomsFilig' (filigrane + noms).
+    fillModePlanning: 'nomsGris',
+    fillModePerso: 'epure',
     firstPicker: null,
     pickerCursor: 0,
     currentTour: 1,           // tour de groupe (admin contrôle son avancement)
@@ -931,10 +934,13 @@ function buildDayCell(dateStr, mode) {
   const dateNotChoosable = !extraPick && mode === 'planning' && !!curName && !state.neutralView && !isSugg;
   const refDoctor = (mode === 'planning') ? curName : voeuxEditName();
   const dayHasMine = refDoctor && ['HMN','ACH'].some(s => siteHasDoctor(a[s], refDoctor));
-  // Mode « épuré » : UNIQUEMENT dans Perso quand le curseur est sur « épuré ».
-  // Le Planning affiche toujours les noms (comme avant).
-  const declutter = (mode === 'voeux') && state.persoEpure;
+  // Format d'affichage des jours pleins, selon l'onglet :
+  //  'epure' → filigrane sans noms (.declutter) ; 'nomsFilig' → filigrane + noms
+  //  (.filig) ; 'nomsGris' → grisé + noms (aucune classe).
+  const fillMode = (mode === 'planning') ? state.fillModePlanning : state.fillModePerso;
+  const declutter = (fillMode === 'epure');
   if (declutter) el.classList.add('declutter');
+  else if (fillMode === 'nomsFilig') el.classList.add('filig');
   ['HMN','ACH'].forEach(site => {
     // Médecin mono-site : masquer l'autre site (planning = picker ; Perso = moi)
     if (refEligible && !refEligible.includes(site)) return;
@@ -1255,17 +1261,24 @@ function stopEditVoeux() {
   render();
 }
 
-// Curseur Perso « jours pleins : épuré / avec les noms »
-function updatePersoFillToggle() {
-  const e = document.getElementById('perso-epure-btn'), n = document.getElementById('perso-noms-btn');
-  if (e) e.classList.toggle('active', !!state.persoEpure);
-  if (n) n.classList.toggle('active', !state.persoEpure);
+// Curseurs « jours pleins : épuré / noms grisé / noms filigrane » (un par onglet)
+function fillModeFor(scope) { return scope === 'planning' ? state.fillModePlanning : state.fillModePerso; }
+function updateFillToggles() {
+  document.querySelectorAll('.fill-mode-toggle').forEach(tog => {
+    const cur = fillModeFor(tog.dataset.scope);
+    tog.querySelectorAll('.fmt-btn').forEach(b => b.classList.toggle('active', b.dataset.fill === cur));
+  });
 }
-{
-  const e = document.getElementById('perso-epure-btn'), n = document.getElementById('perso-noms-btn');
-  if (e) e.onclick = () => { state.persoEpure = true;  updatePersoFillToggle(); render(); };
-  if (n) n.onclick = () => { state.persoEpure = false; updatePersoFillToggle(); render(); };
-}
+document.querySelectorAll('.fill-mode-toggle').forEach(tog => {
+  const scope = tog.dataset.scope;
+  tog.querySelectorAll('.fmt-btn').forEach(btn => {
+    btn.onclick = () => {
+      if (scope === 'planning') state.fillModePlanning = btn.dataset.fill;
+      else state.fillModePerso = btn.dataset.fill;
+      updateFillToggles(); render();
+    };
+  });
+});
 
 // ============================================================
 // Simulation « à blanc » (dry-run) du choix assisté : l'app joue le draft
@@ -1360,11 +1373,12 @@ function render() {
   renderMeBadge();
   const activeTab = document.querySelector('.tab.active').dataset.tab;
   if (activeTab === 'planning') {
+    updateFillToggles();
     renderCalendar('planning-calendar', 'planning');
     renderPickerInfo();
   } else if (activeTab === 'voeux') {
     renderVoeuxEditBanner();
-    updatePersoFillToggle();
+    updateFillToggles();
     renderVoeuxHint();
     renderMyNextTurn();
     renderCalendar('voeux-calendar', 'voeux');

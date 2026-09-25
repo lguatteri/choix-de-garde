@@ -524,11 +524,18 @@ main {
 }
 .focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine) .slot { display: none; }
 .focus-cal .day.day-unavailable.declutter:not(.day-unavailable-mine):hover { box-shadow: none; transform: none; }
-/* Jour PLEIN — mode NOMS (Planning + Perso « avec les noms ») : cases GRISÉES
-   (comme avant), site + Dr estompés. */
-.focus-cal .day.day-unavailable:not(.declutter):not(.day-unavailable-mine) { background: #eef1f6; }
-.focus-cal .day.day-unavailable:not(.declutter):not(.day-unavailable-mine) .num { opacity: 0.6; text-decoration: none; }
-.focus-cal .day.day-unavailable:not(.declutter):not(.day-unavailable-mine) .slot { background: transparent; color: #64748b; }
+/* Jour PLEIN — mode NOMS GRISÉ : cases grisées, site + Dr estompés. */
+.focus-cal .day.day-unavailable:not(.declutter):not(.filig):not(.day-unavailable-mine) { background: #eef1f6; }
+.focus-cal .day.day-unavailable:not(.declutter):not(.filig):not(.day-unavailable-mine) .num { opacity: 0.6; text-decoration: none; }
+.focus-cal .day.day-unavailable:not(.declutter):not(.filig):not(.day-unavailable-mine) .slot { background: transparent; color: #64748b; }
+/* Jour PLEIN — mode NOMS FILIGRANE : fond naturel (comme l'épuré), mais on GARDE
+   site + Dr écrits (estompés). */
+.focus-cal .day.day-unavailable.filig:not(.day-unavailable-mine) { background: var(--surface); box-shadow: none; border-color: #f1f4f8; }
+.focus-cal .day.day-unavailable.filig:not(.day-unavailable-mine).weekend { background: var(--weekend); }
+.focus-cal .day.day-unavailable.filig:not(.day-unavailable-mine).friday  { background: var(--friday); }
+.focus-cal .day.day-unavailable.filig:not(.day-unavailable-mine).holiday { background: var(--holiday); }
+.focus-cal .day.day-unavailable.filig:not(.day-unavailable-mine) .num { opacity: 1; color: #cbd3dd; font-weight: 700; text-decoration: none; }
+.focus-cal .day.day-unavailable.filig:not(.day-unavailable-mine) .slot { background: transparent; color: #aab4c2; font-weight: 500; }
 /* Le sien, plein, garde son numéro visible */
 .focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
@@ -948,14 +955,16 @@ body.neutral .picker-current-box::after {
 
 .me-over { color: #b45309; font-weight: 700; font-size: 0.82em; }
 
-/* Curseur d'affichage des jours pleins dans Perso (épuré / avec les noms) */
-.perso-fill-toggle { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; flex-wrap: wrap; }
-.perso-fill-toggle .pft-label { color: #64748b; font-weight: 600; }
-.perso-fill-toggle .pft-btn {
+/* Curseur d'affichage des jours pleins (épuré / noms grisé / noms filigrane) */
+.fill-mode-toggle { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; flex-wrap: wrap; }
+.fill-mode-toggle .fmt-label { color: #64748b; font-weight: 600; }
+.fill-mode-toggle .fmt-btn {
   font-family: inherit; border: 1px solid #cbd5e1; background: #fff; color: #475569;
   border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
 }
-.perso-fill-toggle .pft-btn.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+.fill-mode-toggle .fmt-btn.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+/* Le wrapper prend la zone « calendar » de la grille Planning (curseur au-dessus) */
+#planning .planning-cal-wrap { grid-area: calendar; }
 
 .readonly-banner { display: none; }
 .read-only .readonly-banner {
