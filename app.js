@@ -241,6 +241,9 @@ function dayType(dateStr) {
   if (dow === 0) return 'sunday';
   if (dow === 6) return 'saturday';
   if (dow === 5) return 'friday';
+  // Veille de jour férié (un jour de semaine Lun–Jeu) → traitée comme un VENDREDI
+  // (type de tour « vendredi » ; l'objectif reste « semaine », pas de 24h).
+  if (isHoliday(dateAdd(dateStr, 1))) return 'friday';
   return 'weekday';
 }
 function is24h(dateStr) {
@@ -362,11 +365,17 @@ function objectivesRemaining(d) {
     if (c[p.site]) c[p.site][b] += p.weight;
     totalW += p.weight;
   });
-  return {
+  const rem = {
     ACH: { sem: d.ACH.sem - c.ACH.sem, we: d.ACH.we - c.ACH.we },
     HMN: { sem: d.HMN.sem - c.HMN.sem, we: d.HMN.we - c.HMN.we },
     total: totalObjective(d) - totalW,
   };
+  // « déficit » = ce qu'il RESTE vraiment à prendre, PAR CATÉGORIE (on ne laisse
+  // pas un excédent sur une catégorie masquer un manque sur une autre). C'est ce
+  // qui doit décider si un médecin a « fini », pas le total net.
+  rem.deficit = Math.max(0, rem.ACH.sem) + Math.max(0, rem.ACH.we)
+              + Math.max(0, rem.HMN.sem) + Math.max(0, rem.HMN.we);
+  return rem;
 }
 
 // ============================================================
@@ -437,7 +446,7 @@ function currentPickerInfo() {
     if (!d) { c++; continue; }
     // Sauté si objectifs finis — SAUF si épinglé manuellement par l'admin
     // (pour lui laisser choisir une garde en plus).
-    if (objectivesRemaining(d).total <= 0 && d.name !== state.manualPick) { c++; continue; }
+    if (objectivesRemaining(d).deficit <= 0 && d.name !== state.manualPick) { c++; continue; }
     return { name: d.name, tour: state.currentTour, cursor: c, forced: false };
   }
   return null; // tout le monde a joué dans ce tour → admin doit cliquer "Tour suivant"
@@ -449,7 +458,7 @@ function nextPickerInfo() {
   let start = (cur ? cur.cursor : state.pickerCursor) + 1;
   while (start < N) {
     const d = pickerAt(start);
-    if (d && objectivesRemaining(d).total > 0) {
+    if (d && objectivesRemaining(d).deficit > 0) {
       return { name: d.name, tour: state.currentTour };
     }
     start++;
@@ -457,7 +466,7 @@ function nextPickerInfo() {
   // Tour terminé → suivant = première personne du tour suivant
   // (= la dernière personne du tour actuel, back-to-back, en sens inverse)
   const last = lastPickerOfTour();
-  if (last && objectivesRemaining(last).total > 0) {
+  if (last && objectivesRemaining(last).deficit > 0) {
     return { name: last.name, tour: state.currentTour + 1, isNextTour: true };
   }
   return null;
@@ -603,7 +612,7 @@ function advanceCursorIfNeeded() {
   while (state.pickerCursor < N && safety-- > 0) {
     const d = pickerAt(state.pickerCursor);
     if (!d) { state.pickerCursor++; continue; }
-    const objDone = objectivesRemaining(d).total <= 0;
+    const objDone = objectivesRemaining(d).deficit <= 0;
     const q = quotaSum(d, state.currentTour);
     // Avance si le tour est rempli OU si tous les objectifs totaux sont atteints
     if ((state.currentTurnPickCount || 0) >= q || objDone) {
@@ -901,7 +910,7 @@ function buildDayCell(dateStr, mode) {
   const curRem = curPicker ? objectivesRemaining(curPicker) : null;
   // « Choix en plus » : picker épinglé alors que ses objectifs sont finis → on
   // ne grise pas (tous les créneaux libres restent choisissables).
-  const extraPick = !!(curPicker && curRem && curRem.total <= 0);
+  const extraPick = !!(curPicker && curRem && curRem.deficit <= 0);
   const bucket = objectiveBucket(dateStr);
   const canSplit = (mode === 'planning') && isAdmin();
   // Quota de tour restant : si le type de jour (we/vendredi/semaine) est déjà
@@ -1085,7 +1094,7 @@ function renderPickerInfo() {
 
   const d = findDoctor(cur.name);
 
-  if (objectivesRemaining(d).total <= 0) {
+  if (objectivesRemaining(d).deficit <= 0) {
     // Personne épinglée manuellement alors que ses objectifs sont déjà atteints.
     tourEl.innerHTML = `<strong>🎁 Choix en plus</strong> — ${cur.name} a déjà atteint tous ses objectifs. ` +
       `La garde choisie ici sera <em>au-delà</em> de sa cible. (Le tour reprend au front ensuite.)`;
@@ -1108,10 +1117,12 @@ function renderPickerInfo() {
   }
 
   const r = objectivesRemaining(d);
-  const totSem = r.ACH.sem + r.HMN.sem;
-  const totWE  = r.ACH.we + r.HMN.we;
+  // Ligne principale = ce qu'il reste à PRENDRE par type (déficit, jamais masqué
+  // par un excédent sur l'autre site).
+  const defSem = Math.max(0, r.ACH.sem) + Math.max(0, r.HMN.sem);
+  const defWE  = Math.max(0, r.ACH.we)  + Math.max(0, r.HMN.we);
   objEl.innerHTML =
-    `Objectifs : <strong>${fmtHalf(totSem)} sem / ${fmtHalf(totWE)} WE+f</strong><br>` +
+    `Objectifs : <strong>${fmtHalf(defSem)} sem / ${fmtHalf(defWE)} WE+f</strong><br>` +
     `<span style="opacity:0.8">ACH ${fmtHalf(r.ACH.sem)}/${fmtHalf(r.ACH.we)} · HMN ${fmtHalf(r.HMN.sem)}/${fmtHalf(r.HMN.we)}</span>`;
 
   if (!next) {
@@ -1153,8 +1164,13 @@ function renderMeBadge() {
   // Colonne « Gardes restantes » (bandeau vert) : site + Semaine à gauche, WE/férié dans un panneau clair
   let remMain = '', remWe = '';
   shown.forEach(site => {
-    remMain += `<div class="me-line"><span class="me-site">${site} :</span><span>Semaine = <strong>${fmtHalf(r[site].sem)}</strong></span></div>`;
-    remWe += `<div class="me-we-cell">WE/férié = <strong>${fmtHalf(r[site].we)}</strong></div>`;
+    // « restantes » = ce qu'il reste à PRENDRE (jamais négatif). Un éventuel
+    // excédent est signalé à part pour ne pas afficher un « -1 » déroutant.
+    const remSem = Math.max(0, r[site].sem), remWeV = Math.max(0, r[site].we);
+    const overSem = r[site].sem < 0 ? ` <span class="me-over">(${fmtHalf(-r[site].sem)} en trop)</span>` : '';
+    const overWe  = r[site].we  < 0 ? ` <span class="me-over">(${fmtHalf(-r[site].we)} en trop)</span>` : '';
+    remMain += `<div class="me-line"><span class="me-site">${site} :</span><span>Semaine = <strong>${fmtHalf(remSem)}</strong>${overSem}</span></div>`;
+    remWe += `<div class="me-we-cell">WE/férié = <strong>${fmtHalf(remWeV)}</strong>${overWe}</div>`;
   });
   el.innerHTML =
     `<div class="me-name-band"><span>${state.myName}</span></div>` +
@@ -1290,7 +1306,7 @@ function simNext() {
   if (!state.dryRun) return;
   const cur = currentPickerInfo();
   if (!cur) {
-    const anyLeft = state.doctors.some(d => objectivesRemaining(d).total > 0);
+    const anyLeft = state.doctors.some(d => objectivesRemaining(d).deficit > 0);
     if (!anyLeft || state.currentTour > 40) { simBannerText('🧪 Simulation terminée — inspecte le planning, puis « Quitter ».'); render(); return; }
     advanceTour(); render();
     simBannerText(`🧪 ➡ Nouveau tour ${state.currentTour}. Appuie sur → pour continuer.`);
@@ -1446,7 +1462,7 @@ function refreshDoctorDropdown() {
     opt.value = d.name;
     const r = objectivesRemaining(d);
     let label = d.name;
-    if (r.total <= 0) label += ' ✓ (objectifs ok)';
+    if (r.deficit <= 0) label += ' ✓ (objectifs ok)';
     else if (!slotEligible(d, modalState.slotKey)) label += ' ⚠ (pas d\'obj sur ce site)';
     opt.textContent = label;
     if (cur && d.name === cur.name) opt.textContent = '⬅ ' + opt.textContent;
@@ -1554,7 +1570,7 @@ $('modal-save').onclick = () => {
     // épinglée dont les objectifs sont déjà tous atteints).
     const dr = objectivesRemaining(findDoctor(doc));
     const bucketLabel = objectiveBucket(modalState.dateStr) === 'we' ? 'WE/férié' : 'semaine';
-    const isExtraPick = doc === state.manualPick && dr.total <= 0;
+    const isExtraPick = doc === state.manualPick && dr.deficit <= 0;
     if (!isExtraPick && dr[modalState.slotKey][objectiveBucket(modalState.dateStr)] <= 0) {
       conflicts.push(`n'a pas (ou plus) d'objectif "${bucketLabel}" sur ${modalState.slotKey}`);
     }

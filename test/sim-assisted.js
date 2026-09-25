@@ -129,3 +129,17 @@ state.currentTurnPickCount = quotaSum(findDoctor(backDoc), state.currentTour);
 advanceCursorIfNeeded();
 var okReturn = (state.pickerCursor===8 && state.returnCursor===null);
 print('retour arrière mémorise le front:', okBack, '| après correction, revient au front:', okReturn);
+
+// ================= TEST BUG OBJECTIFS (déficit par catégorie) =================
+print('\n=== BUG OBJECTIFS ===');
+state.holidays=[]; PERIOD_START='2026-06-01'; PERIOD_END='2026-09-30';
+state.doctors=[{name:'DrX',ACH:{sem:2,we:2},HMN:{sem:0,we:0}}];
+state.assignments={};
+function _put(d,s,n){(state.assignments[d]=state.assignments[d]||{})[s]={doctor:n};}
+_put('2026-06-01','ACH','DrX'); _put('2026-06-02','ACH','DrX'); _put('2026-06-03','ACH','DrX'); // 3 sem (obj 2)
+_put('2026-06-06','ACH','DrX'); // 1 WE samedi (obj 2 -> manque 1)
+var rr=objectivesRemaining(findDoctor('DrX'));
+print('total(net)='+rr.total+' (0 = trompeur) | DEFICIT='+rr.deficit+' | attendu deficit=1 :', (rr.deficit===1 && rr.total===0));
+// veille de férié = vendredi
+state.holidays=['2026-07-14'];
+print('veille 13/07 (lun) -> vendredi :', tourSlotType('2026-07-13')==='vendredi' && !is24h('2026-07-13') && objectiveBucket('2026-07-13')==='sem');

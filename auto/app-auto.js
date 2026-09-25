@@ -48,6 +48,8 @@ function dayType(dateStr) {
   if (dow === 0) return 'sunday';
   if (dow === 6) return 'saturday';
   if (dow === 5) return 'friday';
+  // Veille de jour férié (Lun–Jeu) → traitée comme un vendredi (type « vendredi »)
+  if (autoState.holidays.includes(dateAdd(dateStr, 1))) return 'friday';
   return 'weekday';
 }
 function isWE(dateStr) {
