@@ -516,12 +516,17 @@ main {
 /* Jour plein (tous les sites pris par d'autres) : plus de lignes HMN/ACH. Le
    FOND reste celui du jour (blanc / tint vendredi-WE) ; seuls le NUMÉRO et le
    CONTOUR sont grisés très clair → effet de transparence, la date s'efface. */
-.focus-cal .day.day-unavailable { background: var(--surface); box-shadow: none; border-color: #eef1f6; }
+.focus-cal .day.day-unavailable { background: var(--surface); box-shadow: none; border-color: transparent; }
 .focus-cal .day.day-unavailable.weekend { background: var(--weekend); }
 .focus-cal .day.day-unavailable.friday  { background: var(--friday); }
 .focus-cal .day.day-unavailable.holiday { background: var(--holiday); }
-.focus-cal .day.day-unavailable .num { text-decoration: none; opacity: 1; color: #ccd3dd; font-weight: 700; }
+/* Jour plein « pas le sien » = espace vide : ni lignes de site, ni numéro, ni
+   contour, ni effet au survol. (Le sien reste vert avec son numéro.) */
+.focus-cal .day.day-unavailable:not(.day-unavailable-mine) .num { visibility: hidden; }
 .focus-cal .day.day-unavailable:not(.day-unavailable-mine) .slot { display: none; }
+.focus-cal .day.day-unavailable:not(.day-unavailable-mine):hover { box-shadow: none; transform: none; }
+/* Le sien, plein, garde son numéro visible */
+.focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
 .focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #2563eb; background: #eff6ff; }
 .focus-cal .day.day-suggested .slot.empty-slot { color: #1d4ed8; font-weight: 800; }
