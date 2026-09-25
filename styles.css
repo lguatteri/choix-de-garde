@@ -513,19 +513,21 @@ main {
 .focus-cal .day .slot.empty-slot { color: #94a3b8; }
 /* Jour plein : gris nettement plus foncé, pour se distinguer du gris léger
    des vendredis/week-ends. */
-/* Jour plein (tous les sites pris par d'autres) : plus de lignes HMN/ACH. Le
-   FOND reste celui du jour (blanc / tint vendredi-WE) ; seuls le NUMÉRO et le
-   CONTOUR sont grisés très clair → effet de transparence, la date s'efface. */
-.focus-cal .day.day-unavailable { background: var(--surface); box-shadow: none; border-color: transparent; }
+/* Jour PLEIN (tous les sites pris par d'autres) : fond naturel conservé, plus de
+   lignes HMN/ACH, et le NUMÉRO est BARRÉ en gris clair → « date prise, terminée ».
+   À distinguer d'un jour simplement non choisissable ce tour (case normale avec
+   HMN/ACH en gris, cf. .slot-greyed). */
+.focus-cal .day.day-unavailable { background: var(--surface); box-shadow: none; border-color: #eaeef3; }
 .focus-cal .day.day-unavailable.weekend { background: var(--weekend); }
 .focus-cal .day.day-unavailable.friday  { background: var(--friday); }
 .focus-cal .day.day-unavailable.holiday { background: var(--holiday); }
-/* Jour plein « pas le sien » = espace vide : ni lignes de site, ni numéro, ni
-   contour, ni effet au survol. (Le sien reste vert avec son numéro.) */
-.focus-cal .day.day-unavailable:not(.day-unavailable-mine) .num { visibility: hidden; }
+.focus-cal .day.day-unavailable:not(.day-unavailable-mine) .num {
+  opacity: 1; color: #b7c0cc; font-weight: 700;
+  text-decoration: line-through; text-decoration-color: #cbd3dd; text-decoration-thickness: 1.5px;
+}
 .focus-cal .day.day-unavailable:not(.day-unavailable-mine) .slot { display: none; }
 .focus-cal .day.day-unavailable:not(.day-unavailable-mine):hover { box-shadow: none; transform: none; }
-/* Le sien, plein, garde son numéro visible */
+/* Le sien, plein, garde son numéro visible (non barré) */
 .focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
 .focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #2563eb; background: #eff6ff; }
