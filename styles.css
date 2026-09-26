@@ -573,13 +573,14 @@ main {
 .focus-cal .day:not(.declutter) .slot.mine-current {
   box-shadow: none; color: #14532d; background: #a7d8b9; font-weight: 700;
 }
-/* Vœu : fond bleu clair + marqueur 💙+site (pas de cadre sur le site) */
-.focus-cal .day[data-voeu^="wished"] { box-shadow: inset 0 0 0 2px #2563eb; background: #bfdbfe; }
+/* Vœu : plus de fond/cadre bleu ni de marqueur d'angle — un 💙 est ajouté à côté
+   du/des site(s) voulu(s) (via le texte du créneau, côté JS). */
+.focus-cal .day[data-voeu^="wished"] { box-shadow: none; background: var(--surface); }
 .focus-cal .day[data-voeu^="wished"] .slot { outline: none !important; }
 .focus-cal .day[data-voeu]::before { font-size: 9px; }
-.focus-cal .day[data-voeu="wishedHMN"]::before  { content: "💙HMN"; }
-.focus-cal .day[data-voeu="wishedACH"]::before  { content: "💙ACH"; }
-.focus-cal .day[data-voeu="wishedBoth"]::before { content: "💙 2 sites"; }
+.focus-cal .day[data-voeu="wishedHMN"]::before,
+.focus-cal .day[data-voeu="wishedACH"]::before,
+.focus-cal .day[data-voeu="wishedBoth"]::before { content: none; }
 /* Une garde qui m'est attribuée (vert) prime toujours sur un vœu (bleu) :
    dès qu'un vœu tombe sur un jour où j'ai une garde, la case reste verte
    et le marqueur 💙 disparaît. */

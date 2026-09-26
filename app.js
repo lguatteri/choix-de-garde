@@ -1054,6 +1054,8 @@ function buildDayCell(dateStr, mode) {
     } else {                   // libre → choisissable
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
+      // Vœu sur ce site → 💙 juste à côté du site.
+      if (showVoeux && (voeu === 'wished' + site || voeu === 'wishedBoth')) s.textContent += ' 💙';
       if (greyed || dateNotChoosable) s.classList.add('slot-greyed');
       else if (nextTurnPreview && meRem && meRem[site][bucket] <= 0) s.classList.add('slot-greyed');
       // Gras UNIQUEMENT si c'est le seul site prenable ce jour-là (site en gris,
