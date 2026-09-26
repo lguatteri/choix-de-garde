@@ -1134,7 +1134,20 @@ function renderPickerInfo() {
     tourEl.innerHTML = html;
   }
 
-  objEl.innerHTML = '';   // les objectifs totaux/restants ne sont plus affichés ici (source de confusion)
+  // Objectifs restants : cachés en usage normal (source de confusion), mais
+  // RÉAFFICHÉS pendant la simulation à blanc pour diagnostiquer les suggestions.
+  if (state.dryRun) {
+    const r = objectivesRemaining(d);
+    const cell = (rem) => rem < 0
+      ? `<span style="color:#b45309">${fmtHalf(-rem)} en trop</span>`
+      : `<strong>${fmtHalf(rem)}</strong>`;
+    const line = (site) => `${site} : sem ${cell(r[site].sem)}/${d[site].sem} · WE ${cell(r[site].we)}/${d[site].we}`;
+    objEl.innerHTML = `<div style="font-size:11px;line-height:1.6;margin-top:4px">` +
+      `<strong>🧪 Objectifs restants</strong> (restant/objectif)<br>${line('HMN')}<br>${line('ACH')}<br>` +
+      `Reste à prendre : <strong>${fmtHalf(r.deficit)}</strong></div>`;
+  } else {
+    objEl.innerHTML = '';
+  }
 
   if (!next) {
     nextEl.innerHTML = '<em>— fin de la séquence —</em>';
