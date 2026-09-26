@@ -36,7 +36,7 @@
 
       <div id="profile-setup" hidden>
         <hr>
-        <p>Première connexion — choisis ton nom dans la liste :</p>
+        <p>Première connexion — choisissez votre nom dans la liste :</p>
         <label>Nom
           <select id="profile-doctor-select"></select>
         </label>
@@ -46,7 +46,7 @@
 
       <div id="password-reset" hidden>
         <hr>
-        <p>Choisis un <strong>nouveau mot de passe</strong> :</p>
+        <p>Choisissez un <strong>nouveau mot de passe</strong> :</p>
         <label>Nouveau mot de passe
           <input type="password" id="reset-password" autocomplete="new-password">
         </label>
@@ -75,7 +75,7 @@
 
     <main>
       <section id="planning" class="view active">
-        <div class="readonly-banner" id="planning-readonly-banner">👁 Lecture seule — seul l'admin modifie le planning. Tu vois les changements en temps réel ; tu peux toujours ajuster tes indispos &amp; vœux dans l'onglet <strong>Perso</strong>.</div>
+        <div class="readonly-banner" id="planning-readonly-banner">👁 Lecture seule — seul l'administrateur modifie le planning. Vous voyez les changements en temps réel ; vous pouvez toujours ajuster vos indisponibilités &amp; vœux dans l'onglet <strong>Perso</strong>.</div>
         <div class="picker-box picker-current-box">
           <div class="box-label">Au tour de</div>
           <select class="name-select" id="current-name-select"></select>
@@ -113,7 +113,7 @@
           <span id="declare-auto-status" class="hint"></span>
           <button id="declare-auto-btn" style="font-family:inherit;background:#7c3aed;color:#fff;border:1px solid #6d28d9;border-radius:999px;padding:9px 20px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(124,58,237,0.3)">Déclarer pour le planning auto</button>
         </div>
-        <p class="hint" id="voeux-hint">Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💙 vœu sur ce site (re-clic = annuler). Indispo et vœux sont exclusifs.</p>
+        <p class="hint" id="voeux-hint">Clic sur la <strong>date</strong> = 🚫 indisponibilité (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💙 vœu sur ce site (re-clic = annuler). Indisponibilité et vœux sont exclusifs.</p>
         <label class="next-turn-toggle" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;color:#334155;cursor:pointer">
           <input type="checkbox" id="perso-nextturn-cb"> Entourer en bleu mes dates <strong>choisissables à mon prochain tour</strong>
         </label>
@@ -134,7 +134,7 @@
           <label>Fin <input type="date" id="period-end"></label>
           <button id="period-save">Enregistrer les dates</button>
         </div>
-        <p class="hint">Change les dates pour ajuster la période courante. « Nouvelle période » remet tout à zéro pour repartir sur un nouveau quadrimestre/trimestre.</p>
+        <p class="hint">Modifiez les dates pour ajuster la période courante. « Nouvelle période » remet tout à zéro pour repartir sur un nouveau quadrimestre/trimestre.</p>
         <button id="new-period-btn" class="danger">⚠ Nouvelle période (vide planning, vœux &amp; déclarations)</button>
         <span id="period-status" class="hint"></span>
 
@@ -204,7 +204,7 @@
     <div id="my-turn-popup" class="turn-popup-backdrop" hidden>
       <div class="turn-popup">
         <div class="turn-popup-icon">🔔</div>
-        <h3>C'est à toi de choisir !</h3>
+        <h3>C'est à vous de choisir !</h3>
         <p id="turn-popup-detail"></p>
         <div class="turn-popup-actions">
           <button id="turn-popup-goto" class="primary">Voir le planning</button>
@@ -217,10 +217,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=42"></script>
-  <script src="auth.js?v=44"></script>
+  <script src="auth.js?v=45"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=117"></script>
+  <script src="app.js?v=118"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

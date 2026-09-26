@@ -644,7 +644,7 @@ function isDateSuggestedFor(name, dateStr) {
 function whyNotSuggested(name, dateStr) {
   const d = findDoctor(name);
   if (!d) return 'médecin inconnu';
-  if ((state.allVoeux[name] || {})[dateStr] === 'blocked') return 'indispo 🚫 ce jour';
+  if ((state.allVoeux[name] || {})[dateStr] === 'blocked') return 'indisponibilité 🚫 ce jour';
   const a = state.assignments[dateStr] || {};
   const elig = eligibleSites(d);
   const r = objectivesRemaining(d);
@@ -1346,13 +1346,13 @@ function renderMyNextTurn() {
   const myNextTour = myPosInTour < state.pickerCursor ? state.currentTour + 1 : state.currentTour;
   const isUpcoming = myPosInTour >= state.pickerCursor;
   const quota = tourQuota(me, myNextTour);
-  const labels = { libre: 'date libre', vendredi: 'vendredi', we: 'WE/férié', semaine: 'semaine' };
+  const labels = { libre: 'date libre', vendredi: 'vendredi', we: 'week-end/férié', semaine: 'semaine' };
   let qHtml = '';
   Object.keys(quota).forEach(k => { qHtml += `<span class="quota-item">${quota[k]} ${labels[k]||k}</span>`; });
   if (Object.keys(quota).length === 0) qHtml = '<span class="my-turn-empty">aucun objectif restant</span>';
   const intro = isUpcoming
-    ? `À ton tour (tour ${myNextTour}) tu choisiras :`
-    : `À ton prochain tour (tour ${myNextTour}) tu choisiras :`;
+    ? `À votre tour (tour ${myNextTour}), vous choisirez :`
+    : `À votre prochain tour (tour ${myNextTour}), vous choisirez :`;
   el.innerHTML = `<div class="my-turn-label">${intro}</div><div class="my-turn-quota">${qHtml}</div>`;
 }
 
@@ -1371,9 +1371,9 @@ function renderVoeuxHint() {
   const me = findDoctor(voeuxEditName());
   const es = me ? eligibleSites(me) : ['HMN', 'ACH'];
   const sitesLabel = (es.length === 1) ? es[0] : 'HMN ou ACH';
-  el.innerHTML = `Clic sur la <strong>date</strong> = 🚫 indispo (re-clic = annuler). ` +
+  el.innerHTML = `Clic sur la <strong>date</strong> = 🚫 indisponibilité (re-clic = annuler). ` +
     `Clic sur <strong>${sitesLabel}</strong> = 💙 vœu sur ce site (re-clic = annuler). ` +
-    `Indispo et vœux sont exclusifs.`;
+    `Indisponibilité et vœux sont exclusifs.`;
 }
 
 // Bannière « édition à la place de X » + masquage des encarts personnels.
@@ -1390,7 +1390,7 @@ function renderVoeuxEditBanner() {
     const txt = $('voeux-edit-banner-text');
     if (txt) txt.innerHTML = state.dryRun
       ? `🧪 Aperçu (simulation) du Perso de <strong>${state.voeuxEditTarget}</strong>.`
-      : `✏️ Tu édites les <strong>vœux &amp; indispos de ${state.voeuxEditTarget}</strong> (à sa place).`;
+      : `✏️ Vous éditez les <strong>vœux &amp; indisponibilités de ${state.voeuxEditTarget}</strong> (à sa place).`;
   }
   const back = $('voeux-edit-back-btn');
   if (back) back.onclick = stopEditVoeux;
@@ -1476,7 +1476,7 @@ function ensureSimBanner() {
 function simBannerText(s) { const t = document.getElementById('sim-banner-text'); if (t) t.textContent = s; }
 function simEnter() {
   if (!isAdmin() || state.dryRun) return;
-  if (!confirm('Lancer une SIMULATION à blanc du choix assisté ?\n\nL\'app jouera le tour PAS À PAS (flèche → ou bouton), SANS rien enregistrer (le vrai planning n\'est pas touché). « Quitter » revient à l\'état réel.')) return;
+  if (!confirm('Lancer une SIMULATION à blanc du choix assisté ?\n\nL\'application jouera le tour PAS À PAS (flèche → ou bouton), SANS rien enregistrer (le vrai planning n\'est pas touché). « Quitter » revient à l\'état réel.')) return;
   _simSnapshot = JSON.stringify({
     assignments: state.assignments, history: state.history,
     pickerCursor: state.pickerCursor, currentTour: state.currentTour,
@@ -1581,7 +1581,7 @@ function renderFillGauge() {
   const el = document.getElementById('fill-gauge');
   if (!el) return;
   const pct = computeFillPercent();
-  el.innerHTML = `<div class="fg-label">Planning rempli — <strong>${pct}%</strong></div>` +
+  el.innerHTML = `<div class="fg-label">Progression — <strong>${pct}%</strong></div>` +
     `<div class="fg-bar"><div class="fg-fill" style="width:${pct}%"></div></div>`;
 }
 
@@ -1815,7 +1815,7 @@ $('modal-save').onclick = () => {
     const otherSite = modalState.slotKey === 'HMN' ? 'ACH' : 'HMN';
     if (siteHasDoctor(a[otherSite], doc)) conflicts.push('déjà de garde le même jour sur ' + otherSite);
     const docVoeu = (state.allVoeux[doc] || {})[modalState.dateStr];
-    if (docVoeu === 'blocked') conflicts.push('a marqué cette date comme INDISPO 🚫');
+    if (docVoeu === 'blocked') conflicts.push('a marqué cette date comme INDISPONIBLE 🚫');
     // Cette garde n'est-elle pas dans ses objectifs (site + sem/WE) ?
     // On saute cet avertissement pour un « choix en plus » assumé (personne
     // épinglée dont les objectifs sont déjà tous atteints).
@@ -1983,7 +1983,7 @@ if (_xlsxBtn) _xlsxBtn.onclick = exportPlanningXlsx;
 async function declareForAuto() {
   const me = window.currentUser;
   const statusEl = $('declare-auto-status');
-  if (!me) { if (statusEl) statusEl.textContent = 'Connecte-toi d\'abord.'; return; }
+  if (!me) { if (statusEl) statusEl.textContent = 'Veuillez d\'abord vous connecter.'; return; }
   const myVoeux = state.voeux || {};
   const nInd = Object.values(myVoeux).filter(v => v === 'blocked').length;
   const nWish = Object.values(myVoeux).filter(v => v && v.startsWith('wished')).length;
@@ -1999,14 +1999,14 @@ async function declareForAuto() {
   }
   if (nInd > maxI || nWish > maxW) {
     const parts = [];
-    if (nInd > maxI) parts.push(`indispos : ${nInd} (max ${maxI})`);
+    if (nInd > maxI) parts.push(`indisponibilités : ${nInd} (max ${maxI})`);
     if (nWish > maxW) parts.push(`vœux : ${nWish} (max ${maxW})`);
-    alert(`Importé vers le planning auto, mais tu dépasses la limite :\n— ${parts.join('\n— ')}\n\n` +
-      `Va sur l'app auto (ta page médecin) pour retirer des dates jusqu'à rentrer dans les limites. ` +
-      `(Ça n'enlèvera rien à ton Perso ici.)`);
-    if (statusEl) statusEl.textContent = `⚠ Importé mais hors limites — ${parts.join(' ; ')}. Ajuste sur l'app auto.`;
+    alert(`Importé vers le planning auto, mais vous dépassez la limite :\n— ${parts.join('\n— ')}\n\n` +
+      `Rendez-vous sur l'application auto (votre page médecin) pour retirer des dates jusqu'à rentrer dans les limites. ` +
+      `(Cela n'enlèvera rien à votre espace Perso ici.)`);
+    if (statusEl) statusEl.textContent = `⚠ Importé mais hors limites — ${parts.join(' ; ')}. Ajustez sur l'application auto.`;
   } else {
-    if (statusEl) statusEl.textContent = `✓ Importé pour le planning auto : ${nInd} indispos, ${nWish} vœux.`;
+    if (statusEl) statusEl.textContent = `✓ Importé pour le planning auto : ${nInd} indisponibilités, ${nWish} vœux.`;
   }
 }
 const declareBtn = $('declare-auto-btn');
@@ -2078,7 +2078,7 @@ function parseCSVLine(line) {
 { const _ha = document.getElementById('hide-auto-cb'); if (_ha) _ha.onchange = () => setHideAuto(_ha.checked); }
 $('reset-btn').onclick = async () => {
   if (!isAdmin()) { alert('Seul un admin peut réinitialiser.'); return; }
-  if (!confirm('Réinitialiser tous les choix de garde ?\n\n— Le planning sera VIDÉ\n— Le tour repart à 1\n— Les vœux/indispos perso de chacun sont CONSERVÉS')) return;
+  if (!confirm('Réinitialiser tous les choix de garde ?\n\n— Le planning sera VIDÉ\n— Le tour repart à 1\n— Les vœux/indisponibilités personnels de chacun sont CONSERVÉS')) return;
   await sb().from('assignments').delete().neq('date', '1900-01-01');
   state.assignments = {};
   state.pickerCursor = 0;
@@ -2221,7 +2221,7 @@ async function startNewPeriod() {
   const st = $('period-status');
   if (!start || !end || start > end) { if (st) st.textContent = 'Dates invalides (début ≤ fin requis).'; return; }
   if (!confirm(`Démarrer une NOUVELLE période ${start} → ${end} ?\n\n` +
-    `Cela VIDE : le planning (assignations), tous les vœux/indispos, toutes les déclarations auto, et remet le tour à 1.\n` +
+    `Cela VIDE : le planning (assignations), tous les vœux/indisponibilités, toutes les déclarations auto, et remet le tour à 1.\n` +
     `Les objectifs des médecins et les préférences récurrentes sont CONSERVÉS.`)) return;
   if (st) st.textContent = 'Réinitialisation…';
   const e1 = await sb().from('assignments').delete().gte('date', '1900-01-01');
@@ -2350,7 +2350,7 @@ function renderObjectivesCoherence() {
     </tr>`;
   });
   const banner = anyMismatch
-    ? `<p style="margin:0 0 8px;color:#b91c1c;font-weight:600">⚠ Des écarts existent : ajuste les objectifs ci-dessous avant de lancer les choix, sinon certains créneaux ne pourront pas être couverts (ou il y aura des objectifs en trop).</p>`
+    ? `<p style="margin:0 0 8px;color:#b91c1c;font-weight:600">⚠ Des écarts existent : ajustez les objectifs ci-dessous avant de lancer les choix, sinon certains créneaux ne pourront pas être couverts (ou il y aura des objectifs en trop).</p>`
     : `<p style="margin:0 0 8px;color:#15803d;font-weight:600">✓ Objectifs et créneaux sont cohérents sur tous les sites.</p>`;
   el.innerHTML = `
     ${banner}
@@ -2435,7 +2435,7 @@ function renderAccountsTable() {
   }
   const accounts = new Set((state.allProfiles || []).map(p => p.doctor_name));
   const withAcct = state.doctors.filter(d => accounts.has(d.name)).length;
-  let html = `<p class="hint">${withAcct}/${state.doctors.length} médecins ont créé leur compte. Tu peux éditer les vœux &amp; indispos de n'importe qui (utile si quelqu'un n'a pas de compte).</p>`;
+  let html = `<p class="hint">${withAcct}/${state.doctors.length} médecins ont créé leur compte. Vous pouvez éditer les vœux &amp; indisponibilités de n'importe qui (utile si quelqu'un n'a pas de compte).</p>`;
   html += '<table><thead><tr><th>Médecin</th><th>Compte</th><th></th></tr></thead><tbody>';
   state.doctors.forEach(d => {
     const has = accounts.has(d.name);
@@ -2443,7 +2443,7 @@ function renderAccountsTable() {
       ? '<span style="color:#15803d;font-weight:600">✓ créé</span>'
       : '<span style="color:#b91c1c;font-weight:600">✗ pas de compte</span>';
     html += `<tr><td>${d.name}</td><td>${badge}</td>` +
-      `<td><button data-edit-voeux="${d.name}">✏️ Éditer vœux/indispos</button></td></tr>`;
+      `<td><button data-edit-voeux="${d.name}">✏️ Éditer vœux/indisponibilités</button></td></tr>`;
   });
   html += '</tbody></table>';
   t.innerHTML = html;

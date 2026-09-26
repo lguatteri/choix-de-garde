@@ -82,7 +82,7 @@ async function loginOrSignup(mode) {
   // signUp : si email confirmation activée, data.user existe mais session=null
   if (mode === 'signup' && !data.session) {
     errEl.style.color = '#16a34a';
-    errEl.textContent = 'Compte créé. Confirme l\'email reçu puis re-clique "Se connecter".';
+    errEl.textContent = 'Compte créé. Confirmez l\'email reçu puis cliquez de nouveau sur « Se connecter ».';
     return;
   }
 
@@ -101,7 +101,7 @@ async function saveProfile() {
   const doc = document.getElementById('profile-doctor-select').value;
   const errEl = document.getElementById('profile-error');
   errEl.textContent = '';
-  if (!doc) { errEl.textContent = 'Choisis un nom de médecin'; return; }
+  if (!doc) { errEl.textContent = 'Choisissez un nom de médecin'; return; }
   const { error } = await sbClient
     .from('profiles')
     .insert({ user_id: currentUser.id, doctor_name: doc });
@@ -136,7 +136,7 @@ async function sendPasswordReset() {
   const errEl = document.getElementById('auth-error');
   errEl.style.color = ''; errEl.textContent = '';
   if (!email) {
-    errEl.textContent = 'Entre ton email ci-dessus, puis re-clique « Mot de passe oublié ? ».';
+    errEl.textContent = 'Saisissez votre email ci-dessus, puis cliquez de nouveau sur « Mot de passe oublié ? ».';
     return;
   }
   errEl.style.color = '#6b7280'; errEl.textContent = 'Envoi du lien…';
@@ -144,7 +144,7 @@ async function sendPasswordReset() {
   const { error } = await sbClient.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) { errEl.style.color = ''; errEl.textContent = error.message; return; }
   errEl.style.color = '#16a34a';
-  errEl.textContent = 'Email envoyé ! Clique le lien reçu pour choisir un nouveau mot de passe.';
+  errEl.textContent = 'Email envoyé ! Cliquez le lien reçu pour choisir un nouveau mot de passe.';
 }
 async function saveNewPassword() {
   const pwd = document.getElementById('reset-password').value;
