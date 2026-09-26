@@ -1351,8 +1351,8 @@ function renderMyNextTurn() {
   Object.keys(quota).forEach(k => { qHtml += `<span class="quota-item">${quota[k]} ${labels[k]||k}</span>`; });
   if (Object.keys(quota).length === 0) qHtml = '<span class="my-turn-empty">aucun objectif restant</span>';
   const intro = isUpcoming
-    ? `À votre tour (tour ${myNextTour}), vous choisirez :`
-    : `À votre prochain tour (tour ${myNextTour}), vous choisirez :`;
+    ? `Ce tour (tour ${myNextTour}) — à choisir :`
+    : `Prochain tour (tour ${myNextTour}) — à choisir :`;
   el.innerHTML = `<div class="my-turn-label">${intro}</div><div class="my-turn-quota">${qHtml}</div>`;
 }
 
@@ -1390,7 +1390,7 @@ function renderVoeuxEditBanner() {
     const txt = $('voeux-edit-banner-text');
     if (txt) txt.innerHTML = state.dryRun
       ? `🧪 Aperçu (simulation) de l'espace de <strong>${state.voeuxEditTarget}</strong>.`
-      : `✏️ Vous éditez les <strong>vœux &amp; indisponibilités de ${state.voeuxEditTarget}</strong> (à sa place).`;
+      : `✏️ Édition des <strong>vœux &amp; indisponibilités de ${state.voeuxEditTarget}</strong> (à sa place).`;
   }
   const back = $('voeux-edit-back-btn');
   if (back) back.onclick = stopEditVoeux;
@@ -2004,7 +2004,7 @@ if (_xlsxBtn) _xlsxBtn.onclick = exportPlanningXlsx;
 async function declareForAuto() {
   const me = window.currentUser;
   const statusEl = $('declare-auto-status');
-  if (!me) { if (statusEl) statusEl.textContent = 'Veuillez d\'abord vous connecter.'; return; }
+  if (!me) { if (statusEl) statusEl.textContent = 'Connexion requise.'; return; }
   const myVoeux = state.voeux || {};
   const nInd = Object.values(myVoeux).filter(v => v === 'blocked').length;
   const nWish = Object.values(myVoeux).filter(v => v && v.startsWith('wished')).length;
@@ -2022,10 +2022,10 @@ async function declareForAuto() {
     const parts = [];
     if (nInd > maxI) parts.push(`indisponibilités : ${nInd} (max ${maxI})`);
     if (nWish > maxW) parts.push(`vœux : ${nWish} (max ${maxW})`);
-    alert(`Importé vers le planning automatisé, mais vous dépassez la limite :\n— ${parts.join('\n— ')}\n\n` +
-      `Rendez-vous sur l'application automatisée (votre page médecin) pour retirer des dates jusqu'à rentrer dans les limites. ` +
-      `(Cela n'enlèvera rien à votre espace personnel ici.)`);
-    if (statusEl) statusEl.textContent = `⚠ Importé mais hors limites — ${parts.join(' ; ')}. Ajustez sur l'application automatisée.`;
+    alert(`Importé vers le planning automatisé, mais la limite est dépassée :\n— ${parts.join('\n— ')}\n\n` +
+      `Des dates sont à retirer sur l'application automatisée (page médecin) pour rentrer dans les limites. ` +
+      `(Cela n'enlèvera rien à l'espace personnel ici.)`);
+    if (statusEl) statusEl.textContent = `⚠ Importé mais hors limites — ${parts.join(' ; ')}. À ajuster sur l'application automatisée.`;
   } else {
     if (statusEl) statusEl.textContent = `✓ Importé pour le planning automatisé : ${nInd} indisponibilités, ${nWish} vœux.`;
   }
@@ -2371,7 +2371,7 @@ function renderObjectivesCoherence() {
     </tr>`;
   });
   const banner = anyMismatch
-    ? `<p style="margin:0 0 8px;color:#b91c1c;font-weight:600">⚠ Des écarts existent : ajustez les objectifs ci-dessous avant de lancer les choix, sinon certains créneaux ne pourront pas être couverts (ou il y aura des objectifs en trop).</p>`
+    ? `<p style="margin:0 0 8px;color:#b91c1c;font-weight:600">⚠ Des écarts existent : les objectifs ci-dessous sont à ajuster avant de lancer les choix, sinon certains créneaux ne pourront pas être couverts (ou il y aura des objectifs en trop).</p>`
     : `<p style="margin:0 0 8px;color:#15803d;font-weight:600">✓ Objectifs et créneaux sont cohérents sur tous les sites.</p>`;
   el.innerHTML = `
     ${banner}
@@ -2456,7 +2456,7 @@ function renderAccountsTable() {
   }
   const accounts = new Set((state.allProfiles || []).map(p => p.doctor_name));
   const withAcct = state.doctors.filter(d => accounts.has(d.name)).length;
-  let html = `<p class="hint">${withAcct}/${state.doctors.length} médecins ont créé leur compte. Vous pouvez éditer les vœux &amp; indisponibilités de n'importe qui (utile si quelqu'un n'a pas de compte).</p>`;
+  let html = `<p class="hint">${withAcct}/${state.doctors.length} médecins ont créé leur compte. Les vœux &amp; indisponibilités de n'importe qui restent éditables ici (utile si quelqu'un n'a pas de compte).</p>`;
   html += '<table><thead><tr><th>Médecin</th><th>Compte</th><th></th></tr></thead><tbody>';
   state.doctors.forEach(d => {
     const has = accounts.has(d.name);

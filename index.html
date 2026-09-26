@@ -36,7 +36,7 @@
 
       <div id="profile-setup" hidden>
         <hr>
-        <p>Première connexion — choisissez votre nom dans la liste :</p>
+        <p>Première connexion — nom à choisir dans la liste :</p>
         <label>Nom
           <select id="profile-doctor-select"></select>
         </label>
@@ -46,7 +46,7 @@
 
       <div id="password-reset" hidden>
         <hr>
-        <p>Choisissez un <strong>nouveau mot de passe</strong> :</p>
+        <p><strong>Nouveau mot de passe</strong> à choisir :</p>
         <label>Nouveau mot de passe
           <input type="password" id="reset-password" autocomplete="new-password">
         </label>
@@ -75,7 +75,7 @@
 
     <main>
       <section id="planning" class="view active">
-        <div class="readonly-banner" id="planning-readonly-banner">👁 Lecture seule — seul l'administrateur modifie le planning. Vous voyez les changements en temps réel ; vous pouvez toujours ajuster vos indisponibilités &amp; vœux dans l'onglet <strong>Mon espace</strong>.</div>
+        <div class="readonly-banner" id="planning-readonly-banner">👁 Lecture seule — seul l'administrateur modifie le planning. Les changements apparaissent en temps réel ; les indisponibilités &amp; vœux restent modifiables dans l'onglet <strong>Mon espace</strong>.</div>
         <div class="picker-box picker-current-box">
           <div class="box-label">Au tour de</div>
           <select class="name-select" id="current-name-select"></select>
@@ -134,7 +134,7 @@
           <label>Fin <input type="date" id="period-end"></label>
           <button id="period-save">Enregistrer les dates</button>
         </div>
-        <p class="hint">Modifiez les dates pour ajuster la période courante. « Nouvelle période » remet tout à zéro pour repartir sur un nouveau quadrimestre/trimestre.</p>
+        <p class="hint">Les dates ci-dessus définissent la période courante. « Nouvelle période » remet tout à zéro pour repartir sur un nouveau quadrimestre/trimestre.</p>
         <button id="new-period-btn" class="danger">⚠ Nouvelle période (vide planning, vœux &amp; déclarations)</button>
         <span id="period-status" class="hint"></span>
 
@@ -204,7 +204,7 @@
     <div id="my-turn-popup" class="turn-popup-backdrop" hidden>
       <div class="turn-popup">
         <div class="turn-popup-icon">🔔</div>
-        <h3>C'est à vous de choisir !</h3>
+        <h3>C'est le moment de choisir !</h3>
         <p id="turn-popup-detail"></p>
         <div class="turn-popup-actions">
           <button id="turn-popup-goto" class="primary">Voir le planning</button>
@@ -217,10 +217,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=42"></script>
-  <script src="auth.js?v=45"></script>
+  <script src="auth.js?v=46"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=120"></script>
+  <script src="app.js?v=121"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
