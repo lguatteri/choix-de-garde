@@ -555,6 +555,9 @@ main {
    GRIS (pas bleu), mais sa police passe en GRAS. Si les 2 sites sont prenables,
    les deux sont en gras ; un site non prenable garde sa police normale. */
 .focus-cal .slot.slot-pick { font-weight: 800; }
+/* Robuste : dans une date choisissable (liséré bleu = day-suggested), tout créneau
+   libre NON grisé est un site prenable → gras. (Ne dépend pas du calcul JS.) */
+.focus-cal .day.day-suggested .slot.empty-slot:not(.slot-greyed) { font-weight: 800; }
 .focus-cal .day.day-suggested .slot.HMN,
 .focus-cal .day.day-suggested .slot.ACH { color: #64748b; }
 /* Mes gardes (choisisseur courant) : case VERT CLAIR — même si le jour est plein
