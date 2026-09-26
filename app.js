@@ -609,6 +609,34 @@ function isDateSuggestedFor(name, dateStr) {
   return true;
 }
 
+// Diagnostic : pourquoi une date n'est-elle PAS choisissable pour `name` ?
+// (répète les checks d'isDateSuggestedFor et renvoie la 1re raison) — sert
+// d'info-bulle sur les cases du Planning.
+function whyNotSuggested(name, dateStr) {
+  const d = findDoctor(name);
+  if (!d) return 'médecin inconnu';
+  if ((state.allVoeux[name] || {})[dateStr] === 'blocked') return 'indispo 🚫 ce jour';
+  const a = state.assignments[dateStr] || {};
+  const elig = eligibleSites(d);
+  const r = objectivesRemaining(d);
+  const bucket = objectiveBucket(dateStr);
+  const bkLabel = bucket === 'we' ? 'WE/férié' : 'semaine';
+  const freeElig = elig.filter(s => !a[s]);
+  if (!freeElig.length) return 'jour plein (aucun site libre pour ce médecin)';
+  const withObj = freeElig.filter(s => r[s][bucket] > 0);
+  if (!withObj.length) {
+    return `plus d'objectif « ${bkLabel} » sur ${freeElig.join(' / ')} `
+      + `— restant : ${elig.map(s => `${s} sem ${fmtHalf(r[s].sem)}/WE ${fmtHalf(r[s].we)}`).join(' · ')}`;
+  }
+  const { remaining } = getRemainingTurnQuota(name);
+  const t = tourSlotType(dateStr);
+  if (!((remaining[t] || 0) > 0 || (remaining.libre || 0) > 0)) return `type « ${t} » déjà fait ce tour`;
+  if (pickerOnDay(name, dateStr)) return 'déjà de garde ce jour';
+  if (pickerOnDay(name, dateAdd(dateStr, -1))) return 'garde la veille (adjacence)';
+  if (pickerOnDay(name, dateAdd(dateStr, 1))) return 'garde le lendemain (adjacence)';
+  return 'choisissable ✓';
+}
+
 function advanceCursorIfNeeded() {
   if (state.forcedNextPicker) return;
   const N = state.doctors.length;
@@ -1002,6 +1030,11 @@ function buildDayCell(dateStr, mode) {
   if (isSugg && !el.classList.contains('day-mine')
       && !el.classList.contains('day-unavailable')) {
     el.classList.add('day-suggested');
+  }
+
+  // Info-bulle diagnostic (Planning, hors mode libre) : pourquoi choisissable ou non.
+  if (mode === 'planning' && curName && !state.neutralView) {
+    el.title = isSugg ? '✓ choisissable' : ('✗ non choisissable — ' + whyNotSuggested(curName, dateStr));
   }
 
   if (mode === 'planning') {
