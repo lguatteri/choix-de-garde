@@ -1419,6 +1419,7 @@ function render() {
 // ============================================================
 let _lastMyTurn = false;
 function checkMyTurnNotification() {
+  if (state.dryRun) return;   // pas de pop-up « c'est à toi » pendant la simulation à blanc
   const cur = currentPickerInfo();
   const isMyTurn = !!(cur && state.myName && cur.name === state.myName);
   if (isMyTurn && !_lastMyTurn) showMyTurnPopup(cur);   // seulement à la BASCULE (pas à chaque render)
