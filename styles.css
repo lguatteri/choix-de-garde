@@ -546,7 +546,10 @@ main {
 .focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
 .focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #5b8def; }  /* liséré bleu radouci, fond normal (V1) */
-.focus-cal .day.day-suggested .slot.empty-slot { color: #1d4ed8; font-weight: 800; }
+/* Dans une date choisissable, seuls les créneaux RÉELLEMENT prenables (non grisés,
+   = objectif restant sur ce site) ressortent en bleu gras ; le site sans objectif
+   reste discret (gris, non gras). */
+.focus-cal .day.day-suggested .slot.empty-slot:not(.slot-greyed) { color: #1d4ed8; font-weight: 800; }
 .focus-cal .day.day-suggested .slot.HMN,
 .focus-cal .day.day-suggested .slot.ACH { color: #64748b; }
 /* Mes gardes (choisisseur courant) : case VERT CLAIR — même si le jour est plein
