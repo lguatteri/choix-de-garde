@@ -1,13 +1,13 @@
-const CACHE = 'garde-multi-v162';
+const CACHE = 'garde-multi-v165';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=84',
-  './doctors.js?v=84',
+  './styles.css?v=137',
+  './doctors.js?v=44',
   './xlsx.js?v=1',
-  './app.js?v=84',
-  './auth.js?v=84',
-  './supabase-config.js?v=84',
+  './app.js?v=115',
+  './auth.js?v=44',
+  './supabase-config.js?v=42',
   './manifest.json',
 ];
 
@@ -22,11 +22,27 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 self.addEventListener('fetch', e => {
-  // Ne jamais cacher les requêtes vers Supabase
   const url = new URL(e.request.url);
+  // Ne jamais cacher les requêtes vers Supabase
   if (url.hostname.endsWith('supabase.co') || url.hostname.endsWith('supabase.com')) {
     e.respondWith(fetch(e.request));
     return;
   }
+  // HTML / navigation : NETWORK-FIRST — le index.html n'est pas versionné par ?v=,
+  // donc on veut toujours la dernière version quand on est en ligne (les changements
+  // de page apparaissent tout de suite). Repli sur le cache hors ligne.
+  const isHTML = e.request.mode === 'navigate' ||
+                 url.pathname === '/' || url.pathname.endsWith('/') || url.pathname.endsWith('index.html');
+  if (isHTML) {
+    e.respondWith(
+      fetch(e.request).then(r => {
+        const copy = r.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy));
+        return r;
+      }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
+    );
+    return;
+  }
+  // Le reste (JS/CSS versionnés par ?v=, images…) : cache-first.
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=136">
+<link rel="stylesheet" href="styles.css?v=137">
 </head>
 <body>
 
@@ -117,6 +117,7 @@
         <label class="next-turn-toggle" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;color:#334155;cursor:pointer">
           <input type="checkbox" id="perso-nextturn-cb"> Entourer en bleu mes dates <strong>choisissables à mon prochain tour</strong>
         </label>
+        <div id="perso-sim-viewer" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;font-size:13px;background:#f5f3ff;border:1px solid #e9d5ff;border-radius:10px;padding:8px 12px"></div>
         <div class="calendar focus-cal" id="voeux-calendar"></div>
         <div class="fill-mode-toggle fill-mode-toggle--right" data-scope="perso">
           <span class="fmt-label">Affichage :</span>
@@ -163,6 +164,14 @@
 
         <h2>Administrateurs <span class="admin-only-tag">admin</span></h2>
         <div id="admins-table"></div>
+
+        <div id="super-admin-display" style="display:none">
+          <h2>Affichage global <span class="admin-only-tag">super admin</span></h2>
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#334155;cursor:pointer">
+            <input type="checkbox" id="hide-auto-cb"> Masquer les éléments du <strong>Planning auto</strong> pour tout le monde
+          </label>
+          <p class="hint" id="hide-auto-status">Cache le bouton « ⚙ Planning auto » et l'encart « Déclarer pour le planning auto » sur tous les comptes.</p>
+        </div>
 
         <h2>Comptes &amp; vœux des médecins <span class="admin-only-tag">super admin</span></h2>
         <div id="accounts-table"></div>
@@ -211,7 +220,7 @@
   <script src="auth.js?v=44"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=113"></script>
+  <script src="app.js?v=115"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

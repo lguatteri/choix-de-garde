@@ -33,6 +33,7 @@ function defaultState() {
     maxWished: 2,             // calculé selon mes gardes (proportionnel, réglé par l'admin)
     wishedPerGardes: 3,
     maxIndispo: 30,
+    hideAuto: false,          // global (super admin) : masque les éléments du Planning auto
     doctors: deepClone(DOCTORS),
     holidays: HOLIDAYS.slice(),
   };
@@ -75,9 +76,11 @@ async function loadAllFromSupabase() {
     state.tourDirection = sess.data.tour_direction ?? 1;
     state.wishedPerGardes = sess.data.wished_per_gardes ?? 3;
     state.maxIndispo = sess.data.max_indispo ?? 30;
+    state.hideAuto = !!sess.data.hide_auto;
     if (sess.data.period_start) PERIOD_START = sess.data.period_start;
     if (sess.data.period_end)   PERIOD_END   = sess.data.period_end;
   }
+  applyAutoVisibility();
 
   // Ne charger que les assignations du quadrimestre courant : celles d'un
   // quadrimestre précédent ne doivent pas compter dans les nouveaux objectifs.
@@ -122,6 +125,28 @@ function applySessionConfig(data) {
   if (data.period_end)   PERIOD_END   = data.period_end;
   if (data.wished_per_gardes != null) { state.wishedPerGardes = data.wished_per_gardes; computeMyMaxWished(); }
   if (data.max_indispo != null) state.maxIndispo = data.max_indispo;
+  if (data.hide_auto != null) { state.hideAuto = !!data.hide_auto; applyAutoVisibility(); }
+}
+
+// Applique le masquage global des éléments « Planning auto » (bouton de bascule +
+// encart « Déclarer pour le planning auto »), piloté par le super admin.
+function applyAutoVisibility() {
+  document.body.classList.toggle('hide-auto', !!state.hideAuto);
+  const cb = document.getElementById('hide-auto-cb');
+  if (cb) cb.checked = !!state.hideAuto;
+}
+
+// Écriture (super admin) du réglage global dans session_state.
+async function setHideAuto(hidden) {
+  state.hideAuto = !!hidden;
+  applyAutoVisibility();
+  if (state.dryRun) return;   // en simulation on n'écrit rien
+  const { error } = await sb().from('session_state').update({ hide_auto: state.hideAuto }).eq('id', 1);
+  if (error) {
+    console.error('setHideAuto error:', error);
+    const st = document.getElementById('hide-auto-status');
+    if (st) st.textContent = '⚠ Impossible d\'enregistrer (la colonne hide_auto existe-t-elle ? lance la migration).';
+  }
 }
 function applySessionTurn(data) {
   state.firstPicker = data.first_picker;
@@ -1058,9 +1083,9 @@ function buildDayCell(dateStr, mode) {
       if (showVoeux && (voeu === 'wished' + site || voeu === 'wishedBoth')) s.textContent += ' 💙';
       if (greyed || dateNotChoosable) s.classList.add('slot-greyed');
       else if (nextTurnPreview && meRem && meRem[site][bucket] <= 0) s.classList.add('slot-greyed');
-      // Gras UNIQUEMENT si c'est le seul site prenable ce jour-là (site en gris,
-      // pas en bleu) — Planning (date suggérée) comme aperçu Perso.
-      if (pickableFree.length === 1 && pickableFree[0] === site) s.classList.add('slot-solo-pick');
+      // Gras dès qu'un site est CHOISISSABLE (site en gris, pas en bleu) — Planning
+      // (date suggérée) comme aperçu Perso. Les 2 peuvent être en gras ensemble.
+      if (pickableFree.includes(site)) s.classList.add('slot-pick');
     }
     s.dataset.slotKey = site;
     slotEls.push(s);
@@ -1345,18 +1370,40 @@ function renderVoeuxHint() {
 function renderVoeuxEditBanner() {
   const banner = $('voeux-edit-banner');
   if (!banner) return;
-  if (state.voeuxEditTarget && !isSuperAdmin()) state.voeuxEditTarget = null;   // sécurité
+  // Sécurité : cible autorisée aux super admins, OU pendant la simulation à blanc.
+  if (state.voeuxEditTarget && !isSuperAdmin() && !state.dryRun) state.voeuxEditTarget = null;
   const editing = !!state.voeuxEditTarget;
   banner.style.display = editing ? 'flex' : 'none';   // (le display inline prime sur hidden)
   const section = document.getElementById('voeux');
   if (section) section.classList.toggle('editing-voeux', editing);
   if (editing) {
     const txt = $('voeux-edit-banner-text');
-    if (txt) txt.innerHTML = `✏️ Tu édites les <strong>vœux &amp; indispos de ${state.voeuxEditTarget}</strong> (à sa place).`;
+    if (txt) txt.innerHTML = state.dryRun
+      ? `🧪 Aperçu (simulation) du Perso de <strong>${state.voeuxEditTarget}</strong>.`
+      : `✏️ Tu édites les <strong>vœux &amp; indispos de ${state.voeuxEditTarget}</strong> (à sa place).`;
   }
   const back = $('voeux-edit-back-btn');
   if (back) back.onclick = stopEditVoeux;
 }
+// Simulation : sélecteur « voir le Perso de … » (dont un mono-site).
+function renderPersoSimViewer() {
+  const el = document.getElementById('perso-sim-viewer');
+  if (!el) return;
+  if (!state.dryRun) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  let opts = `<option value="">Moi (${state.myName || '?'})</option>`;
+  state.doctors.forEach(d => {
+    const es = eligibleSites(d);
+    const tag = es.length === 1 ? ` — mono ${es[0]}` : ' — 2 sites';
+    opts += `<option value="${d.name}">${d.name}${tag}</option>`;
+  });
+  el.innerHTML = `<span style="font-weight:700;color:#5b21b6;white-space:nowrap">🧪 Voir le Perso de :</span>` +
+    `<select id="perso-sim-select" style="font-family:inherit;padding:5px 8px;border-radius:8px;border:1px solid #c4b5fd">${opts}</select>`;
+  const sel = document.getElementById('perso-sim-select');
+  sel.value = state.voeuxEditTarget || '';
+  sel.onchange = () => { state.voeuxEditTarget = sel.value || null; render(); };
+}
+
 function startEditVoeuxFor(name) {
   if (!isSuperAdmin()) return;
   state.voeuxEditTarget = name;
@@ -1468,6 +1515,7 @@ function simNext() {
 function simExit() {
   if (_simSnapshot) { Object.assign(state, JSON.parse(_simSnapshot)); _simSnapshot = null; }
   state.dryRun = false;
+  state.voeuxEditTarget = null;   // on ne reste pas sur le Perso d'un autre après la simu
   const el = document.getElementById('sim-banner'); if (el) el.style.display = 'none';
   render();
 }
@@ -1540,6 +1588,7 @@ function render() {
     bindCellTooltip();
   } else if (activeTab === 'voeux') {
     renderVoeuxEditBanner();
+    renderPersoSimViewer();
     updateFillToggles();
     { const cb = document.getElementById('perso-nextturn-cb'); if (cb) cb.checked = state.persoShowNextTurn; }
     renderVoeuxHint();
@@ -2016,6 +2065,7 @@ function parseCSVLine(line) {
 // Reset
 // ============================================================
 { const _sb = document.getElementById('sim-assisted-btn'); if (_sb) _sb.onclick = simEnter; }
+{ const _ha = document.getElementById('hide-auto-cb'); if (_ha) _ha.onchange = () => setHideAuto(_ha.checked); }
 $('reset-btn').onclick = async () => {
   if (!isAdmin()) { alert('Seul un admin peut réinitialiser.'); return; }
   if (!confirm('Réinitialiser tous les choix de garde ?\n\n— Le planning sera VIDÉ\n— Le tour repart à 1\n— Les vœux/indispos perso de chacun sont CONSERVÉS')) return;
@@ -2116,7 +2166,16 @@ function renderSetup() {
   renderObjectivesCoherence();
   renderAdminsTable();
   renderAccountsTable();
+  renderSuperAdminDisplay();
   renderAccountInfo();
+}
+
+// Bloc « Affichage global » (super admin only) : visibilité + état de la case.
+function renderSuperAdminDisplay() {
+  const box = document.getElementById('super-admin-display');
+  if (box) box.style.display = isSuperAdmin() ? '' : 'none';
+  const cb = document.getElementById('hide-auto-cb');
+  if (cb) cb.checked = !!state.hideAuto;
 }
 
 function renderPeriodSettings() {
