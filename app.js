@@ -1006,8 +1006,11 @@ function buildDayCell(dateStr, mode) {
   // ne grise pas (tous les créneaux libres restent choisissables).
   const extraPick = !!(curPicker && curRem && curRem.deficit <= 0);
   const bucket = objectiveBucket(dateStr);
-  // Aperçu Perso « mes dates choisissables à mon prochain tour » (mes propres vœux)
-  const nextTurnPreview = (mode === 'voeux') && state.persoShowNextTurn && !state.voeuxEditTarget;
+  // Aperçu Perso « dates choisissables au prochain tour ». Désactivé quand un super
+  // admin édite POUR DE VRAI les vœux d'un autre (voeuxEditTarget), MAIS réactivé en
+  // simulation où « Voir le Perso de … » définit justement voeuxEditTarget : on veut
+  // alors l'aperçu du médecin visualisé (calculé via voeuxEditName()).
+  const nextTurnPreview = (mode === 'voeux') && state.persoShowNextTurn && (!state.voeuxEditTarget || state.dryRun);
   const meRem = nextTurnPreview ? objectivesRemaining(findDoctor(voeuxEditName())) : null;
   // Sites où je peux prendre (libre + objectif restant) sur cette date, pour l'aperçu.
   const previewPickable = (nextTurnPreview && meRem)
