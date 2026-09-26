@@ -1034,7 +1034,9 @@ function buildDayCell(dateStr, mode) {
 
   // Info-bulle diagnostic (Planning, hors mode libre) : pourquoi choisissable ou non.
   if (mode === 'planning' && curName && !state.neutralView) {
-    el.title = isSugg ? '✓ choisissable' : ('✗ non choisissable — ' + whyNotSuggested(curName, dateStr));
+    const reason = isSugg ? '✓ choisissable' : ('✗ non choisissable — ' + whyNotSuggested(curName, dateStr));
+    el.title = reason;
+    el.dataset.reason = reason;
   }
 
   if (mode === 'planning') {
@@ -1429,6 +1431,31 @@ function computeFillPercent() {
   }
   return total ? Math.round(filled / total * 100) : 0;
 }
+// Info-bulle custom au survol des cases du Planning (raison de choisissabilité).
+function bindCellTooltip() {
+  const cal = document.getElementById('planning-calendar');
+  if (!cal || cal._tipBound) return;
+  cal._tipBound = true;
+  let tip = document.getElementById('cell-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'cell-tooltip';
+    tip.style.cssText = 'position:fixed;z-index:10000;pointer-events:none;background:#0f172a;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.3);display:none;line-height:1.35';
+    document.body.appendChild(tip);
+  }
+  cal.addEventListener('mousemove', (e) => {
+    const day = e.target.closest('.day');
+    const reason = day && day.dataset.reason;
+    if (reason) {
+      tip.textContent = reason;
+      tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 12, window.innerWidth - 290) + 'px';
+      tip.style.top = (e.clientY + 14) + 'px';
+    } else { tip.style.display = 'none'; }
+  });
+  cal.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+}
+
 function renderFillGauge() {
   const el = document.getElementById('fill-gauge');
   if (!el) return;
@@ -1447,6 +1474,7 @@ function render() {
     renderCalendar('planning-calendar', 'planning');
     renderPickerInfo();
     renderFillGauge();
+    bindCellTooltip();
   } else if (activeTab === 'voeux') {
     renderVoeuxEditBanner();
     updateFillToggles();
