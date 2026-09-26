@@ -16,6 +16,7 @@ function defaultState() {
     // 'nomsGris' (grisé + noms) | 'nomsFilig' (filigrane + noms).
     fillModePlanning: 'nomsGris',
     fillModePerso: 'epure',
+    persoShowNextTurn: false,  // Perso : entourer les dates choisissables à mon prochain tour
     firstPicker: null,
     pickerCursor: 0,
     currentTour: 1,           // tour de groupe (admin contrôle son avancement)
@@ -637,6 +638,34 @@ function whyNotSuggested(name, dateStr) {
   return 'choisissable ✓';
 }
 
+// Tour où `name` jouera la prochaine fois (courant s'il n'a pas encore joué ce
+// tour, sinon le tour suivant) — même logique que « À ton prochain tour ».
+function myNextTourFor(name) {
+  const N = state.doctors.length;
+  const idx = state.doctors.findIndex(d => d.name === name);
+  if (idx < 0) return state.currentTour;
+  const myPosInTour = ((idx - state.tourStartIdx) * state.tourDirection % N + N) % N;
+  return myPosInTour < state.pickerCursor ? state.currentTour + 1 : state.currentTour;
+}
+// Date choisissable pour `name` à SON prochain tour (quota du prochain tour, frais) :
+// pas d'indispo, un site libre avec objectif restant, type compatible, pas
+// veille/lendemain d'une garde. (Aperçu « au mieux » à partir de l'état courant.)
+function isDateChoosableNextTurn(name, dateStr) {
+  const d = findDoctor(name);
+  if (!d) return false;
+  if ((state.allVoeux[name] || {})[dateStr] === 'blocked') return false;
+  const a = state.assignments[dateStr] || {};
+  const r = objectivesRemaining(d);
+  const bucket = objectiveBucket(dateStr);
+  const sitesOK = eligibleSites(d).filter(s => !a[s] && r[s][bucket] > 0);
+  if (!sitesOK.length) return false;
+  const q = tourQuota(d, myNextTourFor(name));
+  const t = tourSlotType(dateStr);
+  if (!((q[t] || 0) > 0 || (q.libre || 0) > 0)) return false;
+  if (hasGardeOnOrNearby(name, dateStr)) return false;
+  return true;
+}
+
 function advanceCursorIfNeeded() {
   if (state.forcedNextPicker) return;
   const N = state.doctors.length;
@@ -948,6 +977,9 @@ function buildDayCell(dateStr, mode) {
   // ne grise pas (tous les créneaux libres restent choisissables).
   const extraPick = !!(curPicker && curRem && curRem.deficit <= 0);
   const bucket = objectiveBucket(dateStr);
+  // Aperçu Perso « mes dates choisissables à mon prochain tour » (mes propres vœux)
+  const nextTurnPreview = (mode === 'voeux') && state.persoShowNextTurn && !state.voeuxEditTarget;
+  const meRem = nextTurnPreview ? objectivesRemaining(findDoctor(voeuxEditName())) : null;
   const canSplit = (mode === 'planning') && isAdmin();
   // Quota de tour restant : si le type de jour (we/vendredi/semaine) est déjà
   // fait pour ce tour, on grise (une demi-garde WE suffit à "faire" le WE du tour).
@@ -1008,6 +1040,8 @@ function buildDayCell(dateStr, mode) {
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
       if (greyed || dateNotChoosable) s.classList.add('slot-greyed');
+      // Aperçu prochain tour : griser le site sans objectif (non prenable pour moi).
+      else if (nextTurnPreview && meRem && meRem[site][bucket] <= 0) s.classList.add('slot-greyed');
     }
     s.dataset.slotKey = site;
     slotEls.push(s);
@@ -1037,6 +1071,12 @@ function buildDayCell(dateStr, mode) {
     const reason = isSugg ? '✓ choisissable' : ('✗ non choisissable — ' + whyNotSuggested(curName, dateStr));
     el.title = reason;
     el.dataset.reason = reason;
+  }
+
+  // Aperçu Perso : liséré bleu sur les dates choisissables à MON prochain tour.
+  if (nextTurnPreview && !el.classList.contains('day-mine') && !el.classList.contains('day-unavailable')
+      && isDateChoosableNextTurn(voeuxEditName(), dateStr)) {
+    el.classList.add('day-suggested');
   }
 
   if (mode === 'planning') {
@@ -1327,6 +1367,10 @@ document.querySelectorAll('.fill-mode-toggle').forEach(tog => {
     };
   });
 });
+{
+  const cb = document.getElementById('perso-nextturn-cb');
+  if (cb) cb.onchange = () => { state.persoShowNextTurn = cb.checked; render(); };
+}
 
 // ============================================================
 // Simulation « à blanc » (dry-run) du choix assisté : l'app joue le draft
@@ -1478,6 +1522,7 @@ function render() {
   } else if (activeTab === 'voeux') {
     renderVoeuxEditBanner();
     updateFillToggles();
+    { const cb = document.getElementById('perso-nextturn-cb'); if (cb) cb.checked = state.persoShowNextTurn; }
     renderVoeuxHint();
     renderMyNextTurn();
     renderCalendar('voeux-calendar', 'voeux');
