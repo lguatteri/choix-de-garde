@@ -1,4 +1,4 @@
-const CACHE = 'garde-multi-v150';
+const CACHE = 'garde-multi-v151';
 const ASSETS = [
   './',
   './index.html',

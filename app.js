@@ -1302,7 +1302,7 @@ function ensureSimBanner() {
     el.appendChild(txt); el.appendChild(nextBtn); el.appendChild(exitBtn);
     document.body.appendChild(el);
   }
-  el.hidden = false;
+  el.style.display = 'flex';   // (le display inline prime sur l'attribut hidden)
   return el;
 }
 function simBannerText(s) { const t = document.getElementById('sim-banner-text'); if (t) t.textContent = s; }
@@ -1357,7 +1357,7 @@ function simNext() {
 function simExit() {
   if (_simSnapshot) { Object.assign(state, JSON.parse(_simSnapshot)); _simSnapshot = null; }
   state.dryRun = false;
-  const el = document.getElementById('sim-banner'); if (el) el.hidden = true;
+  const el = document.getElementById('sim-banner'); if (el) el.style.display = 'none';
   render();
 }
 // Clavier : en simulation, flèche → / Espace / Entrée = étape suivante ; Échap = quitter.
