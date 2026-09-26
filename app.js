@@ -1345,7 +1345,9 @@ function simNext() {
     simBannerText(`🧪 Tour ${state.currentTour} — ${cur.name} n'a rien à prendre ce tour → passé au suivant.`);
     return;
   }
-  const dt = sugg[0], d = findDoctor(cur.name), a = state.assignments[dt] || {}, b = objectiveBucket(dt), r = objectivesRemaining(d);
+  // Simulation : on pioche une date suggérée AU HASARD (au lieu de la 1re, qui
+  // remplirait le quadrimestre de façon linéaire) → remplissage plus réaliste.
+  const dt = sugg[Math.floor(Math.random() * sugg.length)], d = findDoctor(cur.name), a = state.assignments[dt] || {}, b = objectiveBucket(dt), r = objectivesRemaining(d);
   const site = eligibleSites(d).find(s => !a[s] && r[s][b] > 0);
   if (!site) { state.pickerCursor = cur.cursor + 1; state.currentTurnSlots = []; state.currentTurnPickCount = 0; render(); simBannerText(`🧪 ${cur.name} passé (aucun site libre).`); return; }
   const pd = parseYMD(dt), ds = pd.getDate() + '/' + (pd.getMonth() + 1);
