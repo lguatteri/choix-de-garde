@@ -546,10 +546,14 @@ main {
 .focus-cal .day.day-unavailable-mine .num { text-decoration: none; opacity: 1; }
 /* Date choisissable : ressort ; site libre mis en avant, site pris grisé */
 .focus-cal .day.day-suggested { box-shadow: inset 0 0 0 2px #5b8def; }  /* liséré bleu radouci, fond normal (V1) */
-/* Dans une date choisissable, seuls les créneaux RÉELLEMENT prenables (non grisés,
-   = objectif restant sur ce site) ressortent en bleu gras ; le site sans objectif
-   reste discret (gris, non gras). */
-.focus-cal .day.day-suggested .slot.empty-slot:not(.slot-greyed) { color: #1d4ed8; font-weight: 800; }
+/* Dans une date choisissable (Planning), seuls les créneaux RÉELLEMENT prenables
+   (non grisés) ressortent en bleu gras ; le site sans objectif reste discret.
+   En Perso (aperçu prochain tour), on ne colore PAS le site en bleu (juste le
+   liséré) — il garde sa couleur normale. */
+#planning-calendar .day.day-suggested .slot.empty-slot:not(.slot-greyed) { color: #1d4ed8; font-weight: 800; }
+/* Perso, aperçu prochain tour : le SEUL site prenable ce jour-là passe en gras
+   (couleur normale, pas de bleu) ; si les 2 sites sont prenables, rien de spécial. */
+#voeux-calendar .slot.slot-solo-pick { font-weight: 800; }
 .focus-cal .day.day-suggested .slot.HMN,
 .focus-cal .day.day-suggested .slot.ACH { color: #64748b; }
 /* Mes gardes (choisisseur courant) : case VERT CLAIR — même si le jour est plein

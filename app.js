@@ -980,6 +980,10 @@ function buildDayCell(dateStr, mode) {
   // Aperçu Perso « mes dates choisissables à mon prochain tour » (mes propres vœux)
   const nextTurnPreview = (mode === 'voeux') && state.persoShowNextTurn && !state.voeuxEditTarget;
   const meRem = nextTurnPreview ? objectivesRemaining(findDoctor(voeuxEditName())) : null;
+  // Sites où je peux prendre (libre + objectif restant) sur cette date, pour l'aperçu.
+  const previewPickable = (nextTurnPreview && meRem)
+    ? ['HMN','ACH'].filter(s => (!refEligible || refEligible.includes(s)) && !a[s] && meRem[s][bucket] > 0)
+    : [];
   const canSplit = (mode === 'planning') && isAdmin();
   // Quota de tour restant : si le type de jour (we/vendredi/semaine) est déjà
   // fait pour ce tour, on grise (une demi-garde WE suffit à "faire" le WE du tour).
@@ -1040,8 +1044,12 @@ function buildDayCell(dateStr, mode) {
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
       if (greyed || dateNotChoosable) s.classList.add('slot-greyed');
-      // Aperçu prochain tour : griser le site sans objectif (non prenable pour moi).
-      else if (nextTurnPreview && meRem && meRem[site][bucket] <= 0) s.classList.add('slot-greyed');
+      else if (nextTurnPreview && meRem) {
+        // Aperçu prochain tour : site sans objectif → grisé ; sinon gras SEULEMENT
+        // s'il est le seul site prenable ce jour-là (pour pointer lequel choisir).
+        if (meRem[site][bucket] <= 0) s.classList.add('slot-greyed');
+        else if (previewPickable.length === 1) s.classList.add('slot-solo-pick');
+      }
     }
     s.dataset.slotKey = site;
     slotEls.push(s);
