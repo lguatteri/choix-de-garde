@@ -1240,7 +1240,7 @@ function renderVoeuxEditBanner() {
   if (!banner) return;
   if (state.voeuxEditTarget && !isSuperAdmin()) state.voeuxEditTarget = null;   // sécurité
   const editing = !!state.voeuxEditTarget;
-  banner.hidden = !editing;
+  banner.style.display = editing ? 'flex' : 'none';   // (le display inline prime sur hidden)
   const section = document.getElementById('voeux');
   if (section) section.classList.toggle('editing-voeux', editing);
   if (editing) {
