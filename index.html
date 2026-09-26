@@ -65,17 +65,17 @@
       </div>
       <nav class="tabs">
         <button class="tab active" data-tab="planning">Planning</button>
-        <button class="tab" data-tab="voeux">Perso</button>
+        <button class="tab" data-tab="voeux">Mon espace</button>
         <button class="tab" data-tab="setup">Réglages</button>
         <button class="tab" id="logout-btn-top">Déconnexion</button>
       </nav>
-      <a href="auto/" class="mode-switch" title="Basculer vers le planning automatique"
-         style="flex-shrink:0;text-decoration:none;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:999px;padding:8px 16px;font-weight:700;font-size:13px;white-space:nowrap;line-height:1.15;text-align:center">⚙ Planning<br>auto</a>
+      <a href="auto/" class="mode-switch" title="Basculer vers le planning automatisé"
+         style="flex-shrink:0;text-decoration:none;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:999px;padding:8px 16px;font-weight:700;font-size:13px;white-space:nowrap;line-height:1.15;text-align:center">⚙ Planning<br>automatisé</a>
     </header>
 
     <main>
       <section id="planning" class="view active">
-        <div class="readonly-banner" id="planning-readonly-banner">👁 Lecture seule — seul l'administrateur modifie le planning. Vous voyez les changements en temps réel ; vous pouvez toujours ajuster vos indisponibilités &amp; vœux dans l'onglet <strong>Perso</strong>.</div>
+        <div class="readonly-banner" id="planning-readonly-banner">👁 Lecture seule — seul l'administrateur modifie le planning. Vous voyez les changements en temps réel ; vous pouvez toujours ajuster vos indisponibilités &amp; vœux dans l'onglet <strong>Mon espace</strong>.</div>
         <div class="picker-box picker-current-box">
           <div class="box-label">Au tour de</div>
           <select class="name-select" id="current-name-select"></select>
@@ -111,7 +111,7 @@
         <div class="my-next-turn" id="my-next-turn"></div>
         <div class="declare-auto-box" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin:8px 0 12px">
           <span id="declare-auto-status" class="hint"></span>
-          <button id="declare-auto-btn" style="font-family:inherit;background:#7c3aed;color:#fff;border:1px solid #6d28d9;border-radius:999px;padding:9px 20px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(124,58,237,0.3)">Déclarer pour le planning auto</button>
+          <button id="declare-auto-btn" style="font-family:inherit;background:#7c3aed;color:#fff;border:1px solid #6d28d9;border-radius:999px;padding:9px 20px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(124,58,237,0.3)">Déclarer pour le planning automatisé</button>
         </div>
         <p class="hint" id="voeux-hint">Clic sur la <strong>date</strong> = 🚫 indisponibilité (re-clic = annuler). Clic sur <strong>HMN ou ACH</strong> = 💙 vœu sur ce site (re-clic = annuler). Indisponibilité et vœux sont exclusifs.</p>
         <label class="next-turn-toggle" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;color:#334155;cursor:pointer">
@@ -168,9 +168,9 @@
         <div id="super-admin-display" style="display:none">
           <h2>Affichage global <span class="admin-only-tag">super admin</span></h2>
           <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#334155;cursor:pointer">
-            <input type="checkbox" id="hide-auto-cb"> Masquer les éléments du <strong>Planning auto</strong> pour tout le monde
+            <input type="checkbox" id="hide-auto-cb"> Masquer les éléments du <strong>Planning automatisé</strong> pour tout le monde
           </label>
-          <p class="hint" id="hide-auto-status">Cache le bouton « ⚙ Planning auto » et l'encart « Déclarer pour le planning auto » sur tous les comptes.</p>
+          <p class="hint" id="hide-auto-status">Cache le bouton « ⚙ Planning automatisé » et l'encart « Déclarer pour le planning automatisé » sur tous les comptes.</p>
         </div>
 
         <h2>Comptes &amp; vœux des médecins <span class="admin-only-tag">super admin</span></h2>
@@ -220,7 +220,7 @@
   <script src="auth.js?v=45"></script>
   <script src="doctors.js?v=44"></script>
   <script src="xlsx.js?v=1"></script>
-  <script src="app.js?v=119"></script>
+  <script src="app.js?v=120"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});

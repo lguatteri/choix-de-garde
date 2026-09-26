@@ -1389,7 +1389,7 @@ function renderVoeuxEditBanner() {
   if (editing) {
     const txt = $('voeux-edit-banner-text');
     if (txt) txt.innerHTML = state.dryRun
-      ? `🧪 Aperçu (simulation) du Perso de <strong>${state.voeuxEditTarget}</strong>.`
+      ? `🧪 Aperçu (simulation) de l'espace de <strong>${state.voeuxEditTarget}</strong>.`
       : `✏️ Vous éditez les <strong>vœux &amp; indisponibilités de ${state.voeuxEditTarget}</strong> (à sa place).`;
   }
   const back = $('voeux-edit-back-btn');
@@ -1407,7 +1407,7 @@ function renderPersoSimViewer() {
     const tag = es.length === 1 ? ` — mono ${es[0]}` : ' — 2 sites';
     opts += `<option value="${d.name}">${d.name}${tag}</option>`;
   });
-  el.innerHTML = `<span style="font-weight:700;color:#5b21b6;white-space:nowrap">🧪 Voir le Perso de :</span>` +
+  el.innerHTML = `<span style="font-weight:700;color:#5b21b6;white-space:nowrap">🧪 Voir l'espace de :</span>` +
     `<select id="perso-sim-select" style="font-family:inherit;padding:5px 8px;border-radius:8px;border:1px solid #c4b5fd">${opts}</select>`;
   const sel = document.getElementById('perso-sim-select');
   sel.value = state.voeuxEditTarget || '';
@@ -2010,7 +2010,7 @@ async function declareForAuto() {
   const nWish = Object.values(myVoeux).filter(v => v && v.startsWith('wished')).length;
   const maxI = state.maxIndispo ?? 30, maxW = state.maxWished ?? 5;
   // Import à sens unique : copie mon Perso → auto_declarations (n'altère pas l'inverse)
-  if (statusEl) statusEl.textContent = 'Import vers le planning auto…';
+  if (statusEl) statusEl.textContent = 'Import vers le planning automatisé…';
   const del = await sb().from('auto_declarations').delete().eq('user_id', me.id);
   if (del.error) { if (statusEl) statusEl.textContent = '⚠ ' + del.error.message; return; }
   const rows = Object.entries(myVoeux).map(([date, voeu]) => ({ user_id: me.id, date, voeu }));
@@ -2022,12 +2022,12 @@ async function declareForAuto() {
     const parts = [];
     if (nInd > maxI) parts.push(`indisponibilités : ${nInd} (max ${maxI})`);
     if (nWish > maxW) parts.push(`vœux : ${nWish} (max ${maxW})`);
-    alert(`Importé vers le planning auto, mais vous dépassez la limite :\n— ${parts.join('\n— ')}\n\n` +
-      `Rendez-vous sur l'application auto (votre page médecin) pour retirer des dates jusqu'à rentrer dans les limites. ` +
-      `(Cela n'enlèvera rien à votre espace Perso ici.)`);
-    if (statusEl) statusEl.textContent = `⚠ Importé mais hors limites — ${parts.join(' ; ')}. Ajustez sur l'application auto.`;
+    alert(`Importé vers le planning automatisé, mais vous dépassez la limite :\n— ${parts.join('\n— ')}\n\n` +
+      `Rendez-vous sur l'application automatisée (votre page médecin) pour retirer des dates jusqu'à rentrer dans les limites. ` +
+      `(Cela n'enlèvera rien à votre espace personnel ici.)`);
+    if (statusEl) statusEl.textContent = `⚠ Importé mais hors limites — ${parts.join(' ; ')}. Ajustez sur l'application automatisée.`;
   } else {
-    if (statusEl) statusEl.textContent = `✓ Importé pour le planning auto : ${nInd} indisponibilités, ${nWish} vœux.`;
+    if (statusEl) statusEl.textContent = `✓ Importé pour le planning automatisé : ${nInd} indisponibilités, ${nWish} vœux.`;
   }
 }
 const declareBtn = $('declare-auto-btn');
