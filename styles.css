@@ -567,7 +567,13 @@ main {
 .focus-cal .day.declutter .slot.mine-current {
   box-shadow: none; color: #14532d; background: transparent; font-weight: 800;
   font-size: 12.5px; text-align: center; letter-spacing: 0.5px; padding: 2px 4px;
+  line-height: 1.15;
   margin-top: auto; margin-bottom: auto;   /* centré verticalement dans l'espace sous le numéro */
+}
+/* Double-site : le site sous « Garde », un peu plus petit et discret. */
+.focus-cal .day.declutter .slot.mine .garde-site,
+.focus-cal .day.declutter .slot.mine-current .garde-site {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; opacity: 0.8;
 }
 /* Ma garde — mode NOMS (Planning + Perso « avec les noms ») : bandeau vert + nom. */
 .focus-cal .day:not(.declutter) .slot.mine,

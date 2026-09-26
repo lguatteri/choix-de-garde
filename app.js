@@ -1078,7 +1078,14 @@ function buildDayCell(dateStr, mode) {
       if (mode !== 'planning' && siteHasDoctor(occ, voeuxEditName())) s.classList.add('mine');
       if (siteHasDoctor(occ, curName)) s.classList.add('mine-current');
       // Épuré sur MA garde : juste le site (gros, centré). Sinon : site + nom.
-      s.textContent = (declutter && mineHere) ? site : `${site}${longShift?' 24h':''} ${shortName(who)}`;
+      // Ma garde (épuré) : « Garde » seul si mono-site, « Garde » + site à la ligne
+      // si double-site. Sinon (mode noms) : site + nom comme avant.
+      if (declutter && mineHere) {
+        const refMono = !!(refEligible && refEligible.length === 1);
+        s.innerHTML = refMono ? 'Garde' : `Garde<br><span class="garde-site">${site}</span>`;
+      } else {
+        s.textContent = `${site}${longShift?' 24h':''} ${shortName(who)}`;
+      }
     } else {                   // libre → choisissable
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
