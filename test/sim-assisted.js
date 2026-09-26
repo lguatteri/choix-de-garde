@@ -142,4 +142,7 @@ var rr=objectivesRemaining(findDoctor('DrX'));
 print('total(net)='+rr.total+' (0 = trompeur) | DEFICIT='+rr.deficit+' | attendu deficit=1 :', (rr.deficit===1 && rr.total===0));
 // veille de férié = vendredi
 state.holidays=['2026-07-14'];
-print('veille 13/07 (lun) -> vendredi :', tourSlotType('2026-07-13')==='vendredi' && !is24h('2026-07-13') && objectiveBucket('2026-07-13')==='sem');
+print('veille 13/07 (lun) -> vendredi :', tourSlotType('2026-07-13',1)==='vendredi' && !is24h('2026-07-13') && objectiveBucket('2026-07-13')==='sem');
+// vendredi = semaine à partir du tour 2
+state.holidays=[];
+print('vendredi 10/07 : tour1 -> '+tourSlotType('2026-07-10',1)+' | tour2 -> '+tourSlotType('2026-07-10',2)+' (attendu vendredi puis semaine) :', tourSlotType('2026-07-10',1)==='vendredi' && tourSlotType('2026-07-10',2)==='semaine');

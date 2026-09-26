@@ -260,9 +260,12 @@ function isWE(dateStr) {
   const t = dayType(dateStr);
   return t === 'sunday' || t === 'saturday' || t === 'holiday';
 }
-function tourSlotType(dateStr) {
+// Type de créneau pour le TOUR : le vendredi n'est une catégorie « vendredi »
+// qu'au tour 1 ; à partir du tour 2 il compte comme un jour de semaine.
+function tourSlotType(dateStr, tour) {
+  const t = (tour == null) ? state.currentTour : tour;
   if (isWE(dateStr)) return 'we';
-  if (dayType(dateStr) === 'friday') return 'vendredi';
+  if (dayType(dateStr) === 'friday' && t <= 1) return 'vendredi';
   return 'semaine';
 }
 function objectiveBucket(dateStr) { return isWE(dateStr) ? 'we' : 'sem'; }
@@ -411,7 +414,7 @@ function currentTurnPicks(name, tour) {
   const turnsUntil = []; // picks made in tour `tour`
   for (const e of events) {
     if (curTour === tour) turnsUntil.push(e);
-    const t = tourSlotType(e.date);
+    const t = tourSlotType(e.date, curTour);
     let key = (quota[t] && (consumed[t]||0) < quota[t]) ? t :
               (quota.libre && (consumed.libre||0) < quota.libre ? 'libre' : null);
     if (!key) {
@@ -659,8 +662,9 @@ function isDateChoosableNextTurn(name, dateStr) {
   const bucket = objectiveBucket(dateStr);
   const sitesOK = eligibleSites(d).filter(s => !a[s] && r[s][bucket] > 0);
   if (!sitesOK.length) return false;
-  const q = tourQuota(d, myNextTourFor(name));
-  const t = tourSlotType(dateStr);
+  const nt = myNextTourFor(name);
+  const q = tourQuota(d, nt);
+  const t = tourSlotType(dateStr, nt);
   if (!((q[t] || 0) > 0 || (q.libre || 0) > 0)) return false;
   if (hasGardeOnOrNearby(name, dateStr)) return false;
   return true;
@@ -996,6 +1000,13 @@ function buildDayCell(dateStr, mode) {
   // type de jour déjà fait, plus d'objectif…) → on grise les créneaux libres
   // de la même façon (cohérence d'affichage).
   const dateNotChoosable = !extraPick && mode === 'planning' && !!curName && !state.neutralView && !isSugg;
+  // Sites libres réellement prenables sur une date CHOISISSABLE (Planning = picker
+  // courant ; aperçu Perso = moi) — sert à ne mettre en gras QUE si un seul site
+  // est prenable ce jour-là.
+  let pickableFree = previewPickable;
+  if (isSugg && curName) {
+    pickableFree = ['HMN','ACH'].filter(s => (!refEligible || refEligible.includes(s)) && !a[s] && (extraPick || (curRem && curRem[s][bucket] > 0)));
+  }
   const refDoctor = (mode === 'planning') ? curName : voeuxEditName();
   const dayHasMine = refDoctor && ['HMN','ACH'].some(s => siteHasDoctor(a[s], refDoctor));
   // Format d'affichage des jours pleins, selon l'onglet :
@@ -1044,12 +1055,10 @@ function buildDayCell(dateStr, mode) {
       s.className = 'slot empty-slot ' + site;
       s.textContent = `${site}${longShift?' 24h':''}`;
       if (greyed || dateNotChoosable) s.classList.add('slot-greyed');
-      else if (nextTurnPreview && meRem) {
-        // Aperçu prochain tour : site sans objectif → grisé ; sinon gras SEULEMENT
-        // s'il est le seul site prenable ce jour-là (pour pointer lequel choisir).
-        if (meRem[site][bucket] <= 0) s.classList.add('slot-greyed');
-        else if (previewPickable.length === 1) s.classList.add('slot-solo-pick');
-      }
+      else if (nextTurnPreview && meRem && meRem[site][bucket] <= 0) s.classList.add('slot-greyed');
+      // Gras UNIQUEMENT si c'est le seul site prenable ce jour-là (site en gris,
+      // pas en bleu) — Planning (date suggérée) comme aperçu Perso.
+      if (pickableFree.length === 1 && pickableFree[0] === site) s.classList.add('slot-solo-pick');
     }
     s.dataset.slotKey = site;
     slotEls.push(s);

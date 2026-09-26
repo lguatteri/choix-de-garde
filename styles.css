@@ -550,10 +550,10 @@ main {
    (non grisés) ressortent en bleu gras ; le site sans objectif reste discret.
    En Perso (aperçu prochain tour), on ne colore PAS le site en bleu (juste le
    liséré) — il garde sa couleur normale. */
-#planning-calendar .day.day-suggested .slot.empty-slot:not(.slot-greyed) { color: #1d4ed8; font-weight: 800; }
-/* Perso, aperçu prochain tour : le SEUL site prenable ce jour-là passe en gras
-   (couleur normale, pas de bleu) ; si les 2 sites sont prenables, rien de spécial. */
-#voeux-calendar .slot.slot-solo-pick { font-weight: 800; }
+/* Sur une date choisissable (Planning ET aperçu Perso) : le site prenable reste
+   GRIS (pas bleu). Il passe en gras UNIQUEMENT s'il est le SEUL site prenable ce
+   jour-là (pour pointer lequel) ; si les 2 sont prenables, tout reste normal. */
+.focus-cal .slot.slot-solo-pick { font-weight: 800; }
 .focus-cal .day.day-suggested .slot.HMN,
 .focus-cal .day.day-suggested .slot.ACH { color: #64748b; }
 /* Mes gardes (choisisseur courant) : case VERT CLAIR — même si le jour est plein
@@ -592,12 +592,12 @@ main {
 .focus-cal .day[data-voeu="blocked"] .slot { background: transparent; color: #b0b8c4; }
 
 /* Perso — dates « sans rien » (aucune garde, ni vœu, ni indispo) : contour un
-   poil plus foncé, et texte du site (HMN/ACH) à la MÊME couleur que le numéro. */
+   poil plus foncé que le défaut (mais pas trop), et texte du site en gris foncé. */
 #voeux-calendar .day:not(.day-unavailable):not(.day-mine):not(.day-unavailable-mine):not([data-voeu]) {
-  border-color: #ccd4de;
+  border-color: #dbe1ea;
 }
 #voeux-calendar .day:not(.day-unavailable):not(.day-mine):not(.day-unavailable-mine):not([data-voeu]) .slot.empty-slot {
-  color: var(--ink);
+  color: #475569;
 }
 
 /* Modal */
