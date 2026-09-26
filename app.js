@@ -1564,17 +1564,38 @@ function bindCellTooltip() {
     tip.style.cssText = 'position:fixed;z-index:10000;pointer-events:none;background:#0f172a;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.3);display:none;line-height:1.35';
     document.body.appendChild(tip);
   }
+  // La bulle n'apparaît PAS instantanément : il faut rester sur la MÊME case
+  // sans en changer pendant ce délai (survol volontaire).
+  const TOOLTIP_DELAY_MS = 1500;
+  let hoverDay = null, hoverTimer = null, shown = false, lastX = 0, lastY = 0;
+  const place = () => {
+    tip.style.left = Math.min(lastX + 12, window.innerWidth - 290) + 'px';
+    tip.style.top = (lastY + 14) + 'px';
+  };
+  const clear = () => { if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; } };
   cal.addEventListener('mousemove', (e) => {
     const day = e.target.closest('.day');
-    const reason = day && day.dataset.reason;
-    if (reason) {
-      tip.textContent = reason;
-      tip.style.display = 'block';
-      tip.style.left = Math.min(e.clientX + 12, window.innerWidth - 290) + 'px';
-      tip.style.top = (e.clientY + 14) + 'px';
-    } else { tip.style.display = 'none'; }
+    lastX = e.clientX; lastY = e.clientY;
+    if (day !== hoverDay) {
+      // On a changé de case → on réarme le compte à rebours.
+      hoverDay = day;
+      shown = false;
+      tip.style.display = 'none';
+      clear();
+      const reason = day && day.dataset.reason;
+      if (reason) {
+        hoverTimer = setTimeout(() => {
+          tip.textContent = reason;
+          place();
+          tip.style.display = 'block';
+          shown = true;
+        }, TOOLTIP_DELAY_MS);
+      }
+    } else if (shown) {
+      place();   // déjà affichée : elle suit le curseur dans la case
+    }
   });
-  cal.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  cal.addEventListener('mouseleave', () => { clear(); hoverDay = null; shown = false; tip.style.display = 'none'; });
 }
 
 function renderFillGauge() {
