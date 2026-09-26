@@ -590,11 +590,12 @@ main {
 /* Indispo (affichée seulement au choisisseur lui-même) : rouge léger + 🚫 */
 .focus-cal .day[data-voeu="blocked"] { background: #fef2f2; box-shadow: inset 0 0 0 1.5px #fecaca; }
 .focus-cal .day[data-voeu="blocked"] .slot { background: transparent; color: #b0b8c4; }
-/* PLANNING (compte du choisisseur) : l'indispo n'est PAS en rouge — apparence de
-   date non choisissable + juste le petit 🚫. (En Perso, l'indispo reste rouge ;
-   en vue admin, l'indispo n'est de toute façon pas affichée.) */
+/* PLANNING (compte du choisisseur) : une indispo a EXACTEMENT l'apparence d'une
+   date non choisissable — ni case rouge, ni 🚫 (identique à la vue admin). En
+   Perso, l'indispo reste rouge avec son 🚫. */
 #planning-calendar .day[data-voeu="blocked"] { background: var(--surface); box-shadow: none; }
 #planning-calendar .day[data-voeu="blocked"] .slot { color: #737c8a; }
+#planning-calendar .day[data-voeu="blocked"]::before { content: none; }
 
 /* Perso — dates « sans rien » (aucune garde, ni vœu, ni indispo) : contour un
    poil plus foncé que le défaut (mais pas trop), et texte du site en gris foncé. */
